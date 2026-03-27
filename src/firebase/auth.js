@@ -13,6 +13,7 @@ import { auth } from './config';
  * @returns {Promise<UserCredential>}
  */
 export async function signIn(email, password) {
+  if (!auth) throw new Error('Firebase is not configured. Please set up your .env file.');
   return signInWithEmailAndPassword(auth, email, password);
 }
 
@@ -25,6 +26,7 @@ export const signInWithEmailPassword = signIn;
  * @returns {Promise<UserCredential>}
  */
 export async function signUp(email, password) {
+  if (!auth) throw new Error('Firebase is not configured. Please set up your .env file.');
   return createUserWithEmailAndPassword(auth, email, password);
 }
 
@@ -33,14 +35,21 @@ export async function signUp(email, password) {
  * @returns {Promise<void>}
  */
 export async function signOut() {
+  if (!auth) return;
   return firebaseSignOut(auth);
 }
 
 /**
  * Subscribe to auth state changes.
+ * In demo mode (no Firebase config), always fires null immediately.
  * @param {(user: import('firebase/auth').User | null) => void} callback
  * @returns {Unsubscribe}
  */
 export function onAuth(callback) {
+  if (!auth) {
+    // Demo mode: no Firebase — resolve as unauthenticated after a tick
+    setTimeout(() => callback(null), 0);
+    return () => {};
+  }
   return onAuthStateChanged(auth, callback);
 }

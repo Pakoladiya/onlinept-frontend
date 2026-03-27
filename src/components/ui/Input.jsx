@@ -1,10 +1,11 @@
+import { forwardRef } from 'react';
 import clsx from 'clsx';
 
 /**
  * Input component with label and error state.
- * All colors from CSS variables.
+ * All colors from CSS variables. Supports refs for react-hook-form.
  */
-export default function Input({
+const Input = forwardRef(function Input({
   label,
   error,
   id,
@@ -14,7 +15,7 @@ export default function Input({
   disabled = false,
   className,
   ...rest
-}) {
+}, ref) {
   const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
 
   return (
@@ -29,6 +30,7 @@ export default function Input({
         </label>
       )}
       <input
+        ref={ref}
         id={inputId}
         type={type}
         placeholder={placeholder}
@@ -59,4 +61,6 @@ export default function Input({
       )}
     </div>
   );
-}
+});
+
+export default Input;

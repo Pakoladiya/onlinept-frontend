@@ -120,7 +120,14 @@ export default function IntakeFormPage() {
   };
 
   const goNext = async () => {
-    const valid = await trigger();
+    // Validate only this step's fields
+    const stepFields = {
+      1: ['name', 'age', 'gender', 'phone', 'email'],
+      2: ['complaint', 'duration'],
+      3: [], // step 3 has no required inputs
+    };
+    const fieldsToValidate = stepFields[step] || [];
+    const valid = fieldsToValidate.length === 0 || await trigger(fieldsToValidate);
     if (!valid) return;
     const values = getValues();
     setFormData((prev) => ({
@@ -146,7 +153,7 @@ export default function IntakeFormPage() {
   const painLabels = ['0 — No Pain', '1–3 — Mild', '4–6 — Moderate', '7–9 — Severe', '10 — Worst'];
   const painColors = ['#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444'];
 
-  constVASColor = painColors[Math.min(Math.floor(painIntensity / 2.5), 4)];
+  const VASColor = painColors[Math.min(Math.floor(painIntensity / 2.5), 4)];
 
   const durationOptions = ['Less than 1 week', '1–4 weeks', '1–3 months', '3–6 months', 'More than 6 months'];
   const medicalConditions = [
@@ -277,29 +284,48 @@ export default function IntakeFormPage() {
 
               {/* Body Map */}
               <div className="relative flex justify-center mb-4">
-                <div className="relative w-40">
-                  {/* Front body silhouette SVG */}
-                  <svg viewBox="0 0 100 100" className="w-full" xmlns="http://www.w3.org/2000/svg">
-                    <ellipse cx="50" cy="12" rx="8" ry="9" fill="#d1d5db" />
-                    <path d="M50 21 C35 21, 28 28, 26 35 L22 42 L28 42 L26 55 C26 58, 30 62, 38 62 L38 80 C38 82, 40 84, 42 84 L42 98 L44 98 L44 84 L46 84 L46 98 L48 98 L48 84 L50 84 L50 98 L52 98 L52 84 L54 84 L54 98 L56 98 L56 84 L58 84 L58 82 L62 62 C70 62, 74 58, 74 55 L72 42 L78 42 L74 35 C72 28, 65 21, 50 21Z" fill="#e5e7eb" />
-                    <path d="M30 30 C20 30, 16 38, 16 46 L16 50 L18 50 L18 60 C18 62, 16 64, 14 64 L12 64 L12 48 L14 42 L18 42" fill="#e5e7eb" />
-                    <path d="M70 30 C80 30, 84 38, 84 46 L84 50 L82 50 L82 60 C82 62, 84 64, 86 64 L88 64 L88 48 L86 42 L82 42" fill="#e5e7eb" />
-                  </svg>
-                  {bodyHotspots.map(({ id, x, y, label }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => togglePainArea(id, label)}
-                      title={label}
-                      className="absolute w-4 h-4 rounded-full border-2 border-white transition-all duration-150 transform -translate-x-1/2 -translate-y-1/2"
-                      style={{
-                        left: `${x}%`,
-                        top: `${y}%`,
-                        backgroundColor: selectedPainAreas.includes(id) ? clinicConfig.primaryColor : '#9ca3af',
-                        transform: `translate(-50%, -50%) ${selectedPainAreas.includes(id) ? 'scale(1.3)' : 'scale(1)'}`,
-                      }}
-                    />
-                  ))}
+                <div className="relative flex items-center gap-2">
+                  {/* Right label — viewer's left = patient's right */}
+                  <span
+                    className="text-xs text-text-secondary font-medium whitespace-nowrap"
+                    style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                  >
+                    Right
+                  </span>
+
+                  {/* Body figure */}
+                  <div className="relative w-40">
+                    <svg viewBox="0 0 100 100" className="w-full" xmlns="http://www.w3.org/2000/svg">
+                      <ellipse cx="50" cy="12" rx="8" ry="9" fill="#d1d5db" />
+                      <path d="M50 21 C35 21, 28 28, 26 35 L22 42 L28 42 L26 55 C26 58, 30 62, 38 62 L38 80 C38 82, 40 84, 42 84 L42 98 L44 98 L44 84 L46 84 L46 98 L48 98 L48 84 L50 84 L50 98 L52 98 L52 84 L54 84 L54 98 L56 98 L56 84 L58 84 L58 82 L62 62 C70 62, 74 58, 74 55 L72 42 L78 42 L74 35 C72 28, 65 21, 50 21Z" fill="#e5e7eb" />
+                      <path d="M30 30 C20 30, 16 38, 16 46 L16 50 L18 50 L18 60 C18 62, 16 64, 14 64 L12 64 L12 48 L14 42 L18 42" fill="#e5e7eb" />
+                      <path d="M70 30 C80 30, 84 38, 84 46 L84 50 L82 50 L82 60 C82 62, 84 64, 86 64 L88 64 L88 48 L86 42 L82 42" fill="#e5e7eb" />
+                    </svg>
+                    {bodyHotspots.map(({ id, x, y, label }) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => togglePainArea(id, label)}
+                        title={label}
+                        className="absolute w-4 h-4 rounded-full border-2 border-white transition-all duration-150"
+                        style={{
+                          left: `${x}%`,
+                          top: `${y}%`,
+                          transform: 'translate(-50%, -50%)',
+                          backgroundColor: selectedPainAreas.includes(id) ? clinicConfig.primaryColor : '#9ca3af',
+                          scale: selectedPainAreas.includes(id) ? '1.3' : '1',
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Left label — viewer's right = patient's left */}
+                  <span
+                    className="text-xs text-text-secondary font-medium whitespace-nowrap"
+                    style={{ writingMode: 'vertical-rl' }}
+                  >
+                    Left
+                  </span>
                 </div>
               </div>
 
@@ -332,24 +358,48 @@ export default function IntakeFormPage() {
               <label className="text-sm font-medium text-text-primary mb-3 block">
                 Pain Intensity (0–10)
               </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  value={painIntensity}
-                  onChange={(e) => setPainIntensity(Number(e.target.value))}
-                  className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
-                  style={{ accentColor: constVASColor }}
-                />
+
+              {/* VAS scale: row of 11 clickable circles */}
+              <div className="flex items-center justify-between gap-1 mb-3">
+                {Array.from({ length: 11 }, (_, i) => {
+                  const color = painColors[Math.min(Math.floor(i / 2.5), 4)];
+                  const isSelected = painIntensity === i;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setPainIntensity(i)}
+                      title={String(i)}
+                      className="flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all duration-150"
+                      style={{
+                        borderColor: isSelected ? color : '#d1d5db',
+                        backgroundColor: isSelected ? color : 'transparent',
+                        color: isSelected ? '#fff' : '#9ca3af',
+                        scale: isSelected ? '1.2' : '1',
+                      }}
+                    >
+                      {i}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Selected value label */}
+              <div className="flex items-center justify-center gap-2">
                 <span
-                  className="text-lg font-bold w-8 text-center"
-                  style={{ color: constVASColor }}
+                  className="text-2xl font-bold"
+                  style={{ color: VASColor }}
                 >
                   {painIntensity}
                 </span>
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: VASColor }}
+                >
+                  / 10
+                </span>
               </div>
-              <p className="text-xs text-text-secondary mt-1 text-center" style={{ color: constVASColor }}>
+              <p className="text-xs text-center mt-1" style={{ color: VASColor }}>
                 {painLabels[Math.min(Math.floor(painIntensity / 2.5), 4)]}
               </p>
               <input type="hidden" {...register('painIntensity')} value={painIntensity} />
@@ -580,7 +630,12 @@ export default function IntakeFormPage() {
               <Button type="button" variant="outline" size="lg" onClick={goBack}>
                 <ChevronLeft size={18} /> Back
               </Button>
-              <Button type="submit" size="lg" fullWidth>
+              <Button
+                type="button"
+                size="lg"
+                fullWidth
+                onClick={() => navigate(`/payment/${bookingId}`, { state: { ...location.state, ...formData } })}
+              >
                 Proceed to Payment <ChevronRight size={18} />
               </Button>
             </div>

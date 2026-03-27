@@ -86,6 +86,9 @@ const clinicConfig = {
     },
   ],
 
+  // Default consultation fee (falls back to first service price if not set)
+  consultationFee: 500,
+
   // ── Slot Duration (minutes) ─────────────────────────────────
   slotDurationMinutes: 30,
 

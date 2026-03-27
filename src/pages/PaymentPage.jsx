@@ -167,7 +167,10 @@ export default function PaymentPage() {
     });
   };
 
-  const fmt = (n) => `${clinicConfig.currency === 'INR' ? '₹' : clinicConfig.currency}${n.toLocaleString('en-IN')}`;
+  const fmt = (n) => {
+    const num = typeof n === 'number' && !isNaN(n) ? n : 0;
+    return `${clinicConfig.currency === 'INR' ? '₹' : clinicConfig.currency}${num.toLocaleString('en-IN')}`;
+  };
   const taxRate = 0.18;
   const taxable = +(totalPrice / (1 + taxRate)).toFixed(2);
   const tax = +(totalPrice - taxable).toFixed(2);
