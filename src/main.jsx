@@ -6,25 +6,35 @@ import AppRouter from '@/routes/AppRouter';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import '@/index.css';
 
+import { loadTenantConfig } from '@/config/tenantLoader';
+
 const root = createRoot(document.getElementById('root'));
 
-try {
-  root.render(
-    <StrictMode>
-      <ThemeProvider />
-      <BrowserRouter>
-        <ErrorBoundary>
-          <AppRouter />
-        </ErrorBoundary>
-      </BrowserRouter>
-    </StrictMode>
-  );
-} catch (err) {
-  console.error('RENDER CRASH:', err);
-  document.getElementById('root').innerHTML = `
-    <div style="padding:20px;font-family:sans-serif;color:#333;">
-      <h2 style="color:#ef4444">App failed to load</h2>
-      <pre style="background:#f9fafb;padding:12px;border-radius:8px;overflow:auto;font-size:12px">${err?.message || err}</pre>
-    </div>
-  `;
+async function mountApp() {
+  try {
+    // 1. Fetch dynamic tenant config from Firebase based on hostname
+    await loadTenantConfig();
+
+    // 2. Render application
+    root.render(
+      <StrictMode>
+        <ThemeProvider />
+        <BrowserRouter>
+          <ErrorBoundary>
+            <AppRouter />
+          </ErrorBoundary>
+        </BrowserRouter>
+      </StrictMode>
+    );
+  } catch (err) {
+    console.error('RENDER CRASH:', err);
+    document.getElementById('root').innerHTML = `
+      <div style="padding:20px;font-family:sans-serif;color:#333;">
+        <h2 style="color:#ef4444">App failed to load</h2>
+        <pre style="background:#f9fafb;padding:12px;border-radius:8px;overflow:auto;font-size:12px">${err?.message || err}</pre>
+      </div>
+    `;
+  }
 }
+
+mountApp();

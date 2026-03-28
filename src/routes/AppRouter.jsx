@@ -14,6 +14,7 @@ import OnboardingPage from '@/pages/OnboardingPage';
 import MasterAdminPage from '@/pages/MasterAdminPage';
 import SaaSDashboard from '@/pages/admin/SaaSDashboard';
 import SaaSLandingPage from '@/pages/admin/SaaSLandingPage';
+import ClinicOnboardingFlow from '@/pages/admin/ClinicOnboardingFlow';
 
 export default function AppRouter() {
   return (
@@ -32,6 +33,7 @@ export default function AppRouter() {
       <Route path="/post-session/:bookingId" element={<PostSessionPage />} />
       <Route path="/admin" element={<SaaSDashboard />} />
       <Route path="/saas" element={<SaaSLandingPage />} />
+      <Route path="/saas/onboarding" element={<ClinicOnboardingFlow />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

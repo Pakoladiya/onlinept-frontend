@@ -18,6 +18,32 @@
  *   6. Done — entire app theme updates automatically
  */
 
+export const updateClinicConfig = (newConfig) => {
+  // Deep merge for nested config elements like 'features', 'workingHours', 'services'
+  Object.keys(newConfig).forEach(key => {
+    if (typeof newConfig[key] === 'object' && newConfig[key] !== null && !Array.isArray(newConfig[key])) {
+      if (!clinicConfig[key]) clinicConfig[key] = {};
+      Object.assign(clinicConfig[key], newConfig[key]);
+    } else {
+      clinicConfig[key] = newConfig[key];
+    }
+  });
+
+  // Re-compute derived config values globally
+  derivedConfig.cssVariables['--color-primary'] = clinicConfig.primaryColor;
+  derivedConfig.cssVariables['--color-primary-hover'] = shadeColor(clinicConfig.primaryColor, -10);
+  derivedConfig.cssVariables['--color-primary-light'] = shadeColor(clinicConfig.primaryColor, 92);
+  derivedConfig.cssVariables['--color-primary-dark'] = shadeColor(clinicConfig.primaryColor, -15);
+  derivedConfig.cssVariables['--color-secondary'] = clinicConfig.secondaryColor;
+  derivedConfig.cssVariables['--color-secondary-hover'] = shadeColor(clinicConfig.secondaryColor, -10);
+  derivedConfig.cssVariables['--color-secondary-light'] = shadeColor(clinicConfig.secondaryColor, 92);
+
+  derivedConfig.whatsappClean = clinicConfig.whatsappNumber ? clinicConfig.whatsappNumber.replace(/\s|\+|\D/g, '') : '';
+  derivedConfig.whatsappLink = clinicConfig.whatsappNumber 
+    ? `https://wa.me/${derivedConfig.whatsappClean}?text=${encodeURIComponent(clinicConfig.whatsappMessagePrefill)}`
+    : '';
+};
+
 const clinicConfig = {
   // ── Clinic Identity ──────────────────────────────────────────
   clinicId: 'nfc_surat',

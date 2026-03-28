@@ -17,12 +17,17 @@ import {
   ShieldCheck,
   Zap,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import clinicConfig from '@/config/clinicConfig';
 import saasHeroImg from '@/assets/saas_hero.png';
 
 export default function SaaSLandingPage() {
   const [activeTab, setActiveTab] = useState('overview');
+  const navigate = useNavigate();
+
+  const handleStartOnboarding = () => {
+    navigate('/saas/onboarding');
+  };
 
   const features = [
     {
@@ -90,7 +95,7 @@ export default function SaaSLandingPage() {
               <Link to="/admin" className="text-sm font-medium text-gray-500 hover:text-gray-900">
                 Physio Login
               </Link>
-              <Button size="sm" className="hidden sm:flex">
+              <Button size="sm" className="hidden sm:flex" onClick={handleStartOnboarding}>
                 Start Free Trial <Zap className="w-4 h-4 ml-1.5" />
               </Button>
             </div>
@@ -113,10 +118,10 @@ export default function SaaSLandingPage() {
               Stop juggling generic tools. Get a complete, white-labeled "Clinic-in-a-Box" built specifically for modern physiotherapists. From integrated video to automated HEPs, we handle the tech so you can handle the care.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
-              <Button size="lg" className="px-8 shadow-lg shadow-primary/30">
+              <Button size="lg" className="px-8 shadow-lg shadow-primary/30" onClick={handleStartOnboarding}>
                 Get Started Today <ChevronRight className="w-5 h-5 ml-2" />
               </Button>
-              <Button size="lg" variant="outline" className="px-8 bg-white">
+              <Button size="lg" variant="outline" className="px-8 bg-white" onClick={() => navigate('/admin')}>
                 View Demo
               </Button>
             </div>
@@ -203,7 +208,7 @@ export default function SaaSLandingPage() {
             Start selling this powerful software suite to other physiotherapists. Create a new recurring revenue stream while elevating the standard of care across the industry.
           </p>
           <div className="mt-8 flex justify-center space-x-4">
-            <Button size="lg" className="px-8 py-4 text-lg">
+            <Button size="lg" className="px-8 py-4 text-lg" onClick={handleStartOnboarding}>
               Partner With Us
             </Button>
             <Button size="lg" variant="outline" className="px-8 py-4 text-lg text-white border-white hover:bg-white/10 hover:text-white">
