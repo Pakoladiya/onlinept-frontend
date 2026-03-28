@@ -333,74 +333,50 @@ function AnalyticsTab() {
 }
 
 // ─── Settings Tab ─────────────────────────────────────────────────────────────
-function SettingsTab({ user }) {
-  const [primaryColor, setPrimaryColor] = useState(clinicConfig.primaryColor);
-  const [clinicName, setClinicName] = useState(clinicConfig.clinicName);
-  const [saved, setSaved] = useState(false);
-
-  const handleSave = () => {
-    // In production: update Firestore config
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+function SettingsTab() {
+  const navigate = useNavigate();
 
   return (
-    <div className="space-y-5">
-      <Card>
-        <h3 className="font-semibold text-text-primary mb-4">Clinic Profile</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">Clinic Name</label>
-            <input
-              value={clinicName}
-              onChange={(e) => setClinicName(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary"
-            />
+    <div className="space-y-4">
+      <Card hover className="cursor-pointer border-dashed" onClick={() => navigate('/settings')}>
+        <div className="flex items-center gap-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `${clinicConfig.primaryColor}15` }}
+          >
+            <Settings size={22} style={{ color: clinicConfig.primaryColor }} />
           </div>
-          <div>
-            <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">Physiotherapist</label>
-            <input
-              value={clinicConfig.physioName}
-              readOnly
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface/50 text-text-secondary"
-            />
+          <div className="flex-1">
+            <p className="font-semibold text-text-primary">Clinic Settings</p>
+            <p className="text-sm text-text-secondary">Logo, branding, photos, video mode & more</p>
           </div>
-          <div>
-            <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">Email</label>
-            <input
-              value={user?.email || ''}
-              readOnly
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface/50 text-text-secondary"
-            />
-          </div>
+          <ChevronRight size={18} className="text-text-secondary" />
         </div>
       </Card>
 
       <Card>
-        <h3 className="font-semibold text-text-primary mb-4">Branding</h3>
-        <div>
-          <label className="text-xs text-text-secondary uppercase tracking-wide mb-2 block">Primary Color</label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="w-12 h-10 rounded-lg border border-border cursor-pointer"
-            />
-            <input
-              type="text"
-              value={primaryColor}
-              onChange={(e) => setPrimaryColor(e.target.value)}
-              className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-surface text-text-primary font-mono focus:outline-none focus:border-primary"
-            />
-          </div>
-          <p className="text-xs text-text-secondary mt-2">Changes apply to the entire app theme.</p>
+        <h3 className="font-semibold text-text-primary mb-3">Quick Info</h3>
+        <div className="space-y-3">
+          {[
+            { label: 'Clinic', value: clinicConfig.clinicName },
+            { label: 'Physio', value: clinicConfig.physioName },
+            { label: 'Video Mode', value: clinicConfig.videoMode === 'zoom' ? 'Zoom Meeting' : 'WhatsApp Video' },
+          ].map(({ label, value }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-xs text-text-secondary uppercase tracking-wide">{label}</span>
+              <span className="text-sm font-medium text-text-primary">{value}</span>
+            </div>
+          ))}
         </div>
+        <Button
+          variant="outline"
+          fullWidth
+          className="mt-4"
+          onClick={() => navigate('/settings')}
+        >
+          <Settings size={14} /> Edit in Settings
+        </Button>
       </Card>
-
-      <Button fullWidth onClick={handleSave}>
-        {saved ? <><Check size={15} /> Saved!</> : <><Save size={15} /> Save Settings</>}
-      </Button>
     </div>
   );
 }
@@ -622,7 +598,7 @@ export default function PhysioDashboard() {
       {activeTab === 'Analytics' && <AnalyticsTab />}
 
       {/* Tab: Settings */}
-      {activeTab === 'Settings' && <SettingsTab user={user} />}
+      {activeTab === 'Settings' && <SettingsTab />}
     </PageWrapper>
   );
 }

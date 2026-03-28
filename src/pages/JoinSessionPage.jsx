@@ -5,6 +5,8 @@ import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import clinicConfig, { derivedConfig } from '@/config/clinicConfig';
+import { db } from '@/firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
 import {
   Video,
   Clock,
@@ -20,6 +22,7 @@ import {
   Camera,
   Volume2,
   Check,
+  Loader2,
 } from 'lucide-react';
 
 const videoModeLabels = { zoom: 'Zoom Meeting', meet: 'Google Meet', whatsapp: 'WhatsApp Video Call' };
@@ -53,10 +56,49 @@ export default function JoinSessionPage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [techOpen, setTechOpen] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [clinicSettings, setClinicSettings] = useState({
+    videoMode: clinicConfig.videoMode,
+    zoomLink: clinicConfig.meetLink || '',
+    physioName: clinicSettings.physioName,
+    whatsappNumber: clinicConfig.whatsappNumber,
+    primaryColor: clinicSettings.primaryColor,
+  });
   const [preChecks, setPreChecks] = useState(() => {
     const saved = localStorage.getItem(`precheck_${bookingId}`);
     return saved ? JSON.parse(saved) : { camera: false, mic: false, wifi: true, audio: false };
   });
+
+  // Fetch clinic settings from Firestore based on booking
+  useEffect(() => {
+    async function loadSettings() {
+      if (!db) { setSettingsLoading(false); return; }
+      try {
+        const bookingSnap = await getDoc(doc(db, 'bookings', bookingId));
+        if (bookingSnap.exists()) {
+          const clinicId = bookingSnap.data().clinicId;
+          if (clinicId) {
+            const clinicSnap = await getDoc(doc(db, 'clinics', clinicId));
+            if (clinicSnap.exists()) {
+              const data = clinicSnap.data();
+              const s = data.settings || {};
+              setClinicSettings({
+                videoMode: s.videoMode || 'whatsapp',
+                zoomLink: s.zoomLink || '',
+                physioName: data.physioName || clinicSettings.physioName,
+                whatsappNumber: data.whatsappNumber || clinicConfig.whatsappNumber,
+                primaryColor: s.primaryColor || clinicSettings.primaryColor,
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load clinic settings:', e);
+      }
+      setSettingsLoading(false);
+    }
+    loadSettings();
+  }, [bookingId]);
 
   useEffect(() => {
     localStorage.setItem(`precheck_${bookingId}`, JSON.stringify(preChecks));
@@ -98,11 +140,11 @@ export default function JoinSessionPage() {
     return () => clearInterval(interval);
   }, [sessionTime]);
 
-  const [meetingLink] = useState(() => {
-    if (clinicConfig.videoMode === 'zoom') return `https://zoom.us/j/mock-${bookingId}`;
-    if (clinicConfig.videoMode === 'meet') return `https://meet.google.com/mock-${bookingId}`;
-    return derivedConfig.whatsappLink;
-  });
+  const meetingLink = (() => {
+    if (clinicSettings.videoMode === 'zoom') return clinicSettings.zoomLink || `https://zoom.us/j/mock-${bookingId}`;
+    if (clinicSettings.videoMode === 'meet') return clinicSettings.zoomLink || `https://meet.google.com/mock-${bookingId}`;
+    return `https://wa.me/${clinicSettings.whatsappNumber.replace(/\s|\+|\D/g, '')}?text=${encodeURIComponent(clinicConfig.whatsappMessagePrefill)}`;
+  })();
 
   const copyLink = () => {
     navigator.clipboard.writeText(meetingLink).then(() => {
@@ -112,9 +154,9 @@ export default function JoinSessionPage() {
   };
 
   const statusConfig = {
-    upcoming: { label: 'Upcoming', variant: 'default', color: clinicConfig.primaryColor },
+    upcoming: { label: 'Upcoming', variant: 'default', color: clinicSettings.primaryColor },
     soon: { label: 'Starting Soon', variant: 'warning', color: '#F6A000' },
-    live: { label: 'Live Now', variant: 'primary', color: clinicConfig.primaryColor },
+    live: { label: 'Live Now', variant: 'primary', color: clinicSettings.primaryColor },
     ended: { label: 'Session Ended', variant: 'default', color: '#9ca3af' },
   };
   const sc = statusConfig[status];
@@ -132,18 +174,18 @@ export default function JoinSessionPage() {
         </div>
         <h1 className="text-2xl font-bold text-text-primary">Join Your Session</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Your consultation with {clinicConfig.physioName}
+          Your consultation with {clinicSettings.physioName}
         </p>
       </div>
 
       {/* Countdown */}
-      <Card className="text-center mb-5" style={{ borderColor: status === 'live' ? clinicConfig.primaryColor : 'transparent', border: status === 'live' ? '2px solid' : '1px solid' }}>
+      <Card className="text-center mb-5" style={{ borderColor: status === 'live' ? clinicSettings.primaryColor : 'transparent', border: status === 'live' ? '2px solid' : '1px solid' }}>
         {status === 'live' ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center animate-pulse" style={{ backgroundColor: `${clinicConfig.primaryColor}20` }}>
-              <Video size={28} style={{ color: clinicConfig.primaryColor }} />
+            <div className="w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center animate-pulse" style={{ backgroundColor: `${clinicSettings.primaryColor}20` }}>
+              <Video size={28} style={{ color: clinicSettings.primaryColor }} />
             </div>
-            <p className="text-xl font-bold" style={{ color: clinicConfig.primaryColor }}>Your session is live!</p>
+            <p className="text-xl font-bold" style={{ color: clinicSettings.primaryColor }}>Your session is live!</p>
             <p className="text-sm text-text-secondary">Click "Join Now" to enter the consultation</p>
           </div>
         ) : (
@@ -164,7 +206,7 @@ export default function JoinSessionPage() {
       <Card className="mb-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-text-primary flex items-center gap-2">
-            <CheckCircle size={16} style={{ color: clinicConfig.primaryColor }} />
+            <CheckCircle size={16} style={{ color: clinicSettings.primaryColor }} />
             Preparation Checklist
           </h2>
           <span className="text-xs text-text-secondary">
@@ -180,10 +222,10 @@ export default function JoinSessionPage() {
             >
               <div
                 className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                style={{ backgroundColor: preChecks[id] ? `${clinicConfig.primaryColor}20` : 'var(--color-surface, #f9fafb)' }}
+                style={{ backgroundColor: preChecks[id] ? `${clinicSettings.primaryColor}20` : 'var(--color-surface, #f9fafb)' }}
               >
                 {preChecks[id] ? (
-                  <Check size={16} style={{ color: clinicConfig.primaryColor }} />
+                  <Check size={16} style={{ color: clinicSettings.primaryColor }} />
                 ) : (
                   <Icon size={16} className="text-text-secondary" />
                 )}
@@ -194,7 +236,7 @@ export default function JoinSessionPage() {
               </div>
               <div
                 className="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
-                style={{ borderColor: preChecks[id] ? clinicConfig.primaryColor : 'var(--color-border, #e5e7eb)', backgroundColor: preChecks[id] ? clinicConfig.primaryColor : 'transparent' }}
+                style={{ borderColor: preChecks[id] ? clinicSettings.primaryColor : 'var(--color-border, #e5e7eb)', backgroundColor: preChecks[id] ? clinicSettings.primaryColor : 'transparent' }}
               >
                 {preChecks[id] && <Check size={11} className="text-white" />}
               </div>
@@ -208,12 +250,16 @@ export default function JoinSessionPage() {
         <div className="flex items-center gap-3 mb-4">
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${clinicConfig.primaryColor}15` }}
+            style={{ backgroundColor: `${clinicSettings.primaryColor}15` }}
           >
-            <Video size={20} style={{ color: clinicConfig.primaryColor }} />
+            {settingsLoading ? (
+              <Loader2 size={20} className="animate-spin" style={{ color: clinicSettings.primaryColor }} />
+            ) : (
+              <Video size={20} style={{ color: clinicSettings.primaryColor }} />
+            )}
           </div>
           <div>
-            <h2 className="font-semibold text-text-primary">{videoModeLabels[clinicConfig.videoMode]}</h2>
+            <h2 className="font-semibold text-text-primary">{videoModeLabels[clinicSettings.videoMode]}</h2>
             <p className="text-xs text-text-secondary">
               {status === 'ended' ? 'Session has ended' : 'Click to join your video consultation'}
             </p>
@@ -222,17 +268,23 @@ export default function JoinSessionPage() {
 
         {status !== 'ended' ? (
           <>
-            <Button size="lg" fullWidth onClick={handleJoin} disabled={status === 'upcoming'}>
-              <ExternalLink size={18} />
+            <Button size="lg" fullWidth onClick={handleJoin} disabled={status === 'upcoming' || settingsLoading}>
+              {settingsLoading ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : (
+                <ExternalLink size={18} />
+              )}
               {status === 'live' ? 'Join Now' : 'Join When Ready'}
             </Button>
-            <button
-              onClick={copyLink}
-              className="mt-3 w-full flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-primary transition-colors"
-            >
-              {copied ? <CheckCircle size={14} className="text-success" /> : <Copy size={14} />}
-              {copied ? 'Copied!' : 'Copy meeting link'}
-            </button>
+            {!settingsLoading && (
+              <button
+                onClick={copyLink}
+                className="mt-3 w-full flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-primary transition-colors"
+              >
+                {copied ? <CheckCircle size={14} className="text-success" /> : <Copy size={14} />}
+                {copied ? 'Copied!' : 'Copy meeting link'}
+              </button>
+            )}
           </>
         ) : (
           <Button size="lg" fullWidth variant="ghost" onClick={() => navigate('/')}>
@@ -278,11 +330,11 @@ export default function JoinSessionPage() {
             'Find a quiet, well-lit space with good internet',
             'Wear comfortable clothing for physical assessment',
             'Have your medical history and medications ready',
-            `Your ${clinicConfig.slotDurationMinutes || 30}-minute consultation with ${clinicConfig.physioName}`,
+            `Your ${clinicConfig.slotDurationMinutes || 30}-minute consultation with ${clinicSettings.physioName}`,
             'Questions or concerns? Call us anytime',
           ].map((tip) => (
             <li key={tip} className="flex items-start gap-2 text-sm text-text-secondary">
-              <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: clinicConfig.primaryColor }} />
+              <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: clinicSettings.primaryColor }} />
               {tip}
             </li>
           ))}

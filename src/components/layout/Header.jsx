@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import clinicConfig from '@/config/clinicConfig';
-import { Phone, Mail } from 'lucide-react';
+import { Phone, Mail, Sparkles } from 'lucide-react';
 
 /**
  * Header — clinic logo + name from white-label config.
@@ -28,7 +28,7 @@ export default function Header() {
           </div>
         </Link>
 
-        {/* Contact info — desktop only */}
+        {/* Contact info + Sign Up — desktop only */}
         <div className="hidden sm:flex items-center gap-4">
           <a
             href={`tel:${clinicConfig.phone}`}
@@ -44,6 +44,14 @@ export default function Header() {
             <Mail size={14} />
             <span>{clinicConfig.email}</span>
           </a>
+          <Link
+            to="/physio-signup"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-1.5 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm"
+            style={{ backgroundColor: clinicConfig.secondaryColor }}
+          >
+            <Sparkles size={13} />
+            Start Free Trial
+          </Link>
         </div>
       </div>
     </header>

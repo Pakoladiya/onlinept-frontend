@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'demo-api-key',
@@ -18,18 +19,20 @@ const isConfigured = !!(
   import.meta.env.VITE_FIREBASE_API_KEY !== 'demo-api-key'
 );
 
-let app, db, auth;
+let app, db, auth, storage;
 
 if (isConfigured) {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
   auth = getAuth(app);
+  storage = getStorage(app);
 } else {
   // Stub objects to prevent runtime crashes in demo mode
   app = { name: '(demo)' };
   db = null;
   auth = null;
+  storage = null;
 }
 
-export { db, auth };
+export { db, auth, storage };
 export default app;

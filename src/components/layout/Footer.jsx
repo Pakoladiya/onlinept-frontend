@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import clinicConfig from '@/config/clinicConfig';
-import { Phone, Mail, MapPin, HeartPulse } from 'lucide-react';
+import { Phone, Mail, MapPin, HeartPulse, Sparkles } from 'lucide-react';
 
 /**
  * Footer — clinic info from white-label config.
@@ -65,19 +65,25 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="pt-6 border-t border-border/70 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="pt-6 border-t border-border/70 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-text-secondary">
             &copy; {year} {clinicConfig.clinicName}. All rights reserved.
           </p>
-          <div className="flex items-center gap-3 text-xs text-text-secondary">
-            <Link to="/dashboard-login" className="text-primary hover:underline font-semibold">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/dashboard-login"
+              className="text-sm text-text-secondary hover:text-primary transition-colors font-medium"
+            >
               Physio Login
             </Link>
-            <span className="text-border/50 hidden sm:inline">|</span>
-            <div className="flex items-center gap-1">
-              <HeartPulse size={14} className="text-primary" />
-              <span>Built with care for your recovery</span>
-            </div>
+            <Link
+              to="/physio-signup"
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-white px-4 py-2 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
+              style={{ backgroundColor: clinicConfig.secondaryColor }}
+            >
+              <Sparkles size={14} />
+              Start Free Trial
+            </Link>
           </div>
         </div>
       </div>
