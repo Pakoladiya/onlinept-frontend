@@ -3,13 +3,28 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import ThemeProvider from '@/components/ThemeProvider';
 import AppRouter from '@/routes/AppRouter';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import '@/index.css';
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <ThemeProvider />
-    <BrowserRouter>
-      <AppRouter />
-    </BrowserRouter>
-  </StrictMode>
-);
+const root = createRoot(document.getElementById('root'));
+
+try {
+  root.render(
+    <StrictMode>
+      <ThemeProvider />
+      <BrowserRouter>
+        <ErrorBoundary>
+          <AppRouter />
+        </ErrorBoundary>
+      </BrowserRouter>
+    </StrictMode>
+  );
+} catch (err) {
+  console.error('RENDER CRASH:', err);
+  document.getElementById('root').innerHTML = `
+    <div style="padding:20px;font-family:sans-serif;color:#333;">
+      <h2 style="color:#ef4444">App failed to load</h2>
+      <pre style="background:#f9fafb;padding:12px;border-radius:8px;overflow:auto;font-size:12px">${err?.message || err}</pre>
+    </div>
+  `;
+}

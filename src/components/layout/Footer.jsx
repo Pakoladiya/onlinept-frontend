@@ -66,9 +66,14 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="pt-6 border-t border-border/70 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-xs text-text-secondary">
-            &copy; {year} {clinicConfig.clinicName}. All rights reserved.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <p className="text-xs text-text-secondary">
+              &copy; {year} {clinicConfig.clinicName}. All rights reserved.
+            </p>
+            <Link to="/dashboard-login" className="text-xs text-primary hover:underline">
+              Physio Login
+            </Link>
+          </div>
           <div className="flex items-center gap-1 text-xs text-text-secondary">
             <HeartPulse size={14} className="text-primary" />
             <span>Built with care for your recovery</span>

@@ -8,7 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.svg'],
+      // TEMPORARILY disabled to prevent broken SW from caching blank page
+      // Re-enable after verifying app works
+      injectRegister: false,
       manifest: {
         name: 'Physio Consultation',
         short_name: 'Physio',
