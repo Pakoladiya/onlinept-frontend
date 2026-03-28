@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clinicConfig from '@/config/clinicConfig';
+import saasHeroImg from '@/assets/saas_hero.png';
 
 export default function SaaSLandingPage() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -132,7 +133,7 @@ export default function SaaSLandingPage() {
                   </div>
                </div>
                <img 
-                 src="/src/assets/saas_hero.png" 
+                 src={saasHeroImg}
                  alt="Physio SaaS Dashboard Preview" 
                  className="w-full h-auto mt-8 object-cover"
                  style={{ minHeight: '300px' }}
