@@ -62,7 +62,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
@@ -78,7 +78,6 @@
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    @apply bg-background text-foreground;
   }
   .theme {
     --font-heading: var(--font-sans);

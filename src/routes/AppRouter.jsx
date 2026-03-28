@@ -12,6 +12,8 @@ import HEPBuilderPage from '@/pages/HEPBuilderPage';
 import PostSessionPage from '@/pages/PostSessionPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import MasterAdminPage from '@/pages/MasterAdminPage';
+import SaaSDashboard from '@/pages/admin/SaaSDashboard';
+import SaaSLandingPage from '@/pages/admin/SaaSLandingPage';
 
 export default function AppRouter() {
   return (
@@ -28,7 +30,8 @@ export default function AppRouter() {
       <Route path="/dashboard" element={<PhysioDashboard />} />
       <Route path="/hep" element={<HEPBuilderPage />} />
       <Route path="/post-session/:bookingId" element={<PostSessionPage />} />
-      <Route path="/admin" element={<MasterAdminPage />} />
+      <Route path="/admin" element={<SaaSDashboard />} />
+      <Route path="/saas" element={<SaaSLandingPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
