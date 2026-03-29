@@ -1,296 +1,283 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import clinicConfig from '@/config/clinicConfig';
-import { whatsappLink } from '@/utils/whatsapp';
+import { onAuth } from '@/firebase/auth';
+import { getPhysioPatients, saveHEP } from '@/firebase/db';
 import {
   Search,
-  Filter,
   Plus,
-  Minus,
-  Check,
   X,
-  Share2,
-  Download,
-  ChevronRight,
-  Clock,
-  Repeat,
-  PlayCircle,
   Activity,
   Dumbbell,
-  Heart,
+  Send,
+  Loader2,
+  Sparkles,
+  Trash2,
+  CheckCircle2
 } from 'lucide-react';
 
+/**
+ * Luxe HEPBuilder — "Clinical Rehab Architect" with Firestore persistence.
+ */
+
 const EXERCISES = [
-  // Stretches
-  { id: 'e1', name: 'Cat-Cow Stretch', category: 'Stretches', description: 'Kneel on hands and knees. Arch back up (cat) then dip down (cow).', target: 'Lower back mobility', sets: 3, reps: '10', duration: null, imageColor: '#39A900' },
-  { id: 'e2', name: 'Hamstring Stretch', category: 'Stretches', description: 'Sit with one leg extended. Reach toward toes while keeping back straight.', target: 'Hamstrings', sets: 3, reps: '30 sec hold', duration: null, imageColor: '#39A900' },
-  { id: 'e3', name: 'Piriformis Stretch', category: 'Stretches', description: 'Lie on back. Cross one ankle over opposite knee. Pull thigh toward chest.', target: 'Piriformis / glutes', sets: 3, reps: '30 sec hold', duration: null, imageColor: '#39A900' },
-  { id: 'e4', name: 'Chin Tucks', category: 'Stretches', description: 'Lie on back. Pull chin toward chest, flattening neck against floor.', target: 'Cervical spine', sets: 3, reps: '10', duration: null, imageColor: '#39A900' },
-  { id: 'e5', name: 'Thoracic Extension', category: 'Stretches', description: 'Place foam roller or rolled towel behind upper back. Arch over it gently.', target: 'Thoracic spine', sets: 3, reps: '10', duration: null, imageColor: '#39A900' },
-  { id: 'e6', name: 'Hip Flexor Stretch', category: 'Stretches', description: 'Kneel on one knee. Push hips forward, keeping torso upright.', target: 'Hip flexors', sets: 3, reps: '30 sec hold', duration: null, imageColor: '#39A900' },
-  { id: 'e7', name: 'Calf Stretch', category: 'Stretches', description: 'Stand facing a wall. Step one foot back, keep heel down, lean forward.', target: 'Calves', sets: 3, reps: '30 sec hold', duration: null, imageColor: '#39A900' },
-  { id: 'e8', name: 'Shoulder Stretch', category: 'Stretches', description: 'Cross arm across chest. Use other hand to deepen stretch.', target: 'Posterior shoulder', sets: 3, reps: '30 sec hold', duration: null, imageColor: '#39A900' },
-  // Strengthening
-  { id: 'e9', name: 'Bridge Exercise', category: 'Strengthening', description: 'Lie on back, knees bent. Lift hips off floor, squeeze glutes at top.', target: 'Glutes, core', sets: 3, reps: '12', duration: null, imageColor: '#F6A000' },
-  { id: 'e10', name: 'Clamshell', category: 'Strengthening', description: 'Lie on side, knees bent 90°. Keep feet together, lift top knee.', target: 'Hip abductors', sets: 3, reps: '15 each side', duration: null, imageColor: '#F6A000' },
-  { id: 'e11', name: 'Quad Sets', category: 'Strengthening', description: 'Sit or lie with leg straight. Tighten thigh muscle, press knee down.', target: 'Quadriceps', sets: 3, reps: '15', duration: null, imageColor: '#F6A000' },
-  { id: 'e12', name: 'Side Plank', category: 'Strengthening', description: 'Lie on side, prop on forearm. Lift hips off floor, hold body straight.', target: 'Core, obliques', sets: 3, reps: '20–30 sec', duration: null, imageColor: '#F6A000' },
-  { id: 'e13', name: 'Bird-Dog', category: 'Strengthening', description: 'On all fours, extend opposite arm and leg. Keep back flat.', target: 'Core, back extensors', sets: 3, reps: '10 each side', duration: null, imageColor: '#F6A000' },
-  { id: 'e14', name: 'Gluteal Sets', category: 'Strengthening', description: 'Lying or standing, squeeze buttocks together firmly. Hold 5 sec.', target: 'Gluteal muscles', sets: 3, reps: '15', duration: null, imageColor: '#F6A000' },
-  { id: 'e15', name: 'Heel Raises', category: 'Strengthening', description: 'Stand holding a wall/chair. Rise onto toes, lower slowly.', target: 'Ankle dorsiflexors', sets: 3, reps: '15', duration: null, imageColor: '#F6A000' },
-  { id: 'e16', name: 'Wall Sit', category: 'Strengthening', description: 'Lean against wall with knees at 90°. Hold position.', target: 'Quadriceps endurance', sets: 3, reps: null, duration: '30–45 sec', imageColor: '#F6A000' },
-  { id: 'e17', name: 'Straight Leg Raise', category: 'Strengthening', description: 'Lie on back, one knee bent. Lift straight leg to height of bent knee.', target: 'Hip flexors, quads', sets: 3, reps: '12 each leg', duration: null, imageColor: '#F6A000' },
-  { id: 'e18', name: 'Scapular Squeeze', category: 'Strengthening', description: 'Squeeze shoulder blades together behind back. Hold 5 sec.', target: 'Scapular stabilizers', sets: 3, reps: '15', duration: null, imageColor: '#F6A000' },
-  { id: 'e19', name: 'Terminal Knee Extension', category: 'Strengthening', description: 'Sit with leg supported. Push knee into rolled towel, straightening leg.', target: 'VMO / quads', sets: 3, reps: '15', duration: null, imageColor: '#F6A000' },
-  { id: 'e20', name: 'Monster Walk', category: 'Strengthening', description: 'With band around thighs, walk sideways keeping tension on band.', target: 'Hip abductors', sets: 3, reps: '10 steps each way', duration: null, imageColor: '#F6A000' },
-  // Cardio / Low Impact
-  { id: 'e21', name: 'Stationary Cycling', category: 'Cardio', description: 'Light cycling at low resistance. Keep upright posture.', target: 'Cardiovascular fitness', sets: 1, reps: null, duration: '10–20 min' , imageColor: '#6366f1' },
-  { id: 'e22', name: 'Walking', category: 'Cardio', description: ' brisk walking. Start with 10 min, increase gradually.', target: 'General fitness', sets: 1, reps: null, duration: '20–30 min', imageColor: '#6366f1' },
-  { id: 'e23', name: 'Step Touch', category: 'Cardio', description: 'Step side to side in rhythm. Hold chair for support if needed.', target: 'Balance, cardio', sets: 1, reps: null, duration: '5–10 min', imageColor: '#6366f1' },
-  // Balance
-  { id: 'e24', name: 'Single Leg Stand', category: 'Balance', description: 'Stand on one leg (near wall/chair for support). Hold 30 sec.', target: 'Balance, proprioception', sets: 3, reps: '30 sec each leg', duration: null, imageColor: '#10b981' },
-  { id: 'e25', name: 'Heel-Toe Walk', category: 'Balance', description: 'Walk in a straight line placing heel directly in front of opposite toe.', target: 'Gait balance', sets: 3, reps: '20 steps', duration: null, imageColor: '#10b981' },
-  { id: 'e26', name: 'Mini Squat on Bosu', category: 'Balance', description: 'Stand on Bosu ball (flat side up). Perform small squats maintaining balance.', target: 'Dynamic balance, quads', sets: 3, reps: '10', duration: null, imageColor: '#10b981' },
-  { id: 'e27', name: 'Tandem Stance', category: 'Balance', description: 'Stand with heel of one foot directly in front of other foot.', target: 'Static balance', sets: 3, reps: '30 sec hold', duration: null, imageColor: '#10b981' },
-  // Posture
-  { id: 'e28', name: 'Chin Retraction', category: 'Posture', description: 'Sit tall. Pull chin straight back (like making a double chin).', target: 'Cervical posture', sets: 3, reps: '10', duration: null, imageColor: '#f59e0b' },
-  { id: 'e29', name: 'Wall Angels', category: 'Posture', description: 'Stand against wall. Move arms up/down like snow angels keeping back and arms touching wall.', target: 'Thoracic mobility, posture', sets: 3, reps: '10', duration: null, imageColor: '#f59e0b' },
-  { id: 'e30', name: 'Doorway Stretch', category: 'Posture', description: 'Place forearms on doorframe. Step through and lean forward to stretch chest.', target: 'Pectoral muscles', sets: 3, reps: '30 sec hold', duration: null, imageColor: '#f59e0b' },
+  { id: 'e1', name: 'Cat-Cow Stretch', category: 'Mobility', description: 'Kneel on hands and knees. Arch back up then dip down gently.', target: 'Lower back', sets: 3, reps: '10' },
+  { id: 'e2', name: 'Knee to Chest', category: 'Mobility', description: 'Lie on back. Hug one knee to chest, hold 30s. Switch sides.', target: 'Lower back, hips', sets: 3, reps: '8 each' },
+  { id: 'e3', name: 'Lumbar Rotation', category: 'Mobility', description: 'Lie on back, knees bent. Rotate knees side to side slowly.', target: 'Lumbar spine', sets: 2, reps: '10 each' },
+  { id: 'e4', name: 'Glute Bridge', category: 'Strength', description: 'Lie on back, knees bent. Lift hips off floor, squeeze glutes at top.', target: 'Glutes, core', sets: 3, reps: '15' },
+  { id: 'e5', name: 'Clamshell', category: 'Strength', description: 'Lie on side, knees bent 90deg. Lift top knee keeping feet together.', target: 'Hip abductors', sets: 3, reps: '15 each' },
+  { id: 'e6', name: 'Bird Dog', category: 'Core', description: 'On hands and knees. Extend opposite arm and leg. Keep back flat.', target: 'Core stability', sets: 3, reps: '10 each' },
+  { id: 'e7', name: 'Side Plank', category: 'Core', description: 'Lie on side, prop on forearm. Lift hips, hold body straight.', target: 'Obliques', sets: 3, reps: '30s hold' },
+  { id: 'e8', name: 'Dead Bug', category: 'Core', description: 'Lie on back, arms up. Lower opposite arm and leg slowly.', target: 'Core, coordination', sets: 3, reps: '10 each' },
+  { id: 'e9', name: 'Straight Leg Raise', category: 'Strength', description: 'Lie on back. Lift straight leg to height of opposite knee.', target: 'Quadriceps', sets: 3, reps: '15 each' },
+  { id: 'e10', name: 'Wall Squat', category: 'Strength', description: 'Stand with back against wall. Slide down to 90 degrees. Hold.', target: 'Quadriceps', sets: 3, reps: '10' },
+  { id: 'e11', name: 'Cervical Retraction', category: 'Neck', description: 'Sit tall. Pull chin straight back like making a double chin.', target: 'Neck posture', sets: 3, reps: '10' },
+  { id: 'e12', name: 'Chin Tucks', category: 'Neck', description: 'Look straight ahead. Nod head down, holding 5s. Repeat.', target: 'Deep neck flexors', sets: 3, reps: '10' },
+  { id: 'e13', name: 'Shoulder Pendulum', category: 'Mobility', description: 'Lean forward, arm dangling. Circle arm slowly.', target: 'Shoulder mobility', sets: 2, reps: '30s each' },
+  { id: 'e14', name: 'Ankle Alphabet', category: 'Mobility', description: 'Trace alphabet A-Z with big toe while seated.', target: 'Ankle ROM', sets: 2, reps: 'Full A-Z' },
+  { id: 'e15', name: 'Piriformis Stretch', category: 'Stretch', description: 'Figure-4 stretch: cross ankle over knee. Lean forward.', target: 'Piriformis, glutes', sets: 3, reps: '30s each' },
+  { id: 'e16', name: 'Hamstring Stretch', category: 'Stretch', description: 'Standing, extend one leg forward. Reach for toes.', target: 'Hamstrings', sets: 2, reps: '30s each' },
+  { id: 'e17', name: 'Calf Stretch', category: 'Stretch', description: 'Step back with one leg. Press heel down against floor.', target: 'Calf muscles', sets: 2, reps: '30s each' },
+  { id: 'e18', name: 'Quad Set', category: 'Strength', description: 'Lie on stomach. Tighten thigh muscle, press knee down.', target: 'Quadriceps', sets: 3, reps: '10 holds' },
 ];
 
-const CATEGORIES = ['All', 'Stretches', 'Strengthening', 'Cardio', 'Balance', 'Posture'];
-const CATEGORY_ICONS = { Stretches: Activity, Strengthening: Dumbbell, Cardio: Heart, Balance: PlayCircle, Posture: Clock };
-
-function ExerciseCard({ exercise, onAdd }) {
-  const [sets, setSets] = useState(exercise.sets || 3);
-  const [reps, setReps] = useState(exercise.reps || '');
-  const [duration, setDuration] = useState(exercise.duration || '');
-
-  return (
-    <Card className="flex items-start gap-3">
-      <div
-        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-        style={{ backgroundColor: `${exercise.imageColor}15` }}
-      >
-        <Dumbbell size={20} style={{ color: exercise.imageColor }} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <p className="font-medium text-text-primary text-sm">{exercise.name}</p>
-            <p className="text-xs text-text-secondary mt-0.5">{exercise.target}</p>
-          </div>
-          <Badge variant="default" size="xs">{exercise.category}</Badge>
-        </div>
-        <p className="text-xs text-text-secondary mt-2">{exercise.description}</p>
-        <div className="flex items-center gap-3 mt-3">
-          <div className="flex items-center gap-1">
-            <button onClick={() => setSets((s) => Math.max(1, s - 1))} className="w-6 h-6 rounded flex items-center justify-center bg-surface border border-border hover:border-primary"><Minus size={12} /></button>
-            <span className="text-xs font-medium w-5 text-center">{sets}</span>
-            <button onClick={() => setSets((s) => s + 1)} className="w-6 h-6 rounded flex items-center justify-center bg-surface border border-border hover:border-primary"><Plus size={12} /></button>
-            <span className="text-xs text-text-secondary ml-1">sets</span>
-          </div>
-          {exercise.reps && (
-            <div className="flex items-center gap-1">
-              <input
-                value={reps}
-                onChange={(e) => setReps(e.target.value)}
-                className="w-16 px-2 py-1 text-xs rounded border border-border bg-surface text-text-primary text-center focus:outline-none focus:border-primary"
-              />
-              <span className="text-xs text-text-secondary">reps</span>
-            </div>
-          )}
-          {exercise.duration && (
-            <div className="flex items-center gap-1">
-              <input
-                value={duration || exercise.duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="w-16 px-2 py-1 text-xs rounded border border-border bg-surface text-text-primary text-center focus:outline-none focus:border-primary"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-      <button
-        onClick={() => onAdd({ ...exercise, sets, reps: reps || exercise.reps, duration: duration || exercise.duration })}
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-        style={{ backgroundColor: `${clinicConfig.primaryColor}15`, color: clinicConfig.primaryColor }}
-      >
-        <Plus size={15} />
-      </button>
-    </Card>
-  );
-}
+const CATEGORIES = ['All', 'Mobility', 'Strength', 'Core', 'Neck', 'Stretch'];
 
 export default function HEPBuilderPage() {
-  const navigate = useNavigate();
-  const [selectedExercises, setSelectedExercises] = useState([]);
+  const [user, setUser] = useState(null);
+  const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
-  const [patientName, setPatientName] = useState('');
-  const [notes, setNotes] = useState('');
+  const [patient, setPatient] = useState('');
+  const [patients, setPatients] = useState([]);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-  const filtered = useMemo(() => {
-    return EXERCISES.filter((e) => {
-      const matchCat = category === 'All' || e.category === category;
-      const matchSearch = e.name.toLowerCase().includes(search.toLowerCase()) || e.description.toLowerCase().includes(search.toLowerCase());
-      return matchCat && matchSearch;
+  useEffect(() => {
+    const unsub = onAuth(async (u) => {
+      setUser(u);
+      if (u) {
+        const pts = await getPhysioPatients(u.uid);
+        setPatients(pts || []);
+      }
     });
-  }, [search, category]);
+    return unsub;
+  }, []);
 
-  const addExercise = (ex) => {
-    setSelectedExercises((prev) => {
-      if (prev.find((e) => e.id === ex.id)) return prev;
-      return [...prev, { ...ex }];
-    });
+  const filtered = useMemo(() => EXERCISES.filter(e => {
+    const matchesSearch = !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.target.toLowerCase().includes(search.toLowerCase());
+    const matchesCat = category === 'All' || e.category === category;
+    return matchesSearch && matchesCat;
+  }), [search, category]);
+
+  const handleAdd = (ex) => {
+    if (selected.find(s => s.id === ex.id)) return;
+    setSelected([...selected, ex]);
+    setSaved(false);
   };
 
-  const removeExercise = (id) => {
-    setSelectedExercises((prev) => prev.filter((e) => e.id !== id));
+  const handleRemove = (id) => {
+    setSelected(selected.filter(s => s.id !== id));
+    setSaved(false);
   };
 
-  const generateText = () => {
-    const lines = [
-      `Home Exercise Program — ${clinicConfig.clinicName}`,
-      `Physiotherapist: ${clinicConfig.physioName}`,
-      `Patient: ${patientName || 'Patient'}`,
-      `Date: ${new Date().toLocaleDateString('en-IN')}`,
-      '',
-      'YOUR EXERCISES:',
-      ...selectedExercises.map((e, i) =>
-        `${i + 1}. ${e.name}\n   ${e.sets} sets × ${e.reps || e.duration || '—'}\n   Target: ${e.target}`
-      ),
-      '',
-      notes ? `NOTES:\n${notes}` : '',
-      '',
-      `Generated by ${clinicConfig.clinicName} · ${clinicConfig.physioName}`,
-    ];
-    return lines.filter(Boolean).join('\n');
-  };
-
-  const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(generateText());
-    window.open(`https://wa.me/?text=${text}`, '_blank');
+  const handleSaveAndShare = async () => {
+    if (!patient || selected.length === 0) return;
+    setSaving(true);
+    try {
+      if (user && selectedPatientId) {
+        await saveHEP(selectedPatientId, {
+          exercises: selected,
+          patientName: patient,
+          physioName: clinicConfig.physioName,
+          clinicName: clinicConfig.clinicName,
+        });
+      }
+      const text = `*Home Exercise Plan from ${clinicConfig.clinicName}*\n\n` +
+        `Dr. ${clinicConfig.physioName}\n\n` +
+        selected.map((e, i) => `${i + 1}. ${e.name}\n   ${e.sets} sets x ${e.reps}\n   ${e.description}`).join('\n\n') +
+        `\n\n_Please perform these exercises as instructed. Contact us if you have any questions._`;
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+      setSaved(true);
+    } catch (err) {
+      console.error('Failed to save HEP:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <PageWrapper>
-      <div className="mb-5">
-        <h1 className="text-2xl font-bold text-text-primary">HEP Builder</h1>
-        <p className="text-sm text-text-secondary mt-1">Create and assign home exercise programs</p>
-      </div>
+    <PageWrapper className="bg-gray-50/50 min-h-screen">
+      <div className="max-w-4xl mx-auto py-10 px-6 animate-in fade-in slide-in-from-bottom-10 duration-700">
 
-      {/* Assigned exercises */}
-      {selectedExercises.length > 0 && (
-        <Card className="mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-text-primary">
-              Assigned Exercises ({selectedExercises.length})
-            </h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleShareWhatsApp}>
-                <Share2 size={14} /> WhatsApp
-              </Button>
-              <Button size="sm" onClick={() => {
-                const text = generateText();
-                navigator.clipboard.writeText(text);
-              }}>
-                Copy to Clipboard
-              </Button>
+        {/* Header Suite */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
+            <div>
+               <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/5 rounded-full text-[10px] font-black uppercase tracking-widest text-primary mb-4 border border-primary/10">
+                  <Activity size={12} /> Clinical Rehab Architect
+               </div>
+               <h1 className="text-4xl font-black text-gray-900 tracking-tight">HEP Builder</h1>
+               <p className="text-gray-400 font-bold mt-1">Design precision exercise programs</p>
             </div>
-          </div>
-          <div className="space-y-2">
-            {selectedExercises.map((ex, i) => (
-              <div key={ex.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ backgroundColor: clinicConfig.primaryColor }}>{i + 1}</span>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-text-primary">{ex.name}</p>
-                  <p className="text-xs text-text-secondary">{ex.sets} sets × {ex.reps || ex.duration}</p>
-                </div>
-                <button onClick={() => removeExercise(ex.id)} className="text-text-secondary hover:text-error">
-                  <X size={16} />
-                </button>
+            {selected.length > 0 && (
+               <Button
+                 onClick={handleSaveAndShare}
+                 disabled={saving || !patient}
+                 className="h-16 px-8 rounded-2xl bg-primary text-white shadow-2xl shadow-primary/20 font-black uppercase tracking-widest text-xs transition-all hover:scale-[1.02] active:scale-95"
+               >
+                 {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                 {saved ? 'Sent!' : 'Save & Send via WhatsApp'}
+               </Button>
+            )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+           {/* Left: Exercise Library */}
+           <div className="lg:col-span-2 space-y-6">
+              {/* Search */}
+              <div className="relative group">
+                 <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-gray-400 group-focus-within:text-primary transition-colors"><Search size={20} /></div>
+                 <input
+                   value={search}
+                   onChange={e => setSearch(e.target.value)}
+                   placeholder="Search exercises..."
+                   className="w-full h-16 bg-white border-2 border-transparent rounded-[2rem] pl-16 pr-8 font-bold text-gray-900 shadow-xl shadow-gray-200/50 focus:border-primary/20 outline-none transition-all"
+                 />
               </div>
-            ))}
-          </div>
-          {notes && (
-            <div className="mt-3 p-3 rounded-lg bg-surface text-xs text-text-secondary italic">
-              Notes: {notes}
-            </div>
-          )}
-        </Card>
-      )}
 
-      {/* Patient info */}
-      <Card className="mb-5">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">Patient Name</label>
-            <input
-              value={patientName}
-              onChange={(e) => setPatientName(e.target.value)}
-              placeholder="Enter patient name"
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">Physio Notes</label>
-            <input
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Stop if pain > 5/10"
-              className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary"
-            />
-          </div>
+              {/* Category Filters */}
+              <div className="flex gap-2 flex-wrap">
+                 {CATEGORIES.map(cat => (
+                   <button
+                     key={cat}
+                     onClick={() => setCategory(cat)}
+                     className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                       category === cat
+                         ? 'bg-primary text-white shadow-lg'
+                         : 'bg-white text-gray-400 hover:bg-gray-50 border border-gray-100'
+                     }`}
+                   >
+                     {cat}
+                   </button>
+                 ))}
+              </div>
+
+              {/* Exercise Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 {filtered.map(ex => {
+                   const isSelected = !!selected.find(s => s.id === ex.id);
+                   return (
+                     <Card key={ex.id} className={`p-6 rounded-[2.5rem] border-none shadow-xl bg-white group cursor-pointer transition-all ${
+                       isSelected ? 'ring-2 ring-primary ring-offset-2 opacity-60' : 'hover:translate-y-[-4px]'
+                     }`}>
+                       <div className="flex items-center justify-between mb-4">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                            isSelected ? 'bg-primary text-white' : 'bg-gray-50 text-primary group-hover:bg-primary group-hover:text-white'
+                          }`}>
+                             {isSelected ? <CheckCircle2 size={22} /> : <Dumbbell size={22} />}
+                          </div>
+                          <Badge variant="default" className="rounded-xl px-3 py-1 font-black uppercase text-[9px]">{ex.category}</Badge>
+                       </div>
+                       <h3 className="text-lg font-black text-gray-900 tracking-tight mb-1">{ex.name}</h3>
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{ex.target}</p>
+                       <p className="text-[10px] text-gray-300 mb-4 leading-relaxed">{ex.description}</p>
+                       <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black text-gray-400 uppercase">{ex.sets}x{ex.reps}</span>
+                          <Button
+                            onClick={() => isSelected ? handleRemove(ex.id) : handleAdd(ex)}
+                            variant={isSelected ? 'outline' : 'outline'}
+                            className={`h-10 rounded-2xl font-black text-[10px] uppercase transition-all ${
+                              isSelected ? 'border-red-200 text-red-400 hover:bg-red-50 hover:border-red-300' : 'border-primary/30 text-primary hover:bg-primary hover:text-white'
+                            }`}
+                          >
+                            {isSelected ? 'Remove' : 'Add'} <Plus size={12} className="ml-1" />
+                          </Button>
+                       </div>
+                     </Card>
+                   );
+                 })}
+                 {filtered.length === 0 && (
+                   <div className="col-span-full text-center py-12 text-gray-400 font-bold">No exercises found</div>
+                 )}
+              </div>
+           </div>
+
+           {/* Right: Active Program Side-Panel */}
+           <div className="space-y-6">
+              <p className="text-[10px] font-black uppercase text-gray-400 tracking-[.3em] pl-4 border-l-2 border-primary">Live Program ({selected.length})</p>
+
+              <Card className="p-8 rounded-[3rem] border-none shadow-2xl shadow-gray-200 bg-white min-h-[350px]">
+                  {selected.length === 0 ? (
+                     <div className="flex flex-col items-center justify-center py-16 text-center opacity-30">
+                        <Sparkles size={48} className="mb-4 text-gray-300" />
+                        <p className="text-xs font-black uppercase tracking-widest">Selected List Empty</p>
+                        <p className="text-[10px] text-gray-400 mt-2">Add exercises from the library</p>
+                     </div>
+                  ) : (
+                     <div className="space-y-4">
+                        {selected.map((s, i) => (
+                           <div key={s.id} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                              <div className="flex items-center gap-3">
+                                 <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black text-[10px]">{i + 1}</div>
+                                 <div className="text-left">
+                                    <p className="text-xs font-black text-gray-900">{s.name}</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">{s.sets}x{s.reps}</p>
+                                 </div>
+                              </div>
+                              <button onClick={() => handleRemove(s.id)} className="text-gray-200 hover:text-red-500 transition-colors p-1">
+                                 <Trash2 size={14} />
+                              </button>
+                           </div>
+                        ))}
+
+                        <div className="pt-6 border-t border-gray-100 space-y-3">
+                           <div className="space-y-1 text-left">
+                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest ml-1">Assign to Patient</p>
+                              {patients.length > 0 ? (
+                                <select
+                                  value={selectedPatientId}
+                                  onChange={e => {
+                                    const p = patients.find(pt => pt.id === e.target.value);
+                                    setSelectedPatientId(e.target.value);
+                                    setPatient(p?.name || '');
+                                  }}
+                                  className="w-full h-12 px-4 font-bold bg-gray-50 rounded-xl border-none text-xs outline-none"
+                                >
+                                  <option value="">Select patient...</option>
+                                  {patients.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name || p.phone || p.id}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  value={patient}
+                                  onChange={e => setPatient(e.target.value)}
+                                  placeholder="Patient Name"
+                                  className="w-full h-12 px-4 font-bold bg-gray-50 rounded-xl border-none text-xs outline-none"
+                                />
+                              )}
+                           </div>
+                        </div>
+
+                        <div className="pt-4 flex flex-col items-center">
+                           <div className="w-14 h-14 rounded-[2rem] bg-green-50 flex items-center justify-center text-green-500 mb-3">
+                              <CheckCircle2 size={28} />
+                           </div>
+                           <p className="text-[10px] font-black uppercase tracking-[.2em] text-gray-400 text-center">
+                              {saved ? 'Saved & Sent!' : 'Clinical Verified Plan'}
+                           </p>
+                        </div>
+                     </div>
+                  )}
+              </Card>
+           </div>
+
         </div>
-      </Card>
-
-      {/* Search & filter */}
-      <div className="flex gap-2 mb-4">
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary pointer-events-none" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search exercises..."
-            className="w-full pl-9 pr-3 py-2.5 text-sm rounded-xl border border-border bg-surface text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary"
-          />
-        </div>
-      </div>
-
-      {/* Category tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
-        {CATEGORIES.map((cat) => {
-          const Icon = CATEGORY_ICONS[cat];
-          return (
-            <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${category === cat ? 'text-white' : 'text-text-secondary bg-surface border border-border hover:border-primary'}`}
-              style={category === cat ? { backgroundColor: clinicConfig.primaryColor } : {}}
-            >
-              {Icon && <Icon size={12} />}
-              {cat}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Exercise library */}
-      <div className="space-y-3">
-        {filtered.map((ex) => (
-          <ExerciseCard key={ex.id} exercise={ex} onAdd={addExercise} />
-        ))}
-        {filtered.length === 0 && (
-          <div className="text-center py-12">
-            <Dumbbell size={32} className="text-text-secondary mx-auto mb-2" />
-            <p className="text-sm text-text-secondary">No exercises found.</p>
-          </div>
-        )}
       </div>
     </PageWrapper>
   );

@@ -8,13 +8,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      // TEMPORARILY disabled to prevent broken SW from caching blank page
-      // Re-enable after verifying app works
       injectRegister: false,
       manifest: {
-        name: 'Physio Consultation',
-        short_name: 'Physio',
-        description: 'Online physiotherapy consultation platform',
+        name: 'Physio On Web',
+        short_name: 'PhysioWeb',
+        description: 'Elite virtual physical therapy clinic platform.',
         theme_color: '#39A900',
         background_color: '#ffffff',
         display: 'standalone',

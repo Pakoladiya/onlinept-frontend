@@ -10,6 +10,8 @@ import {
   addDoc,
   serverTimestamp,
   arrayUnion,
+  orderBy,
+  limit,
 } from 'firebase/firestore';
 import { db } from './config';
 
@@ -106,6 +108,87 @@ export async function getPatientBookings(patientId) {
  */
 export async function getBooking(bookingId) {
   return getDocument('bookings', bookingId);
+}
+
+/**
+ * Get all bookings for a physio/clinic.
+ * @param {string} uid  — Firebase auth UID of the physio
+ * @returns {Promise<Array>}
+ */
+export async function getPhysioBookings(uid) {
+  if (!db) return [];
+  const col = collection(db, 'bookings');
+  const q = query(col, where('physioId', '==', uid));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * Get all patients (unique by phone) for a physio.
+ * @param {string} uid
+ * @returns {Promise<Array>}
+ */
+export async function getPhysioPatients(uid) {
+  if (!db) return [];
+  const col = collection(db, 'patients');
+  const q = query(col, where('physioId', '==', uid));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+/**
+ * Save patient intake data (SOAP notes) after booking confirmation.
+ * @param {string} bookingId
+ * @param {object} intakeData
+ */
+export async function saveIntakeData(bookingId, intakeData) {
+  if (!db) return;
+  const ref = doc(db, 'bookings', bookingId);
+  return updateDoc(ref, {
+    intake: intakeData,
+    intakeCompletedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Save a HEP (Home Exercise Plan) for a patient.
+ * @param {string} patientId
+ * @param {object} hepData  — { exercises, patientName, physioName, createdAt }
+ */
+export async function saveHEP(patientId, hepData) {
+  if (!db) return;
+  const col = collection(db, 'patients', patientId, 'hep');
+  return addDoc(col, { ...hepData, createdAt: serverTimestamp() });
+}
+
+/**
+ * Block a time slot for a physio.
+ * @param {string} uid
+ * @param {string} dateStr  — YYYY-MM-DD
+ * @param {object} blockData — { startTime, endTime, reason }
+ */
+export async function blockSlot(uid, dateStr, blockData) {
+  if (!db) return;
+  const col = collection(db, 'blockedSlots');
+  return addDoc(col, {
+    uid,
+    date: dateStr,
+    ...blockData,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Get blocked slots for a physio.
+ * @param {string} uid
+ * @param {string} dateStr
+ */
+export async function getBlockedSlots(uid, dateStr) {
+  if (!db) return [];
+  const col = collection(db, 'blockedSlots');
+  const q = query(col, where('uid', '==', uid), where('date', '==', dateStr));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 /**

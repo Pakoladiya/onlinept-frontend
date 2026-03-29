@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Clinics ──────────────────────────────────────────────────────────
+    match /clinics/{clinicId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && (resource.data.uid == request.auth.uid || request.auth.uid == 'SUPER_ADMIN_UID');
+    }
+
+    // ── Users ──────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth.uid == userId;
+    }
+
+    // ── Bookings ───────────────────────────────────────────────────────
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null
+        && (resource.data.physioId == request.auth.uid || resource.data.patientId == request.auth.uid);
+      allow create: if request.auth != null;
+      allow update: if request.auth != null
+        && (resource.data.physioId == request.auth.uid || resource.data.patientId == request.auth.uid);
+    }
+
+    // ── Patients ───────────────────────────────────────────────────────
+    match /patients/{patientId} {
+      allow read: if request.auth != null && resource.data.physioId == request.auth.uid;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && resource.data.physioId == request.auth.uid;
+      allow delete: if false;
+
+      // ── HEP Subcollection ──────────────────────────────────────────
+      match /hep/{hepId} {
+        allow read: if request.auth != null && get(/databases/$(database)/documents/patients/$(patientId)).data.physioId == request.auth.uid;
+        allow write: if request.auth != null && get(/databases/$(database)/documents/patients/$(patientId)).data.physioId == request.auth.uid;
+      }
+    }
+
+    // ── Blocked Slots ─────────────────────────────────────────────────
+    match /blockedSlots/{slotId} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
+  }
+}

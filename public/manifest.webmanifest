@@ -1,7 +1,7 @@
 {
-  "name": "Physio Consultation",
-  "short_name": "Physio",
-  "description": "Online physiotherapy consultation platform",
+  "name": "Physio On Web",
+  "short_name": "PhysioOnWeb",
+  "description": "Physio On Web — Professional virtual physical therapy clinic.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

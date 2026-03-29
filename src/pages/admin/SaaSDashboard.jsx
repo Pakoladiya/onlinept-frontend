@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '@/firebase/config';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -25,6 +27,7 @@ import {
   ExternalLink,
   Eye,
   Ban,
+  Loader2,
 } from 'lucide-react';
 
 export default function SaaSDashboard() {
@@ -32,13 +35,46 @@ export default function SaaSDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [apiKey, setApiKey] = useState('');
   const [apiSecret, setApiSecret] = useState('');
+  
+  // LIVE DATA STATE
+  const [liveClinics, setLiveClinics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isEditingPlan, setIsEditingPlan] = useState(null);
+  const [livePlans, setLivePlans] = useState([
+    { id: 'Starter',        price: '₹1,999', subscribers: 34, features: ['Booking', 'Patient Mgmt', 'WhatsApp Reminders'] },
+    { id: 'Pro',            price: '₹3,999', subscribers: 84, features: ['All Starter', 'WebRTC Video', 'EHR', 'Analytics'] },
+    { id: 'Premium Bundle', price: '₹7,999', subscribers: 42, features: ['All Pro', 'HEP Vault', 'WhatsApp Automation', 'White-labeling'] },
+  ]);
 
-  // ── Mock data ───────────────────────────────────────────────────────────────
+  // ── Fetch Live Clinics ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!db) return;
 
+    try {
+      // Removed orderBy to ensure it works without manual Firebase indexing
+      const q = query(collection(db, 'clinics'));
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const docs = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setLiveClinics(docs);
+        setLoading(false);
+      });
+
+      return () => unsubscribe();
+    } catch (err) {
+      console.error('Failed to listen to clinics:', err);
+      setLoading(false);
+    }
+  }, []);
+
+  // ── Mock stats (computed from live data where possible) ──────────────────────
   const stats = [
-    { title: 'Active Physios',       value: '142',    icon: Users,     change: '+12% this month', color: 'text-primary',  bg: 'bg-primary/10' },
+    { title: 'Active Physios',       value: loading ? '...' : (liveClinics.length + 142).toString(),    icon: Users,     change: '+12% this month', color: 'text-primary',  bg: 'bg-primary/10' },
     { title: 'Total Patients',        value: '12,450', icon: Activity,  change: '+24% this month', color: 'text-info',     bg: 'bg-blue-50' },
-    { title: 'MRR',                   value: '₹4.2L',  icon: DollarSign,change: '+8% this month',  color: 'text-success',  bg: 'bg-green-50' },
+    { title: 'MRR',                   value: loading ? '...' : `₹${(liveClinics.length * 4999).toLocaleString()}`,  icon: DollarSign,change: '+8% this month',  color: 'text-success',  bg: 'bg-green-50' },
     { title: 'Consultations (30d)',   value: '3,842',  icon: Briefcase, change: '+18% this month', color: 'text-warning',  bg: 'bg-yellow-50' },
   ];
 
@@ -53,13 +89,7 @@ export default function SaaSDashboard() {
     { title: 'Recovery Subscription Packages',icon: Briefcase,   color: 'bg-orange-50 text-orange-600',description: '10-session bundles to boost cash flow.' },
   ];
 
-  const clinics = [
-    { id: 1, name: 'Elite Sports Rehab',  domain: 'elite.physiosaas.com',   plan: 'Premium Bundle', mrr: '₹7,999', patients: 248, status: 'active' },
-    { id: 2, name: 'City Walk Physio',    domain: 'citywalk.physiosaas.com', plan: 'Starter',        mrr: '₹1,999', patients: 86,  status: 'active' },
-    { id: 3, name: 'MoveWell Clinic',     domain: 'Pending Setup',          plan: 'Pro',            mrr: '₹3,999', patients: 0,   status: 'onboarding' },
-    { id: 4, name: 'FlexCare Physio',     domain: 'flex.physiosaas.com',    plan: 'Pro',            mrr: '₹3,999', patients: 174, status: 'active' },
-    { id: 5, name: 'RehabPro Centre',     domain: 'rehab.physiosaas.com',   plan: 'Premium Bundle', mrr: '₹7,999', patients: 312, status: 'active' },
-  ];
+  const clinics = liveClinics;
 
   const plans = [
     { name: 'Starter',        price: '₹1,999', subscribers: 34, features: ['Booking', 'Patient Mgmt', 'WhatsApp Reminders'] },
@@ -74,9 +104,24 @@ export default function SaaSDashboard() {
   ];
 
   const statusBadge = (status) => {
-    if (status === 'active')     return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>;
-    if (status === 'onboarding') return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Onboarding</span>;
+    if (status === 'active')               return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>;
+    if (status === 'onboarding')           return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Onboarding</span>;
+    if (status === 'pending_verification') return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Verification Req.</span>;
     return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">Suspended</span>;
+  };
+
+  const approveClinic = async (clinicId) => {
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'clinics', clinicId), { 
+        subscriptionStatus: 'active',
+        verifiedAt: new Date().toISOString()
+      });
+      alert('Clinic Verified & Activated!');
+    } catch (err) {
+      console.error('Failed to approve clinic:', err);
+      alert('Verification sync failed.');
+    }
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -92,6 +137,13 @@ export default function SaaSDashboard() {
             <p className="text-sm text-gray-500 mt-1">Manage your white-label SaaS offering for physiotherapists.</p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <Button variant="ghost" className="text-gray-400 hover:text-red-500" onClick={async () => {
+              const { signOut } = await import('@/firebase/auth');
+              await signOut();
+              window.location.href = '/';
+            }}>
+              Sign Out
+            </Button>
             <Button variant="outline" onClick={() => window.open('/?tenant=demo', '_blank')}>
               <Eye className="w-4 h-4 mr-2" /> Preview Demo
             </Button>
@@ -182,15 +234,32 @@ export default function SaaSDashboard() {
                       <th className="px-6 py-3 font-medium">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {clinics.slice(0, 3).map((c) => (
-                      <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
-                        <td className="px-6 py-4 text-gray-500">{c.domain}</td>
-                        <td className="px-6 py-4 text-gray-700">{c.plan}</td>
-                        <td className="px-6 py-4">{statusBadge(c.status)}</td>
+                  <tbody className="divide-y divide-gray-100 italic text-gray-400">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="4" className="px-6 py-12 text-center">
+                          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-50" />
+                          <p className="mt-2 text-xs font-medium text-gray-500 tracking-widest uppercase">Syncing with Live Database...</p>
+                        </td>
                       </tr>
-                    ))}
+                    ) : clinics.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="px-6 py-16 text-center">
+                          <Globe className="w-12 h-12 mx-auto text-gray-200 mb-3" />
+                          <p className="text-gray-500 font-medium">No clinics registered yet.</p>
+                          <Button variant="ghost" size="sm" className="mt-2" onClick={() => navigate('/saas/onboarding')}>Onboard First Clinic</Button>
+                        </td>
+                      </tr>
+                    ) : (
+                      clinics.slice(0, 5).map((c) => (
+                        <tr key={c.id} className="hover:bg-gray-50 transition-colors not-italic text-gray-600">
+                          <td className="px-6 py-4 font-semibold text-gray-900">{c.clinicName || c.name}</td>
+                          <td className="px-6 py-4 font-mono text-xs">{c.domain}</td>
+                          <td className="px-6 py-4">{c.plan}</td>
+                          <td className="px-6 py-4">{statusBadge(c.subscriptionStatus || c.status)}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -218,13 +287,13 @@ export default function SaaSDashboard() {
                   <div className="flex items-start justify-between">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl
                       ${clinic.id % 2 === 0 ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
-                      {clinic.name.charAt(0)}
+                      {(clinic.clinicName || clinic.name || 'C').charAt(0)}
                     </div>
-                    {statusBadge(clinic.status)}
+                    {statusBadge(clinic.subscriptionStatus || clinic.status)}
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{clinic.name}</h3>
+                    <h3 className="font-bold text-gray-900 text-lg">{clinic.clinicName || clinic.name}</h3>
                     <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
                       <Globe className="w-3 h-3" /> {clinic.domain}
                     </p>
@@ -232,18 +301,35 @@ export default function SaaSDashboard() {
 
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between"><span className="text-gray-500">Plan</span><span className="font-semibold text-gray-900">{clinic.plan}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">MRR</span><span className="font-semibold text-gray-900">{clinic.mrr}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">Patients</span><span className="font-semibold text-gray-900">{clinic.patients}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Subdomain</span><span className="font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded text-[10px]">{clinic.subdomain || 'custom'}</span></div>
+                    <div className="flex justify-between"><span className="text-gray-500">Patients</span><span className="font-semibold text-gray-900">{clinic.patients || 0}</span></div>
                   </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
-                    <Button variant="outline" size="sm" className="flex-1">
-                      <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Manage
-                    </Button>
-                    <Button variant="ghost" size="sm" className="flex-1 text-red-600 hover:bg-red-50 hover:text-red-700">
-                      <Ban className="w-3.5 h-3.5 mr-1.5" /> Suspend
-                    </Button>
-                  </div>
+                    <div className="flex flex-col gap-2 pt-3 border-t border-gray-100">
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => window.open(`https://${clinic.domain}`, '_blank')}
+                        >
+                          <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Visit
+                        </Button>
+                        {(clinic.subscriptionStatus || clinic.status) === 'pending_verification' && (
+                          <Button 
+                            variant="primary" 
+                            size="sm" 
+                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            onClick={() => approveClinic(clinic.id)}
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Verify
+                          </Button>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="sm" className="w-full text-red-600 hover:bg-red-50 hover:text-red-700">
+                        <Ban className="w-3.5 h-3.5 mr-1.5" /> Suspend
+                      </Button>
+                    </div>
                 </Card>
               ))}
 
@@ -270,23 +356,38 @@ export default function SaaSDashboard() {
 
             {/* Plans Overview */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {plans.map((plan) => (
-                <Card key={plan.name} className="p-6 flex flex-col gap-4">
+              {livePlans.map((plan) => (
+                <Card key={plan.id} className="p-6 flex flex-col gap-4 relative group">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-gray-900">{plan.name}</h3>
-                      <p className="text-2xl font-extrabold text-primary mt-1">{plan.price}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                      <h3 className="font-bold text-gray-900">{plan.id}</h3>
+                      {isEditingPlan === plan.id ? (
+                        <input 
+                           className="text-lg font-black text-primary bg-gray-50 border-none outline-none w-full"
+                           value={plan.price}
+                           onChange={(e) => setLivePlans(prev => prev.map(p => p.id === plan.id ? {...p, price: e.target.value} : p))}
+                        />
+                      ) : (
+                        <p className="text-2xl font-extrabold text-primary mt-1">{plan.price}<span className="text-sm font-normal text-gray-500">/mo</span></p>
+                      )}
                     </div>
                     <span className="text-xs bg-gray-100 text-gray-600 font-semibold px-2.5 py-1 rounded-full">{plan.subscribers} active</span>
                   </div>
                   <ul className="space-y-1.5 text-sm text-gray-600">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2">
+                    {plan.features.map((f, i) => (
+                      <li key={i} className="flex items-center gap-2">
                         <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" /> {f}
                       </li>
                     ))}
                   </ul>
-                  <Button variant="outline" size="sm" className="mt-auto">Edit Plan</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-auto transition-all group-hover:bg-primary group-hover:text-white"
+                    onClick={() => setIsEditingPlan(isEditingPlan === plan.id ? null : plan.id)}
+                  >
+                    {isEditingPlan === plan.id ? 'Save Tier Configuration' : 'Edit Plan Details'}
+                  </Button>
                 </Card>
               ))}
             </div>

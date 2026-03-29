@@ -12,9 +12,12 @@ import HEPBuilderPage from '@/pages/HEPBuilderPage';
 import PostSessionPage from '@/pages/PostSessionPage';
 import OnboardingPage from '@/pages/OnboardingPage';
 import MasterAdminPage from '@/pages/MasterAdminPage';
+import SettingsPage from '@/pages/SettingsPage';
 import SaaSDashboard from '@/pages/admin/SaaSDashboard';
 import SaaSLandingPage from '@/pages/admin/SaaSLandingPage';
 import ClinicOnboardingFlow from '@/pages/admin/ClinicOnboardingFlow';
+import ClinicSettings from '@/pages/clinic/ClinicSettings';
+import SuperAdminGuard from '@/components/auth/SuperAdminGuard';
 
 export default function AppRouter() {
   return (
@@ -31,9 +34,16 @@ export default function AppRouter() {
       <Route path="/dashboard" element={<PhysioDashboard />} />
       <Route path="/hep" element={<HEPBuilderPage />} />
       <Route path="/post-session/:bookingId" element={<PostSessionPage />} />
-      <Route path="/admin" element={<SaaSDashboard />} />
-      <Route path="/saas" element={<SaaSLandingPage />} />
-      <Route path="/saas/onboarding" element={<ClinicOnboardingFlow />} />
+
+      {/* ── Physio Own Settings (Firebase Auth) ── */}
+      <Route path="/settings" element={<SettingsPage />} />
+
+      {/* ── Master Admin (SuperAdminGuard) ── */}
+      <Route path="/admin" element={<SuperAdminGuard><SaaSDashboard /></SuperAdminGuard>} />
+      <Route path="/saas" element={<SuperAdminGuard><SaaSLandingPage /></SuperAdminGuard>} />
+      <Route path="/saas/onboarding" element={<SuperAdminGuard><ClinicOnboardingFlow /></SuperAdminGuard>} />
+      <Route path="/saas/settings" element={<SuperAdminGuard><ClinicSettings /></SuperAdminGuard>} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

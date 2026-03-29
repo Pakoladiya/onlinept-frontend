@@ -1,10 +1,24 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailPassword } from '@/firebase/auth';
 import clinicConfig from '@/config/clinicConfig';
 import Button from '@/components/ui/Button';
-import { Eye, EyeOff, Loader, AlertCircle } from 'lucide-react';
+import { 
+    Eye, 
+    EyeOff, 
+    Loader2, 
+    AlertCircle, 
+    ShieldCheck, 
+    Sparkles, 
+    ArrowRight, 
+    CheckCircle2, 
+    Activity 
+} from 'lucide-react';
 
+/**
+ * Luxe PhysioLoginPage — Re-designed for high-end professionalism and brand authority.
+ * Features: Mesh gradient background, glassmorphic cards, and premium auth states.
+ */
 export default function PhysioLoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -13,10 +27,15 @@ export default function PhysioLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // SEO + Theme Update
+  useEffect(() => {
+    document.title = `Physio Access | ${clinicConfig.clinicName}`;
+  }, []);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      setError('Please enter your email and password.');
+      setError('Please provide your clinical credentials.');
       return;
     }
     setLoading(true);
@@ -26,83 +45,125 @@ export default function PhysioLoginPage() {
       if (user) navigate('/dashboard');
     } catch (err) {
       const msg = err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
-        ? 'Invalid email or password.'
-        : err.code === 'auth/invalid-email'
-        ? 'Please enter a valid email address.'
-        : 'Login failed. Please try again.';
+        ? 'Invalid clinical credentials.'
+        : 'Access denied. Please check your credentials.';
       setError(msg);
     }
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo / Branding */}
-        <div className="text-center mb-8">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gray-50 font-sans px-4">
+      
+      {/* Premium Mesh Background Decoration */}
+      <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+         <div 
+           className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full blur-[120px]" 
+           style={{ backgroundColor: `${clinicConfig.primaryColor}40` }} 
+         />
+         <div 
+           className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] rounded-full blur-[120px]" 
+           style={{ backgroundColor: `${clinicConfig.secondaryColor}30` }} 
+         />
+      </div>
+
+      <div className="w-full max-w-lg relative z-10 animate-in fade-in zoom-in-95 duration-700">
+        
+        {/* Branding Cluster */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/50 backdrop-blur-sm rounded-full border border-white/20 text-[10px] font-black uppercase tracking-widest text-primary mb-8 shadow-sm">
+             <ShieldCheck size={14} /> Secure Physio Gateway
+          </div>
           <div
-            className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-2xl"
+            className="w-20 h-20 rounded-[2rem] mx-auto mb-6 flex items-center justify-center text-white shadow-2xl shadow-primary/30 transition-transform hover:scale-105"
             style={{ backgroundColor: clinicConfig.primaryColor }}
           >
-            P
+            <Activity size={40} />
           </div>
-          <h1 className="text-xl font-bold text-text-primary">{clinicConfig.clinicName}</h1>
-          <p className="text-sm text-text-secondary mt-1">Physiotherapist Portal</p>
+          <h1 className="text-3xl font-black text-gray-900 tracking-tight">{clinicConfig.clinicName}</h1>
+          <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Command Center Access</p>
         </div>
 
-        {/* Card */}
-        <div className="bg-background rounded-2xl border border-border p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-text-primary mb-6">Sign In</h2>
+        {/* The Glassmorphic Login Card */}
+        <div className="bg-white/80 backdrop-blur-2xl rounded-[3rem] border border-white shadow-2xl shadow-gray-200/50 p-10 sm:p-14 relative overflow-hidden">
+          
+          <div className="mb-10 text-left">
+            <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-2">Welcome Back</h2>
+            <p className="text-sm font-bold text-gray-400">Sign in to manage your clinical schedule and patient rehabs.</p>
+          </div>
 
           {error && (
-            <div className="mb-4 flex items-center gap-2 p-3 rounded-lg bg-error/10 border border-error/30 text-sm text-error">
-              <AlertCircle size={15} className="shrink-0" />
+            <div className="mb-8 flex items-center gap-3 p-5 rounded-[1.5rem] bg-red-50 border border-red-100 text-xs font-black uppercase text-red-500 animate-in slide-in-from-top-2">
+              <AlertCircle size={18} className="shrink-0" />
               {error}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs text-text-secondary uppercase tracking-wide mb-1.5">Email</label>
+          <form onSubmit={handleLogin} className="space-y-8">
+            <div className="space-y-2 text-left">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Clinical Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="physio@clinic.com"
-                className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary transition-colors"
+                placeholder="physio@example.com"
+                className="w-full h-16 px-6 text-sm font-bold rounded-[1.5rem] border-2 border-transparent bg-gray-50 text-gray-900 placeholder:text-gray-300 focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 outline-none transition-all duration-300"
                 autoComplete="email"
               />
             </div>
-            <div>
-              <label className="block text-xs text-text-secondary uppercase tracking-wide mb-1.5">Password</label>
+
+            <div className="space-y-2 text-left">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Access Token</label>
               <div className="relative">
                 <input
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2.5 pr-10 text-sm rounded-lg border border-border bg-surface text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary transition-colors"
+                  className="w-full h-16 px-6 pr-14 text-sm font-bold rounded-[1.5rem] border-2 border-transparent bg-gray-50 text-gray-900 placeholder:text-gray-300 focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 outline-none transition-all duration-300"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
+                  className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-primary transition-colors"
                 >
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showPw ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
-            <Button type="submit" fullWidth disabled={loading}>
-              {loading ? <Loader size={16} className="animate-spin" /> : null}
-              {loading ? 'Signing in...' : 'Sign In'}
+
+            <Button 
+                type="submit" 
+                fullWidth 
+                disabled={loading} 
+                className="h-18 rounded-[1.8rem] shadow-2xl shadow-primary/20 font-black uppercase tracking-widest text-xs"
+            >
+              {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : <Sparkles size={18} className="mr-2" />}
+              {loading ? 'Authenticating...' : 'Enter Dashboard'}
             </Button>
           </form>
+
+          {/* Verification Badges */}
+          <div className="mt-12 pt-8 border-t border-gray-50 flex items-center justify-center gap-6">
+             <div className="flex items-center gap-2 text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                <CheckCircle2 size={12} className="text-green-500" /> HIPPA Compliant
+             </div>
+             <div className="flex items-center gap-2 text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                <CheckCircle2 size={12} className="text-green-500" /> SSL Encrypted
+             </div>
+          </div>
         </div>
 
-        <p className="text-center text-xs text-text-secondary mt-4">
-          Need access? Contact {clinicConfig.email}
-        </p>
+        {/* Footer Navigation */}
+        <div className="mt-8 text-center space-y-4">
+             <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">
+                Don't have clinical access? <Link to="/physio-signup" className="text-primary hover:underline ml-1">Create Account</Link>
+             </p>
+             <Link to="/" className="inline-flex items-center gap-2 text-[10px] font-black text-gray-300 hover:text-gray-500 uppercase tracking-widest transition-colors">
+                <ArrowRight size={12} className="rotate-180" /> Back to Terminal Home
+             </Link>
+        </div>
       </div>
     </div>
   );

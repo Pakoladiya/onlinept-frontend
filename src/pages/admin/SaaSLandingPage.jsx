@@ -92,7 +92,7 @@ export default function SaaSLandingPage() {
               </span>
             </div>
             <div className="flex items-center space-x-4">
-              <Link to="/admin" className="text-sm font-medium text-gray-500 hover:text-gray-900">
+              <Link to="/dashboard-login" className="text-sm font-medium text-gray-500 hover:text-gray-900">
                 Physio Login
               </Link>
               <Button size="sm" className="hidden sm:flex" onClick={handleStartOnboarding}>

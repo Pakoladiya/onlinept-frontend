@@ -30,17 +30,21 @@ export const updateClinicConfig = (newConfig) => {
   });
 
   // Re-compute derived config values globally
-  derivedConfig.cssVariables['--color-primary'] = clinicConfig.primaryColor;
-  derivedConfig.cssVariables['--color-primary-hover'] = shadeColor(clinicConfig.primaryColor, -10);
-  derivedConfig.cssVariables['--color-primary-light'] = shadeColor(clinicConfig.primaryColor, 92);
-  derivedConfig.cssVariables['--color-primary-dark'] = shadeColor(clinicConfig.primaryColor, -15);
-  derivedConfig.cssVariables['--color-secondary'] = clinicConfig.secondaryColor;
-  derivedConfig.cssVariables['--color-secondary-hover'] = shadeColor(clinicConfig.secondaryColor, -10);
-  derivedConfig.cssVariables['--color-secondary-light'] = shadeColor(clinicConfig.secondaryColor, 92);
+  if (clinicConfig.primaryColor) {
+    derivedConfig.cssVariables['--color-primary'] = clinicConfig.primaryColor;
+    derivedConfig.cssVariables['--color-primary-hover'] = shadeColor(clinicConfig.primaryColor, -10);
+    derivedConfig.cssVariables['--color-primary-light'] = shadeColor(clinicConfig.primaryColor, 92);
+    derivedConfig.cssVariables['--color-primary-dark'] = shadeColor(clinicConfig.primaryColor, -15);
+  }
+  if (clinicConfig.secondaryColor) {
+    derivedConfig.cssVariables['--color-secondary'] = clinicConfig.secondaryColor;
+    derivedConfig.cssVariables['--color-secondary-hover'] = shadeColor(clinicConfig.secondaryColor, -10);
+    derivedConfig.cssVariables['--color-secondary-light'] = shadeColor(clinicConfig.secondaryColor, 92);
+  }
 
-  derivedConfig.whatsappClean = clinicConfig.whatsappNumber ? clinicConfig.whatsappNumber.replace(/\s|\+|\D/g, '') : '';
+  derivedConfig.whatsappClean = (clinicConfig.whatsappNumber || '').replace(/\s|\+|\D/g, '');
   derivedConfig.whatsappLink = clinicConfig.whatsappNumber 
-    ? `https://wa.me/${derivedConfig.whatsappClean}?text=${encodeURIComponent(clinicConfig.whatsappMessagePrefill)}`
+    ? `https://wa.me/${derivedConfig.whatsappClean}?text=${encodeURIComponent(clinicConfig.whatsappMessagePrefill || '')}`
     : '';
 };
 
@@ -57,6 +61,8 @@ const clinicConfig = {
   experience: '8+ years',
   photo: '/assets/physio-photo.jpg',
   bio: 'Specializes in musculoskeletal disorders, sports rehabilitation, and online physiotherapy consultation. Committed to evidence-based practice and personalized care plans.',
+  bio_hi: '',
+  bio_gu: '',
 
   // ── Brand Colors ─────────────────────────────────────────────
   // primaryColor: CTAs, active states, primary actions
@@ -69,6 +75,7 @@ const clinicConfig = {
   whatsapp: '916355108454',
   email: 'info@nijanandfitness.com',
   address: '241, Royal Arcade, 2nd Floor, Varachha, Surat',
+  mapUrl: '',
   city: 'Surat',
   state: 'Gujarat',
   timezone: 'Asia/Kolkata',
@@ -77,6 +84,18 @@ const clinicConfig = {
   whatsappNumber: '916355108454',
   whatsappMessagePrefill: 'Hi, I would like to book a physiotherapy consultation.',
 
+  // ── Social & Reputation ──────────────────────────────────────
+  instagramUrl: '',
+  facebookUrl: '',
+  youtubeUrl: '',
+  twitterUrl: '',
+  googleReviewUrl: '',
+
+  // ── Gallery Showcase ────────────────────────────────────────
+  galleryBanner: '',
+  galleryImage1: '',
+  galleryImage2: '',
+
   // ── Video Platform ─────────────────────────────────────────
   // "zoom" | "meet" | "whatsapp"
   videoMode: 'zoom',
@@ -84,6 +103,8 @@ const clinicConfig = {
 
   // ── Payments ────────────────────────────────────────────────
   razorpayEnabled: false,
+  razorpayKeyId: '',
+  razorpayKeySecret: '',
   currency: 'INR',
   gstNumber: '',
 
@@ -162,10 +183,12 @@ export const derivedConfig = {
     '--color-info': '#3b82f6',
   },
 
-  whatsappLink: `https://wa.me/${clinicConfig.whatsappNumber.replace(/\s|\+|\D/g, '')}?text=${encodeURIComponent(clinicConfig.whatsappMessagePrefill)}`,
-
-  whatsappClean: clinicConfig.whatsappNumber.replace(/\s|\+|\D/g, ''),
+  whatsappLink: '',
+  whatsappClean: '',
 };
+
+// Initialize safe values
+updateClinicConfig({});
 
 /**
  * Shade a hex color.

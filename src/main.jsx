@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import ThemeProvider from '@/components/ThemeProvider';
+import { LanguageProvider } from '@/context/LanguageContext';
 import AppRouter from '@/routes/AppRouter';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import '@/index.css';
@@ -21,7 +22,9 @@ async function mountApp() {
         <ThemeProvider />
         <BrowserRouter>
           <ErrorBoundary>
-            <AppRouter />
+            <LanguageProvider>
+              <AppRouter />
+            </LanguageProvider>
           </ErrorBoundary>
         </BrowserRouter>
       </StrictMode>

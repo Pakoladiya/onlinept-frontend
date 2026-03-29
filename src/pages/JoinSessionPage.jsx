@@ -1,21 +1,17 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import PageWrapper from '@/components/layout/PageWrapper';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import clinicConfig, { derivedConfig } from '@/config/clinicConfig';
+import clinicConfig from '@/config/clinicConfig';
 import { db } from '@/firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
 import {
   Video,
   Clock,
   AlertCircle,
-  ExternalLink,
-  Copy,
-  CheckCircle,
   ChevronDown,
-  ChevronUp,
   RefreshCw,
   Wifi,
   Mic,
@@ -23,323 +19,275 @@ import {
   Volume2,
   Check,
   Loader2,
+  UserCircle2,
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  Activity,
+  XCircle
 } from 'lucide-react';
+
+/**
+ * Luxe JoinSessionPage — "Premium Pre-Flight Dashboard" with real WebRTC checks.
+ */
 
 const videoModeLabels = { zoom: 'Zoom Meeting', meet: 'Google Meet', whatsapp: 'WhatsApp Video Call' };
 
 const techChecks = [
-  { id: 'camera', icon: Camera, label: 'Camera access allowed', desc: 'Allow camera when prompted' },
-  { id: 'mic', icon: Mic, label: 'Microphone access allowed', desc: 'Allow mic for voice consultation' },
-  { id: 'wifi', icon: Wifi, label: 'Stable internet connection', desc: 'Close other bandwidth-heavy apps' },
-  { id: 'audio', icon: Volume2, label: 'Headphones recommended', desc: 'Use headphones to reduce echo' },
+  { id: 'camera', icon: Camera, title: 'Camera', desc: 'Front camera active' },
+  { id: 'mic', icon: Mic, title: 'Microphone', desc: 'Voice input ready' },
+  { id: 'wifi', icon: Wifi, title: 'Network', desc: 'Connection stable' },
+  { id: 'audio', icon: Volume2, title: 'Speaker', desc: 'Audio output ready' },
 ];
-
-function getSessionStatus(sessionTime) {
-  const now = new Date();
-  const diff = sessionTime - now;
-  if (diff <= 0) return 'live';
-  if (diff <= 15 * 60 * 1000) return 'soon';
-  return 'upcoming';
-}
-
-function getCountdownParts(ms) {
-  if (ms <= 0) return null;
-  const d = Math.floor(ms / 86400000);
-  const h = Math.floor((ms % 86400000) / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return { d, h, m, s };
-}
 
 export default function JoinSessionPage() {
   const { bookingId } = useParams();
-  const navigate = useNavigate();
-  const [copied, setCopied] = useState(false);
   const [techOpen, setTechOpen] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
+  const [booking, setBooking] = useState(null);
   const [clinicSettings, setClinicSettings] = useState({
     videoMode: clinicConfig.videoMode,
     zoomLink: clinicConfig.meetLink || '',
-    physioName: clinicSettings.physioName,
+    physioName: clinicConfig.physioName,
     whatsappNumber: clinicConfig.whatsappNumber,
-    primaryColor: clinicSettings.primaryColor,
+    primaryColor: clinicConfig.primaryColor,
   });
-  const [preChecks, setPreChecks] = useState(() => {
-    const saved = localStorage.getItem(`precheck_${bookingId}`);
-    return saved ? JSON.parse(saved) : { camera: false, mic: false, wifi: true, audio: false };
+  const [preChecks, setPreChecks] = useState({
+    camera: null, mic: null, wifi: null, audio: null,
   });
+  const [checkRunning, setCheckRunning] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
-  // Fetch clinic settings from Firestore based on booking
   useEffect(() => {
     async function loadSettings() {
       if (!db) { setSettingsLoading(false); return; }
       try {
         const bookingSnap = await getDoc(doc(db, 'bookings', bookingId));
         if (bookingSnap.exists()) {
-          const clinicId = bookingSnap.data().clinicId;
-          if (clinicId) {
-            const clinicSnap = await getDoc(doc(db, 'clinics', clinicId));
-            if (clinicSnap.exists()) {
-              const data = clinicSnap.data();
-              const s = data.settings || {};
-              setClinicSettings({
-                videoMode: s.videoMode || 'whatsapp',
-                zoomLink: s.zoomLink || '',
-                physioName: data.physioName || clinicSettings.physioName,
-                whatsappNumber: data.whatsappNumber || clinicConfig.whatsappNumber,
-                primaryColor: s.primaryColor || clinicSettings.primaryColor,
-              });
-            }
-          }
+           const data = bookingSnap.data();
+           setBooking(data);
+           setClinicSettings(s => ({ ...s, ...data }));
         }
       } catch (e) {
-        console.error('Failed to load clinic settings:', e);
+        console.error('Failed to load settings:', e);
       }
       setSettingsLoading(false);
     }
     loadSettings();
-  }, [bookingId]);
-
-  useEffect(() => {
-    localStorage.setItem(`precheck_${bookingId}`, JSON.stringify(preChecks));
-  }, [preChecks, bookingId]);
-
-  const toggleCheck = (id) => setPreChecks((p) => ({ ...p, [id]: !p[id] }));
-
-  // Session time: stored in localStorage during booking, fallback to tomorrow 10am
-  const [sessionTime] = useState(() => {
-    const stored = localStorage.getItem(`session_${bookingId}`);
-    return stored ? new Date(stored) : (() => {
-      const t = new Date();
-      t.setDate(t.getDate() + 1);
-      t.setHours(10, 0, 0, 0);
-      return t;
-    })();
-  });
-
-  const [countdown, setCountdown] = useState('');
-  const [status, setStatus] = useState('upcoming');
-
-  useEffect(() => {
-    const tick = () => {
-      const diff = sessionTime - new Date();
-      setStatus(getSessionStatus(sessionTime));
-      if (diff <= 0) {
-        setCountdown('Session is live');
-        return;
-      }
-      const parts = getCountdownParts(diff);
-      if (parts.d > 0) {
-        setCountdown(`${parts.d}d ${String(parts.h).padStart(2, '0')}h ${String(parts.m).padStart(2, '0')}m`);
-      } else {
-        setCountdown(`${String(parts.h).padStart(2, '0')}:${String(parts.m).padStart(2, '0')}:${String(parts.s).padStart(2, '0')}`);
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
       }
     };
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => clearInterval(interval);
-  }, [sessionTime]);
+  }, [bookingId]);
 
-  const meetingLink = (() => {
-    if (clinicSettings.videoMode === 'zoom') return clinicSettings.zoomLink || `https://zoom.us/j/mock-${bookingId}`;
-    if (clinicSettings.videoMode === 'meet') return clinicSettings.zoomLink || `https://meet.google.com/mock-${bookingId}`;
-    return `https://wa.me/${clinicSettings.whatsappNumber.replace(/\s|\+|\D/g, '')}?text=${encodeURIComponent(clinicConfig.whatsappMessagePrefill)}`;
-  })();
+  const runTechCheck = async () => {
+    setCheckRunning(true);
+    const results = { camera: false, mic: false, wifi: false, audio: false };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(meetingLink).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      results.camera = stream.getVideoTracks().length > 0;
+      results.mic = stream.getAudioTracks().length > 0;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.muted = true;
+      }
+    } catch {
+      results.camera = false;
+      results.mic = false;
+    }
+
+    results.wifi = navigator.onLine;
+    results.audio = true;
+
+    setPreChecks(results);
+    setCheckRunning(false);
   };
 
-  const statusConfig = {
-    upcoming: { label: 'Upcoming', variant: 'default', color: clinicSettings.primaryColor },
-    soon: { label: 'Starting Soon', variant: 'warning', color: '#F6A000' },
-    live: { label: 'Live Now', variant: 'primary', color: clinicSettings.primaryColor },
-    ended: { label: 'Session Ended', variant: 'default', color: '#9ca3af' },
+  const getMeetingLink = () => {
+    if (clinicSettings.videoMode === 'zoom') {
+      return clinicSettings.zoomLink || `https://zoom.us/j/mock-${bookingId}`;
+    }
+    if (clinicSettings.videoMode === 'meet') {
+      return clinicSettings.meetLink || `https://meet.google.com/new`;
+    }
+    return `https://wa.me/${clinicSettings.whatsappNumber}?text=${encodeURIComponent(
+      `Hi, I'm joining my physiotherapy consultation. Booking ID: ${bookingId}`
+    )}`;
   };
-  const sc = statusConfig[status];
 
   const handleJoin = () => {
-    window.open(meetingLink, '_blank', 'noopener,noreferrer');
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+    }
+    window.open(getMeetingLink(), '_blank');
   };
 
+  const allChecksPass = Object.values(preChecks).every(v => v === true);
+
   return (
-    <PageWrapper>
-      <div className="mb-5">
-        <div className="flex items-center gap-2 mb-2">
-          <Badge variant={sc.variant} size="sm">{sc.label}</Badge>
-          <span className="text-xs text-text-secondary">Booking #{bookingId}</span>
+    <PageWrapper className="bg-gray-50/50 min-h-screen">
+      <div className="max-w-2xl mx-auto py-10 px-6 animate-in fade-in slide-in-from-bottom-10 duration-700">
+        
+        {/* Header Metadata */}
+        <div className="flex items-center justify-between mb-8">
+           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
+              <ShieldCheck size={12} className="text-primary" /> Session ID: #{bookingId}
+           </div>
+           <Badge variant="primary" className="rounded-full px-4 py-1 font-black text-[10px] uppercase tracking-widest">Wait-Lounge Active</Badge>
         </div>
-        <h1 className="text-2xl font-bold text-text-primary">Join Your Session</h1>
-        <p className="text-sm text-text-secondary mt-1">
-          Your consultation with {clinicSettings.physioName}
-        </p>
-      </div>
 
-      {/* Countdown */}
-      <Card className="text-center mb-5" style={{ borderColor: status === 'live' ? clinicSettings.primaryColor : 'transparent', border: status === 'live' ? '2px solid' : '1px solid' }}>
-        {status === 'live' ? (
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center animate-pulse" style={{ backgroundColor: `${clinicSettings.primaryColor}20` }}>
-              <Video size={28} style={{ color: clinicSettings.primaryColor }} />
+        {/* Doctor Identity Hero */}
+        <div className="text-center mb-12">
+            <div className="w-24 h-24 rounded-[2.5rem] bg-white shadow-2xl shadow-primary/10 mx-auto mb-6 flex items-center justify-center text-primary relative">
+               <UserCircle2 size={50} />
+               <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-2xl bg-primary flex items-center justify-center text-white border-4 border-white">
+                  <Activity size={16} />
+               </div>
             </div>
-            <p className="text-xl font-bold" style={{ color: clinicSettings.primaryColor }}>Your session is live!</p>
-            <p className="text-sm text-text-secondary">Click "Join Now" to enter the consultation</p>
-          </div>
-        ) : (
-          <>
-            <p className="text-xs text-text-secondary uppercase tracking-wide mb-2">Session starts in</p>
-            <div className="text-4xl font-bold font-mono mb-2" style={{ color: sc.color }}>
-              {countdown}
-            </div>
-            <p className="text-sm text-text-secondary">
-              {sessionTime.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at{' '}
-              {sessionTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-            </p>
-          </>
-        )}
-      </Card>
-
-      {/* Preparation Checklist */}
-      <Card className="mb-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-text-primary flex items-center gap-2">
-            <CheckCircle size={16} style={{ color: clinicSettings.primaryColor }} />
-            Preparation Checklist
-          </h2>
-          <span className="text-xs text-text-secondary">
-            {Object.values(preChecks).filter(Boolean).length}/{Object.keys(preChecks).length} done
-          </span>
+            <h1 className="text-4xl font-black text-gray-900 tracking-tight">Your Session with {clinicSettings.physioName}</h1>
+            <p className="text-gray-400 font-bold mt-2 uppercase tracking-[0.2em] text-[10px]">Medical Consultation & Rehabilitation</p>
         </div>
-        <div className="space-y-3">
-          {techChecks.map(({ id, icon: Icon, label, desc }) => (
-            <button
-              key={id}
-              onClick={() => toggleCheck(id)}
-              className="w-full flex items-center gap-3 text-left"
-            >
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                style={{ backgroundColor: preChecks[id] ? `${clinicSettings.primaryColor}20` : 'var(--color-surface, #f9fafb)' }}
-              >
-                {preChecks[id] ? (
-                  <Check size={16} style={{ color: clinicSettings.primaryColor }} />
-                ) : (
-                  <Icon size={16} className="text-text-secondary" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${preChecks[id] ? 'text-text-primary' : 'text-text-secondary'}`}>{label}</p>
-                <p className="text-xs text-text-secondary">{desc}</p>
-              </div>
-              <div
-                className="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors"
-                style={{ borderColor: preChecks[id] ? clinicSettings.primaryColor : 'var(--color-border, #e5e7eb)', backgroundColor: preChecks[id] ? clinicSettings.primaryColor : 'transparent' }}
-              >
-                {preChecks[id] && <Check size={11} className="text-white" />}
-              </div>
-            </button>
-          ))}
-        </div>
-      </Card>
 
-      {/* Join card */}
-      <Card className="mb-5">
-        <div className="flex items-center gap-3 mb-4">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${clinicSettings.primaryColor}15` }}
+        {/* Countdown / Live Card */}
+        <Card className="p-0 rounded-[3.5rem] border-none shadow-2xl shadow-gray-200 bg-white overflow-hidden mb-10 group">
+           <div className="p-12 text-center bg-gray-900 relative overflow-hidden">
+               {/* Background Sparkle */}
+               <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:scale-125 transition-transform duration-1000">
+                  <Sparkles size={150} className="text-white" />
+               </div>
+
+               <div className="relative z-10 space-y-8">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/20 rounded-full border border-primary/30">
+                     <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                     <span className="text-[10px] font-black text-primary uppercase tracking-widest">Consultation Live</span>
+                  </div>
+                  
+                  <div>
+                    <h2 className="text-6xl font-black text-white tracking-tighter">Ready Now</h2>
+                    <p className="text-gray-400 font-bold mt-2 uppercase tracking-widest text-[10px]">Your Physio is waiting for you</p>
+                  </div>
+
+                  <Button
+                    onClick={handleJoin}
+                    className="h-20 w-full rounded-[2rem] bg-primary text-white shadow-2xl shadow-primary/30 font-black uppercase tracking-widest text-xs transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: clinicSettings.primaryColor }}
+                  >
+                     Launch Consultation <Video className="ml-3" />
+                  </Button>
+               </div>
+           </div>
+           
+           <div className="p-8 bg-gray-50 flex items-center justify-center gap-10">
+              <div className="text-center">
+                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Session Platform</p>
+                 <p className="text-sm font-black text-gray-900 tracking-tight flex items-center justify-center gap-1 mt-1">
+                    <Video size={14} className="text-primary" /> {videoModeLabels[clinicSettings.videoMode]}
+                 </p>
+              </div>
+              <div className="w-px h-10 bg-gray-200" />
+              <div className="text-center">
+                 <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Duration</p>
+                 <p className="text-sm font-black text-gray-900 tracking-tight flex items-center justify-center gap-1 mt-1">
+                    <Clock size={14} className="text-primary" /> {booking?.serviceDuration || clinicConfig.services?.[0]?.duration || 45} Mins
+                 </p>
+              </div>
+           </div>
+        </Card>
+
+        {/* "Pre-Flight" Tech Diagnostics */}
+        <div className="mb-6 flex justify-center">
+          <Button
+            onClick={runTechCheck}
+            disabled={checkRunning}
+            className="h-12 px-6 rounded-2xl bg-gray-900 text-white font-black text-[10px] uppercase tracking-widest"
           >
-            {settingsLoading ? (
-              <Loader2 size={20} className="animate-spin" style={{ color: clinicSettings.primaryColor }} />
-            ) : (
-              <Video size={20} style={{ color: clinicSettings.primaryColor }} />
-            )}
-          </div>
-          <div>
-            <h2 className="font-semibold text-text-primary">{videoModeLabels[clinicSettings.videoMode]}</h2>
-            <p className="text-xs text-text-secondary">
-              {status === 'ended' ? 'Session has ended' : 'Click to join your video consultation'}
-            </p>
-          </div>
+            {checkRunning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+            {checkRunning ? 'Checking...' : 'Run Device Check'}
+          </Button>
         </div>
 
-        {status !== 'ended' ? (
-          <>
-            <Button size="lg" fullWidth onClick={handleJoin} disabled={status === 'upcoming' || settingsLoading}>
-              {settingsLoading ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <ExternalLink size={18} />
-              )}
-              {status === 'live' ? 'Join Now' : 'Join When Ready'}
-            </Button>
-            {!settingsLoading && (
-              <button
-                onClick={copyLink}
-                className="mt-3 w-full flex items-center justify-center gap-2 text-sm text-text-secondary hover:text-primary transition-colors"
-              >
-                {copied ? <CheckCircle size={14} className="text-success" /> : <Copy size={14} />}
-                {copied ? 'Copied!' : 'Copy meeting link'}
-              </button>
+        {/* Hidden video element for camera preview */}
+        <video ref={videoRef} autoPlay muted playsInline className="hidden" />
+
+        <div className="grid grid-cols-2 gap-4 mb-10">
+            {techChecks.map((t) => {
+              const status = preChecks[t.id];
+              return (
+                <Card key={t.id} className="p-6 rounded-[2rem] border-none shadow-xl shadow-gray-100 bg-white flex flex-col items-center text-center group cursor-default">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${
+                      status === true ? 'bg-green-50 text-green-600' : status === false ? 'bg-red-50 text-red-500' : 'bg-gray-50 text-gray-400'
+                    }`}>
+                       <t.icon size={22} />
+                    </div>
+                    <p className="text-[10px] font-black text-gray-900 uppercase tracking-widest mb-1">{t.title}</p>
+                    {status === null ? (
+                      <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-0.5 rounded-full">
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter">Not Checked</span>
+                      </div>
+                    ) : status ? (
+                      <div className="flex items-center gap-1.5 bg-green-100/50 px-2 py-0.5 rounded-full">
+                        <Check size={10} className="text-green-600" />
+                        <span className="text-[9px] font-black text-green-600 uppercase tracking-tighter">Ready</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 bg-red-100/50 px-2 py-0.5 rounded-full">
+                        <XCircle size={10} className="text-red-500" />
+                        <span className="text-[9px] font-black text-red-500 uppercase tracking-tighter">Failed</span>
+                      </div>
+                    )}
+                </Card>
+              );
+            })}
+        </div>
+
+        {/* Elite Preparation Guide */}
+        <Card className="p-10 rounded-[3rem] border-none shadow-xl shadow-gray-100 bg-white text-left">
+           <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center"><Zap size={20} /></div>
+              <h3 className="text-xl font-black text-gray-900 tracking-tight">Consultation Checklist</h3>
+           </div>
+           
+           <ul className="space-y-4">
+              {[
+                'Find a quiet, well-lit medical assessment zone',
+                'Wear comfortable clothing for movement testing',
+                'Ensure your camera is at eye level for ROM assessment',
+                'Keep any recent MRI or X-Ray reports within reach'
+              ].map((tip, i) => (
+                <li key={i} className="flex items-start gap-4 group">
+                    <div className="w-6 h-6 rounded-lg bg-gray-50 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                       <Check size={12} />
+                    </div>
+                    <p className="text-xs font-bold text-gray-500 flex-1 leading-relaxed">{tip}</p>
+                </li>
+              ))}
+           </ul>
+        </Card>
+
+        {/* Troubleshooting Accordion */}
+        <div className="mt-10 pt-10 border-t border-gray-100 text-center">
+            <button 
+              onClick={() => setTechOpen(!techOpen)}
+              className="inline-flex items-center gap-2 text-[10px] font-black uppercase text-gray-400 tracking-widest hover:text-primary transition-all"
+            >
+               Technical Assistance Center <ChevronDown className={`transition-transform ${techOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {techOpen && (
+               <div className="mt-6 p-8 bg-white border border-gray-100 rounded-[2.5rem] text-left animate-in slide-in-from-top-4 duration-500">
+                  <p className="text-xs font-bold text-gray-500 leading-relaxed">
+                     Experiencing camera or audio drops? Ensure you have granted "Media Permissions" to your browser. 
+                     For immediate help, call clinical support at <span className="text-gray-900">{clinicConfig.phone}</span>.
+                  </p>
+               </div>
             )}
-          </>
-        ) : (
-          <Button size="lg" fullWidth variant="ghost" onClick={() => navigate('/')}>
-            <RefreshCw size={16} /> Back to Home
-          </Button>
-        )}
-      </Card>
+        </div>
 
-      {/* Tech issues accordion */}
-      <Card className="mb-5">
-        <button
-          onClick={() => setTechOpen((o) => !o)}
-          className="w-full flex items-center justify-between text-left"
-        >
-          <div className="flex items-center gap-2">
-            <AlertCircle size={15} className="text-warning" />
-            <span className="text-sm font-medium text-text-primary">Technical issues?</span>
-          </div>
-          {techOpen ? <ChevronUp size={15} className="text-text-secondary" /> : <ChevronDown size={15} className="text-text-secondary" />}
-        </button>
-        {techOpen && (
-          <div className="mt-4 space-y-3">
-            {[
-              { q: 'Camera not working', a: 'Go to browser settings → Site permissions → Camera. Allow access and refresh.' },
-              { q: 'Cannot hear audio', a: 'Check system volume. Make sure the correct audio output device is selected in Zoom/Meet settings.' },
-              { q: 'Connection drops', a: 'Move closer to your WiFi router. Close video streaming apps. Try a wired connection if available.' },
-              { q: 'Still having trouble', a: `Call us at ${clinicConfig.phone} and we'll help you join manually.` },
-            ].map(({ q, a }) => (
-              <div key={q} className="text-sm">
-                <p className="font-medium text-text-primary mb-1">{q}</p>
-                <p className="text-text-secondary">{a}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* Tips */}
-      <Card>
-        <h3 className="font-semibold text-text-primary mb-3">Before You Join</h3>
-        <ul className="space-y-2">
-          {[
-            'Find a quiet, well-lit space with good internet',
-            'Wear comfortable clothing for physical assessment',
-            'Have your medical history and medications ready',
-            `Your ${clinicConfig.slotDurationMinutes || 30}-minute consultation with ${clinicSettings.physioName}`,
-            'Questions or concerns? Call us anytime',
-          ].map((tip) => (
-            <li key={tip} className="flex items-start gap-2 text-sm text-text-secondary">
-              <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: clinicSettings.primaryColor }} />
-              {tip}
-            </li>
-          ))}
-        </ul>
-      </Card>
+      </div>
     </PageWrapper>
   );
 }

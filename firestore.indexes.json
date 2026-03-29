@@ -1,0 +1,45 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "physioId", "order": "ascending" },
+        { "fieldPath": "date", "order": "ascending" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "physioId", "order": "ascending" },
+        { "fieldPath": "status", "order": "ascending" }
+      ]
+    },
+    {
+      "collectionGroup": "bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientId", "order": "ascending" },
+        { "fieldPath": "createdAt", "order": "descending" }
+      ]
+    },
+    {
+      "collectionGroup": "patients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "physioId", "order": "ascending" },
+        { "fieldPath": "createdAt", "order": "descending" }
+      ]
+    },
+    {
+      "collectionGroup": "blockedSlots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uid", "order": "ascending" },
+        { "fieldPath": "date", "order": "ascending" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -8,58 +8,85 @@ import { updateClinicConfig } from '@/config/clinicConfig';
  */
 export async function loadTenantConfig() {
   const hostname = window.location.hostname;
-  
-  // Optional: Allow testing a specific tenant locally via URL param ?tenant=demo
   const urlParams = new URLSearchParams(window.location.search);
   const testTenant = urlParams.get('tenant');
   
-  const searchDomain = testTenant || hostname;
+  let searchDomain = testTenant || hostname;
 
+  // ── Subdomain Parsing Strategy ──────────────────────────────────────────
+  // If we're on a real domain like 'amit.onlinept.in', we should extract 'amit'
+  // so we can look it up in Firestore as the 'subdomain' field.
+  const isProdDomain = hostname.endsWith('onlinept.in');
+  
+  if (isProdDomain && !testTenant) {
+    const parts = hostname.split('.');
+    // If hostname is x.onlinept.in, length is 3. The first part is the subdomain.
+    if (parts.length >= 3) {
+      searchDomain = parts[0]; 
+      console.log(`[TenantLoader] Subdomain detected: ${searchDomain}`);
+    }
+  }
+
+  // Localhost fallback
   if ((hostname.includes('localhost') || hostname.includes('127.0.0.1')) && !testTenant) {
     console.log('[TenantLoader] Localhost detected, using fallback local clinicConfig.');
     return;
   }
 
   try {
-    console.log(`[TenantLoader] Fetching config for domain: ${searchDomain}`);
-    
-    // 🛑 BYPASS FOR DEMO: If the user is trying to load the demo tenant, short-circuit
-    // the Firestore network call and instantly provide a mock configuration.
-    // This prevents any silent Firebase connection hangs from blocking the trial.
-    if (searchDomain === 'demo') {
-      console.log('[TenantLoader] Demo tenant detected! Bypassing Firestore for instant demo.');
-      updateClinicConfig({
-        id: 'demo',
-        domain: 'demo',
-        clinicId: 'demo_clinic',
-        clinicName: 'Dr. Demo SaaS',
-        primaryColor: '#8b5cf6', // Purple
-        secondaryColor: '#ec4899', // Pink
-        physioName: 'Dr. Sarah Jenkins',
-        tagline: 'Premium White-Labeled online care'
-      });
-      return;
-    }
+    // 5s timeout promise
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Firebase timeout')), 5000)
+    );
 
-    // In a real multi-tenant app, domains could be an array to support multiple custom domains 
-    // per clinic (e.g. 'nfc.com', 'nfc.onlinept.in'). We query where array contains, or exact match.
-    // Assuming 'domain' string field for now.
-    const q = query(collection(db, 'clinics'), where('domain', '==', searchDomain));
-    const querySnapshot = await getDocs(q);
+    const fetchTask = (async () => {
+      console.log(`[TenantLoader] Fetching config for: ${searchDomain}`);
+      
+      // 🛑 BYPASS FOR DEMO
+      if (searchDomain === 'demo' || searchDomain === 'test') {
+         return {
+          id: 'demo',
+          clinicName: 'Test Physio Clinic',
+          physioName: 'Dr. Test Physio',
+          primaryColor: '#39A900',
+          secondaryColor: '#F6A000',
+          tagline: 'Your premium white-labeled dashboard is ready.'
+        };
+      }
 
-    if (!querySnapshot.empty) {
-      const tenantData = querySnapshot.docs[0].data();
-      const tenantId = querySnapshot.docs[0].id;
+      if (!db) {
+        console.warn('[TenantLoader] DB not initialized. Check your Firebase config.');
+        return null;
+      }
+
+      const clinicsRef = collection(db, 'clinics');
       
-      console.log(`[TenantLoader] Loaded tenant config for ID: ${tenantId}`);
-      
-      // Mutate the local singletons with the fetched database config
-      updateClinicConfig({ id: tenantId, ...tenantData });
+      // Try exact domain match
+      let q = query(clinicsRef, where('domain', '==', searchDomain));
+      let querySnapshot = await getDocs(q);
+
+      // Try subdomain match
+      if (querySnapshot.empty) {
+        q = query(clinicsRef, where('subdomain', '==', searchDomain));
+        querySnapshot = await getDocs(q);
+      }
+
+      if (!querySnapshot.empty) {
+        return { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() };
+      }
+      return null;
+    })();
+
+    // Race the fetch against the timeout
+    const tenantData = await Promise.race([fetchTask, timeout]);
+
+    if (tenantData) {
+      updateClinicConfig(tenantData);
+      console.log(`[TenantLoader] Successfully loaded clinic: ${tenantData.clinicName}`);
     } else {
-      console.warn(`[TenantLoader] No tenant found for domain ${searchDomain}. Using default local fallback.`);
+      console.warn(`[TenantLoader] No clinic matches for: ${searchDomain}`);
     }
   } catch (error) {
-    console.error('[TenantLoader] Failed to load tenant config from Firebase:', error);
-    // Silent fail -> app continues with local hardcoded config
+    console.error('[TenantLoader] Error loading tenant:', error.message || error);
   }
 }
