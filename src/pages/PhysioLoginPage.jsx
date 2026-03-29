@@ -220,7 +220,7 @@ export default function PhysioLoginPage() {
           }}>
             {['HIPAA Ready', 'SSL Encrypted', 'Firebase Auth'].map(label => (
               <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: IOS.ink4, fontWeight: 500 }}>
-                <CheckCircle2 size={12} style={{ color: '#34C759' }} /> {label}
+                <CheckCircle2 size={12} style={{ color: IOS.primary }} /> {label}
               </span>
             ))}
           </div>
@@ -277,11 +277,11 @@ export default function PhysioLoginPage() {
                 <div style={{ textAlign: 'center', padding: '12px 0' }}>
                   <div style={{
                     width: 56, height: 56, borderRadius: 28,
-                    background: '#F0FDF4', border: '2px solid #BBF7D0',
+                    background: IOS.primaryLight, border: `2px solid ${IOS.primary}30`,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     margin: '0 auto 16px',
                   }}>
-                    <CheckCircle2 size={28} style={{ color: '#22C55E' }} />
+                    <CheckCircle2 size={28} style={{ color: IOS.primary }} />
                   </div>
                   <h4 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 16, fontWeight: 800, color: IOS.ink, marginBottom: 8 }}>
                     Check your email

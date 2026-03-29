@@ -35,7 +35,7 @@ const faqs = [
   { q: 'Can I change my services and fees anytime?', a: 'Yes, fully. Log into your admin panel at any time and update your services, fees, availability, and profile details. Changes reflect instantly on your public page.' },
   { q: 'What does the subdomain look like?', a: 'Your page will be at yourname.onlinept.in. For example: aruna.onlinept.in — clean, professional, and easy to share anywhere.' },
   { q: 'Is OnlinePT free forever?', a: 'The basic page is free. We\'ll introduce optional premium features in the future — but early sign-ups get extended free access.' },
-  { q: 'Who created OnlinePT?', a: 'OnlinePT was founded by Dr. Aruna Koladiya — physiotherapist, Autophagy Consultant, and co-founder of Nijanand Fitness Centre, Surat. Built from real clinical experience, for real clinicians.' },
+  { q: 'Who created OnlinePT?', a: 'OnlinePT was founded by Dr. Aruna Koladiya — physiotherapist and Autophagy Consultant. Built from real clinical experience, for real clinicians.' },
 ];
 
 // ─── Feature Card ─────────────────────────────────────────────────────────────
@@ -546,7 +546,7 @@ export default function SaaSLandingPage() {
               borderRadius: 100, padding: '8px 18px',
               fontSize: 14, fontWeight: 500, color: T.ink2, boxShadow: T.shadowSm,
             }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.green }} />
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.blue }} />
               {item}
             </div>
           ))}
@@ -693,7 +693,7 @@ export default function SaaSLandingPage() {
 
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Clinic / Practice Name</label>
-                  <input type="text" placeholder="Nijanand Fitness Centre" required value={form.clinic}
+                  <input type="text" placeholder="Your Clinic Name" required value={form.clinic}
                     onChange={e => setForm({ ...form, clinic: e.target.value })}
                     style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                 </div>
@@ -728,7 +728,7 @@ export default function SaaSLandingPage() {
                 </div>
 
                 <button type="submit" style={{
-                  width: '100%', padding: 15, background: signupDone ? T.green : T.blue, color: T.white,
+                  width: '100%', padding: 15, background: signupDone ? T.blue : T.blue, color: T.white,
                   border: 'none', borderRadius: T.r.sm,
                   fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: 'pointer',
                   boxShadow: '0 4px 16px rgba(0,122,255,0.30)',
@@ -813,10 +813,10 @@ export default function SaaSLandingPage() {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
           }}>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-              © 2025 OnlinePT · Nijanand Fitness Centre, Surat, Gujarat, India
+              © 2025 OnlinePT · Your Online Physiotherapy Platform
             </p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.green }} />
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.blue }} />
               All systems operational
             </div>
           </div>
