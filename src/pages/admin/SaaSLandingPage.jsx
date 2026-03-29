@@ -233,7 +233,7 @@ function FaqItem({ q, a, delay }) {
       >
         {q}
         <svg
-          width="20" height="20" flexShrink="0"
+          width="20" height="20"
           viewBox="0 0 24 24" fill="none"
           stroke={T.blue} strokeWidth="2.5"
           style={{
