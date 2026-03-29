@@ -184,16 +184,16 @@ export default function PhysioSignUpPage() {
                          value={form.physioName}
                          onChange={e => update('physioName', e.target.value)}
                          className="w-full h-14 px-5 font-bold bg-gray-50 rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white outline-none transition-all placeholder:text-gray-300"
-                         placeholder="Dr. Rahul"
+                         placeholder="Full Name"
                        />
                    </div>
                    <div className="space-y-2">
                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-2">Clinic Name</label>
-                       <input 
+                       <input
                          value={form.clinicName}
                          onChange={e => update('clinicName', e.target.value)}
                          className="w-full h-14 px-5 font-bold bg-gray-50 rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white outline-none transition-all placeholder:text-gray-300"
-                         placeholder="Active Physio"
+                         placeholder="Clinic Name"
                        />
                    </div>
                 </div>
@@ -205,7 +205,7 @@ export default function PhysioSignUpPage() {
                          value={form.subdomain}
                          onChange={e => update('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                          className="flex-1 bg-transparent font-bold outline-none placeholder:text-gray-300 text-sm"
-                         placeholder="your-custom-link"
+                         placeholder="Your Subdomain"
                        />
                        <span className="text-xs font-black text-primary uppercase tracking-tighter">.onlinept.in</span>
                     </div>
@@ -219,7 +219,7 @@ export default function PhysioSignUpPage() {
                       value={form.email}
                       onChange={e => update('email', e.target.value)}
                       className="w-full h-14 px-5 font-bold bg-gray-50 rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white outline-none transition-all placeholder:text-gray-300"
-                      placeholder="professional@email.com"
+                      placeholder="Email Address"
                     />
                 </div>
 
@@ -231,7 +231,7 @@ export default function PhysioSignUpPage() {
                          value={form.password}
                          onChange={e => update('password', e.target.value)}
                          className="w-full h-14 px-5 font-bold bg-gray-50 rounded-2xl border-2 border-transparent focus:border-primary/20 focus:bg-white outline-none transition-all placeholder:text-gray-300"
-                         placeholder="Min 8 Characters"
+                         placeholder="Choose Password"
                        />
                        <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-primary transition-colors">
                           {showPw ? <EyeOff size={18} /> : <Eye size={18} />}

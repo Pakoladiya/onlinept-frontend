@@ -5,6 +5,7 @@ import { auth } from '@/firebase/config';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound } from 'lucide-react';
 import { SUPER_ADMIN_EMAIL } from '@/config/superAdminConfig';
+import { isBiometricAvailable } from '@/utils/biometricAuth';
 
 const IOS = {
   primary: '#007AFF',
@@ -34,9 +35,11 @@ export default function PhysioLoginPage() {
   const [resetSent, setResetSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
 
   useEffect(() => {
     document.title = 'Physio Access | OnlinePT';
+    isBiometricAvailable().then(setBiometricAvailable);
   }, []);
 
   async function handleLogin(e) {
@@ -47,6 +50,17 @@ export default function PhysioLoginPage() {
     try {
       const cred = await signInWithEmailPassword(email, password);
       if (cred?.user) {
+        // Offer biometric enrollment if not already registered
+        try {
+          const { registerBiometric } = await import('@/utils/biometricAuth');
+          const available = await isBiometricAvailable();
+          if (available) {
+            const creds = JSON.parse(localStorage.getItem('biometric_creds') || '{}');
+            if (!creds[cred.user.uid]) {
+              await registerBiometric(cred.user.uid, email);
+            }
+          }
+        } catch {}
         // Silently detect super admin by email
         const isSuper = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
         navigate(isSuper ? '/saas/dashboard' : '/dashboard');
@@ -129,7 +143,7 @@ export default function PhysioLoginPage() {
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: IOS.ink2, marginBottom: 8, letterSpacing: '0.2px' }}>Email Address</label>
               <input
                 type="email" value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="physio@example.com" autoComplete="email"
+                placeholder="Email Address" autoComplete="email"
                 style={{
                   width: '100%', height: 52,
                   padding: '0 18px',
@@ -225,6 +239,38 @@ export default function PhysioLoginPage() {
             ))}
           </div>
         </div>
+
+        {/* ── Biometric Login ─────────────────────────────────────────────────── */}
+        {biometricAvailable && localStorage.getItem('biometric_creds') && (
+          <div style={{ textAlign: 'center', marginTop: 20 }}>
+            <button
+              type="button"
+              onClick={async () => {
+                const { authenticateBiometric } = await import('@/utils/biometricAuth');
+                const creds = JSON.parse(localStorage.getItem('biometric_creds') || '{}');
+                const userIds = Object.keys(creds);
+                if (userIds.length === 0) return;
+                const result = await authenticateBiometric(userIds[0]);
+                if (result.success) {
+                  navigate('/dashboard');
+                }
+              }}
+              style={{
+                width: '100%', height: 52,
+                background: IOS.surface, border: `1.5px solid ${IOS.border}`, borderRadius: IOS.r.md,
+                fontSize: 15, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                color: IOS.primary, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={IOS.primary} strokeWidth="2">
+                <rect x="5" y="11" width="14" height="10" rx="3"/>
+                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+              </svg>
+              Use Face ID / Fingerprint
+            </button>
+          </div>
+        )}
 
         {/* ── Forgot Password Modal ──────────────────────────────────────────── */}
         {forgotMode && (
@@ -322,7 +368,7 @@ export default function PhysioLoginPage() {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="physio@example.com"
+                    placeholder="Email Address"
                     autoComplete="email"
                     style={{
                       width: '100%', height: 52,

@@ -447,7 +447,7 @@ export default function LandingPage() {
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           {['Free to set up', 'No tech skills needed', 'Live in under 5 minutes', 'Your own subdomain'].map((p) => (
-            <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 100, padding: '8px 18px', fontSize: 14, fontWeight: 500, color: C.ink2, boxShadow: C.shadowSm }}>
+            <div key={p} className="trust-bar-pill" style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.white, border: `1px solid ${C.border}`, borderRadius: 100, padding: '8px 18px', fontSize: 14, fontWeight: 500, color: C.ink2, boxShadow: C.shadowSm }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.blue }} />
               {p}
             </div>
@@ -491,7 +491,7 @@ export default function LandingPage() {
           <h2 style={sectionTitleStyle}>Everything your online<br/>practice needs.</h2>
           <p style={sectionSubStyle}>One platform. Complete control. Built specifically for physiotherapists.</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 56 }}>
+          <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 56 }}>
             {/* Big card spanning 2 cols */}
             <div style={{ ...glassCard, gridColumn: 'span 2', display: 'flex', gap: 28, alignItems: 'center', padding: 28, transition: 'transform 0.25s, box-shadow 0.25s' }}
                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = C.shadowMd; }}
@@ -558,7 +558,7 @@ export default function LandingPage() {
             </div>
 
             {/* Phone Mockup */}
-            <div style={{ width: 280, margin: '0 auto', background: C.ink, borderRadius: 40, padding: 12, boxShadow: C.shadowLg }}>
+            <div className="phone-preview" style={{ width: 280, margin: '0 auto', background: C.ink, borderRadius: 40, padding: 12, boxShadow: C.shadowLg }}>
               <div style={{ background: C.white, borderRadius: 30, overflow: 'hidden' }}>
                 <div style={{ background: `linear-gradient(135deg, ${C.blue} 0%, #5AC8FA 100%)`, padding: '24px 16px 20px', color: C.white, textAlign: 'center' }}>
                   <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', margin: '0 auto 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -595,7 +595,7 @@ export default function LandingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }} className="reveal-grid">
 
             {/* Perks */}
-            <div>
+            <div className="signup-perks">
               <div style={eyebrowStyle}>Get Started</div>
               <h2 style={sectionTitleStyle}>Claim your free<br/>physio page today.</h2>
               <p style={sectionSubStyle}>Join physiotherapists across India who've already taken their practice online.</p>
@@ -619,7 +619,7 @@ export default function LandingPage() {
             </div>
 
             {/* Form Card */}
-            <div style={formCardStyle}>
+            <div className="form-card" style={formCardStyle}>
               <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: 24, fontWeight: 800, color: C.ink, marginBottom: 6, letterSpacing: -0.5 }}>Create Your Free Page</div>
               <div style={{ fontSize: 14, color: C.ink3, marginBottom: 28 }}>Takes less than 2 minutes — no tech skills needed.</div>
 
@@ -627,13 +627,13 @@ export default function LandingPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>First Name</label>
-                    <input name="firstName" value={formData.firstName} onChange={handleFormChange} placeholder="Aruna" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
+                    <input name="firstName" value={formData.firstName} onChange={handleFormChange} placeholder="First Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Last Name</label>
-                    <input name="lastName" value={formData.lastName} onChange={handleFormChange} placeholder="Koladiya" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
+                    <input name="lastName" value={formData.lastName} onChange={handleFormChange} placeholder="Last Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
@@ -646,9 +646,8 @@ export default function LandingPage() {
                        ref={(el) => el && el.addEventListener('blur', () => { el.style.borderColor = C.border; el.style.boxShadow = 'none'; }, { once: true })}>
                     <div style={{ background: C.surface, padding: '12px 14px', fontSize: 14, color: C.ink3, whiteSpace: 'nowrap', borderRight: `1.5px solid ${C.border}` }}>
                       <User size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
-                      yourname
                     </div>
-                    <input name="subdomain" value={formData.subdomain} onChange={handleFormChange} placeholder="aruna" required style={{ flex: 1, border: 'none', borderRadius: 0, boxShadow: 'none', padding: '12px 14px', fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }} />
+                    <input name="subdomain" value={formData.subdomain} onChange={handleFormChange} required style={{ flex: 1, border: 'none', borderRadius: 0, boxShadow: 'none', padding: '12px 14px', fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }} />
                     <div style={{ background: C.surface, padding: '12px 14px', fontSize: 14, color: C.ink3, whiteSpace: 'nowrap', borderLeft: `1.5px solid ${C.border}` }}>.onlinept.in</div>
                   </div>
                 </div>
@@ -663,13 +662,13 @@ export default function LandingPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>City</label>
-                    <input name="city" value={formData.city} onChange={handleFormChange} placeholder="Surat" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                    <input name="city" value={formData.city} onChange={handleFormChange} placeholder="City" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Qualification</label>
-                    <input name="qualification" value={formData.qualification} onChange={handleFormChange} placeholder="BPT, MPT…" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                    <input name="qualification" value={formData.qualification} onChange={handleFormChange} placeholder="BPT, MPT" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
@@ -677,14 +676,14 @@ export default function LandingPage() {
 
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Email Address</label>
-                  <input name="email" type="email" value={formData.email} onChange={handleFormChange} placeholder="you@example.com" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                  <input name="email" type="email" value={formData.email} onChange={handleFormChange} placeholder="Email Address" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                          onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                          onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                 </div>
 
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Password</label>
-                  <input name="password" type="password" value={formData.password} onChange={handleFormChange} placeholder="Choose a strong password" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                  <input name="password" type="password" value={formData.password} onChange={handleFormChange} placeholder="Choose Password" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                          onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                          onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                 </div>
@@ -708,7 +707,7 @@ export default function LandingPage() {
             <div style={{ ...eyebrowStyle, justifyContent: 'center' }}>FAQ</div>
             <h2 style={sectionTitleStyle}>Questions from<br/>fellow physios.</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 48 }}>
+          <div className="faq-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 48 }}>
             {faqs.map((faq, idx) => (
               <div key={idx} style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: C.rMd, overflow: 'hidden', boxShadow: C.shadowSm }}>
                 <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 500, color: C.ink, textAlign: 'left', gap: 12, transition: 'background 0.15s' }}
@@ -817,9 +816,21 @@ export default function LandingPage() {
             grid-column: span 1 !important;
             flex-direction: column !important;
           }
-          .preview-phone-wrap { display: none !important; }
           .footer-top { flex-direction: column !important; }
           .footer-cols { gap: 32px !important; }
+          section[id] { padding: 60px 16px !important; }
+          #signup > div > div { gap: 0 !important; }
+          .phone-preview { display: none !important; }
+          .trust-bar-pill { font-size: 12px !important; padding: 6px 12px !important; }
+          .faq-grid { grid-template-columns: 1fr !important; }
+          .mockup-body { flex-direction: column !important; }
+          .mockup-body > div:last-child { width: 100% !important; margin-top: 12px; }
+          .signup-perks { display: none !important; }
+          .form-card { padding: 24px !important; }
+          .features-grid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 480px) {
+          .phone-preview-hide-xs { display: none !important; }
         }
       `}</style>
     </div>

@@ -6,7 +6,8 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#39A900",
+  "theme_color": "#007AFF",
+  "categories": ["health", "medical", "productivity"],
   "icons": [
     {
       "src": "/icon-192.svg",

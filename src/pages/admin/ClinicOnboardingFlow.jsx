@@ -209,18 +209,18 @@ export default function ClinicOnboardingFlow() {
               <div className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <Field label="Physiotherapist Name">
-                    <TextInput name="physioName" value={formData.physioName} onChange={handleChange} placeholder="Dr. Jane Doe" />
+                    <TextInput name="physioName" value={formData.physioName} onChange={handleChange} placeholder="Full Name" />
                   </Field>
                   <Field label="Work Email">
-                    <TextInput type="email" name="email" value={formData.email} onChange={handleChange} placeholder="jane@physio.com" />
+                    <TextInput type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email Address" />
                   </Field>
                   <Field label="Clinical Phone Number">
-                    <TextInput name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" />
+                    <TextInput name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone Number" />
                   </Field>
                 </div>
 
                 <Field label="Clinic Display Name">
-                  <TextInput name="clinicName" value={formData.clinicName} onChange={handleChange} placeholder="e.g. Peak Performance Rehab" />
+                  <TextInput name="clinicName" value={formData.clinicName} onChange={handleChange} placeholder="Clinic Name" />
                 </Field>
 
                 <Field label="Choose your Subdomain" hint="Only lowercase letters, numbers, and hyphens allowed.">
@@ -229,7 +229,7 @@ export default function ClinicOnboardingFlow() {
                       name="subdomain"
                       value={formData.subdomain}
                       onChange={handleChange}
-                      placeholder="peakrehab"
+                      placeholder="Subdomain"
                       className="rounded-r-none flex-1"
                     />
                     <span className="inline-flex items-center px-4 rounded-e-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">

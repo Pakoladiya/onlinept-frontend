@@ -667,13 +667,13 @@ export default function SaaSLandingPage() {
                 <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>First Name</label>
-                    <input type="text" placeholder="Aruna" required value={form.firstName}
+                    <input type="text" placeholder="First Name" required value={form.firstName}
                       onChange={e => setForm({ ...form, firstName: e.target.value })}
                       style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                   </div>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Last Name</label>
-                    <input type="text" placeholder="Koladiya" required value={form.lastName}
+                    <input type="text" placeholder="Last Name" required value={form.lastName}
                       onChange={e => setForm({ ...form, lastName: e.target.value })}
                       style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                   </div>
@@ -701,13 +701,13 @@ export default function SaaSLandingPage() {
                 <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>City</label>
-                    <input type="text" placeholder="Surat" required value={form.city}
+                    <input type="text" placeholder="City" required value={form.city}
                       onChange={e => setForm({ ...form, city: e.target.value })}
                       style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                   </div>
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Qualification</label>
-                    <input type="text" placeholder="BPT, MPT…" required value={form.qualification}
+                    <input type="text" placeholder="BPT, MPT" required value={form.qualification}
                       onChange={e => setForm({ ...form, qualification: e.target.value })}
                       style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                   </div>
@@ -715,14 +715,14 @@ export default function SaaSLandingPage() {
 
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Email Address</label>
-                  <input type="email" placeholder="you@example.com" required value={form.email}
+                  <input type="email" placeholder="Email Address" required value={form.email}
                     onChange={e => setForm({ ...form, email: e.target.value })}
                     style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                 </div>
 
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Password</label>
-                  <input type="password" placeholder="Choose a strong password" required value={form.password}
+                  <input type="password" placeholder="Choose Password" required value={form.password}
                     onChange={e => setForm({ ...form, password: e.target.value })}
                     style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                 </div>
