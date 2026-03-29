@@ -1,8 +1,9 @@
 // Check if WebAuthn/biometric is available
 export const isBiometricAvailable = () => {
-  return !!(window.PublicKeyCredential &&
-    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable &&
-    window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
+  if (!window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
+    return Promise.resolve(false);
+  }
+  return window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(v => !!v);
 };
 
 // Register a passkey for the current device (after login)
