@@ -358,11 +358,11 @@ export default function LandingPage() {
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.ink2; }}>
             Sign In
           </Link>
-          <Link to="/physio-signup" style={{ fontSize: 14, fontWeight: 600, color: C.white, textDecoration: 'none', padding: '9px 20px', background: C.blue, borderRadius: 20, boxShadow: '0 2px 8px rgba(0,122,255,0.30)', transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s' }}
+          <a href="#signup" style={{ fontSize: 14, fontWeight: 600, color: C.white, textDecoration: 'none', padding: '9px 20px', background: C.blue, borderRadius: 20, boxShadow: '0 2px 8px rgba(0,122,255,0.30)', transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = C.blueDark; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,122,255,0.40)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = C.blue; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,122,255,0.30)'; }}>
             Get Started Free →
-          </Link>
+          </a>
         </div>
       </nav>
 
@@ -385,11 +385,11 @@ export default function LandingPage() {
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Link to="/physio-signup" style={{ fontSize: 16, fontWeight: 600, color: C.white, background: C.blue, padding: '14px 28px', borderRadius: 100, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,122,255,0.35)', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.15s, transform 0.15s, box-shadow 0.15s' }}
+          <a href="#signup" style={{ fontSize: 16, fontWeight: 600, color: C.white, background: C.blue, padding: '14px 28px', borderRadius: 100, textDecoration: 'none', boxShadow: '0 4px 20px rgba(0,122,255,0.35)', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.15s, transform 0.15s, box-shadow 0.15s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = C.blueDark; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(0,122,255,0.40)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = C.blue; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,122,255,0.35)'; }}>
             <HeartPulse size={18} /> Create My Free Page
-          </Link>
+          </a>
           <a href="#how" style={{ fontSize: 16, fontWeight: 500, color: C.ink2, background: C.glassBg, backdropFilter: C.glassBlur, WebkitBackdropFilter: C.glassBlur, border: `1px solid ${C.border}`, padding: '14px 28px', borderRadius: 100, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'background 0.2s, transform 0.15s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = C.surface; e.currentTarget.style.transform = 'translateY(-1px)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = C.glassBg; e.currentTarget.style.transform = 'translateY(0)'; }}>
