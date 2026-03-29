@@ -826,7 +826,10 @@ export default function LandingPage() {
           .mockup-body { flex-direction: column !important; }
           .mockup-body > div:last-child { width: 100% !important; margin-top: 12px; }
           .signup-perks { display: none !important; }
-          .form-card { padding: 24px !important; }
+          .form-card { padding: 24px !important; max-width: 100% !important; }
+          #signup > div > div { flex-direction: column !important; }
+          #signup > div > div > div:first-child { display: none !important; }
+          #signup > div > div > div:last-child { width: 100% !important; }
           .features-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 480px) {
