@@ -20,7 +20,11 @@ import {
   Sparkles,
   Zap,
   Smartphone,
-  Info
+  Info,
+  Shirt,
+  SunMedium,
+  Wifi,
+  FileText
 } from 'lucide-react';
 
 /**
@@ -196,13 +200,13 @@ export default function ConfirmationPage() {
                <p className="text-xs font-black uppercase tracking-widest text-gray-400 pl-4 border-l-2 border-primary">Preparation Checklist</p>
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
-                    { text: 'Wear comfortable exercise clothing', icon: '👕' },
-                    { text: 'Find a well-lit, quiet room', icon: '💡' },
-                    { text: 'Ensure high-speed stable internet', icon: '📶' },
-                    { text: 'Keep medical reports handy', icon: '📋' },
+                    { text: 'Wear comfortable exercise clothing', icon: Shirt },
+                    { text: 'Find a well-lit, quiet room', icon: SunMedium },
+                    { text: 'Ensure high-speed stable internet', icon: Wifi },
+                    { text: 'Keep medical reports handy', icon: FileText },
                   ].map((tip, i) => (
                     <div key={i} className="flex items-center gap-4 p-5 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                       <span className="text-2xl">{tip.icon}</span>
+                       <div className="w-10 h-10 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shrink-0"><tip.icon size={18} /></div>
                        <p className="text-xs font-bold text-gray-600 leading-snug">{tip.text}</p>
                     </div>
                   ))}

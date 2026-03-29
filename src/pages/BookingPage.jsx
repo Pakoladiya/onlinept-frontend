@@ -1,304 +1,560 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PageWrapper from '@/components/layout/PageWrapper';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import clinicConfig from '@/config/clinicConfig';
-import { 
-    Calendar, 
-    Clock, 
-    ChevronLeft, 
-    ChevronRight, 
-    SunMedium, 
-    Sunset, 
-    Moon, 
-    Loader2, 
-    Sparkles, 
-    ShieldCheck, 
-    CheckCircle2, 
-    ArrowRight 
+import {
+  CheckCircle2, Loader2, ChevronRight, ChevronLeft,
+  Clock, Phone, Mail, User, Calendar, MessageSquare,
+  Star, Award, Users, SunMedium, Sunset, Moon,
 } from 'lucide-react';
 
-/**
- * Luxe BookingPage — Re-designed for high-conversion and "Dashing" aesthetic.
- * Optimized for Mobile-First experience with premium glassmorphism.
- */
-export default function BookingPage() {
-  const navigate = useNavigate();
-  const [selectedService, setSelectedService] = useState(clinicConfig.services[0]?.id || 'initial');
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+// ─── Design Tokens ────────────────────────────────────────────────────────────
+const T = {
+  primary: '#0D7377',
+  primaryDark: '#0A5C5F',
+  primaryLight: '#E8F5F5',
+  accent: '#14A3A8',
+  surface: '#F5F7FA',
+  surface2: '#E8F0F0',
+  white: '#FFFFFF',
+  ink: '#1D1D1F',
+  ink2: '#3A3A3C',
+  ink3: '#636366',
+  ink4: '#AEAEB2',
+  border: 'rgba(13,115,119,0.12)',
+  glass: 'rgba(255,255,255,0.90)',
+  green: '#34C759',
+  red: '#FF3B30',
+  shadowSm: '0 2px 8px rgba(13,115,119,0.08)',
+  shadowMd: '0 8px 24px rgba(13,115,119,0.12)',
+  shadowLg: '0 20px 60px rgba(13,115,119,0.16)',
+  r: { sm: 12, md: 16, lg: 24, xl: 32 },
+};
 
-  const today = new Date();
-  
-  // SEO Meta Update
-  useEffect(() => {
-    document.title = `Book Session | ${clinicConfig.clinicName}`;
-  }, []);
+// ─── Floating Input ────────────────────────────────────────────────────────────
+function FloatingInput({ label, type = 'text', value, onChange, required, placeholder, icon: Icon, options, rows }) {
+  const [focused, setFocused] = useState(false);
+  const hasValue = value && value.length > 0;
 
-  const availableDates = [];
-  let cursor = new Date(today);
-  while (availableDates.length < 30) {
-    const day = cursor.getDay();
-    if (clinicConfig.workingHours.days.includes(day === 0 ? 7 : day)) {
-      availableDates.push(new Date(cursor));
-    }
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  const generateSlots = () => {
-    const slots = [];
-    const [startH, startM] = clinicConfig.workingHours.start.split(':').map(Number);
-    const [endH, endM] = clinicConfig.workingHours.end.split(':').map(Number);
-    let h = startH, m = startM;
-    while (h < endH || (h === endH && m < endM)) {
-      slots.push({
-        id: `${h}:${m}`,
-        label: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
-        hour: h,
-        booked: Math.random() < 0.2, // Simulated availability
-      });
-      m += clinicConfig.slotDurationMinutes;
-      if (m >= 60) { h += Math.floor(m / 60); m %= 60; }
-    }
-    return slots;
+  const inputStyle = {
+    width: '100%', padding: '22px 18px 8px',
+    background: T.white,
+    border: `1.5px solid ${focused ? T.primary : T.border}`,
+    borderRadius: T.r.sm,
+    fontSize: 16, fontFamily: "'DM Sans', sans-serif",
+    color: T.ink, outline: 'none',
+    boxShadow: focused ? `0 0 0 3px rgba(13,115,119,0.10)` : T.shadowSm,
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+    appearance: type === 'select-one' ? 'none' : 'text',
   };
 
-  const allSlots = useMemo(() => generateSlots(), []);
+  if (type === 'textarea') {
+    return (
+      <div style={{ position: 'relative' }}>
+        <textarea
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          rows={rows || 3}
+          style={{ ...inputStyle, paddingTop: 28, resize: 'none' }}
+        />
+        <label style={{
+          position: 'absolute', left: 18, top: hasValue || focused ? 10 : 18,
+          fontSize: hasValue || focused ? 11 : 15,
+          fontWeight: hasValue || focused ? 600 : 400,
+          color: focused ? T.primary : T.ink3,
+          pointerEvents: 'none',
+          transition: 'all 0.2s',
+          fontFamily: "'DM Sans', sans-serif",
+        }}>
+          {label} {required && <span style={{ color: T.red }}>*</span>}
+        </label>
+        {Icon && <Icon size={16} style={{ position: 'absolute', right: 16, top: 16, color: T.ink3, pointerEvents: 'none' }} />}
+      </div>
+    );
+  }
 
-  const groupedSlots = useMemo(() => {
-    const morning = allSlots.filter((s) => s.hour < 12);
-    const afternoon = allSlots.filter((s) => s.hour >= 12 && s.hour < 17);
-    const evening = allSlots.filter((s) => s.hour >= 17);
-    return { morning, afternoon, evening };
-  }, [allSlots]);
+  return (
+    <div style={{ position: 'relative' }}>
+      {Icon && (
+        <Icon size={16} style={{
+          position: 'absolute', left: 16,
+          top: hasValue || focused ? 18 : 20,
+          color: focused ? T.primary : T.ink3,
+          pointerEvents: 'none',
+          transition: 'top 0.2s, color 0.2s',
+          zIndex: 1,
+        }} />
+      )}
+      <input
+        type={type}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{ ...inputStyle, paddingLeft: Icon ? 44 : 18 }}
+      />
+      <label style={{
+        position: 'absolute', left: Icon ? 44 : 18,
+        top: hasValue || focused ? 10 : 18,
+        fontSize: hasValue || focused ? 11 : 15,
+        fontWeight: hasValue || focused ? 600 : 400,
+        color: focused ? T.primary : T.ink3,
+        pointerEvents: 'none',
+        transition: 'all 0.2s',
+        fontFamily: "'DM Sans', sans-serif",
+      }}>
+        {label} {required && <span style={{ color: T.red }}>*</span>}
+      </label>
+    </div>
+  );
+}
 
-  const monthLabel = currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
-  const prevMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-  const nextMonth = () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+// ─── Time Slot Chip ────────────────────────────────────────────────────────────
+function TimeChip({ label, icon: Icon, selected, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        flex: 1, padding: '14px 8px',
+        background: selected ? `linear-gradient(135deg, ${T.primary}, ${T.accent})` : T.white,
+        color: selected ? T.white : T.ink2,
+        border: `1.5px solid ${selected ? T.primary : T.border}`,
+        borderRadius: T.r.sm,
+        cursor: 'pointer', textAlign: 'center',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+        fontFamily: "'DM Sans', sans-serif",
+        transition: 'all 0.2s',
+        boxShadow: selected ? `0 4px 16px rgba(13,115,119,0.30)` : T.shadowSm,
+        transform: selected ? 'scale(1.02)' : 'scale(1)',
+      }}
+    >
+      <Icon size={20} />
+      <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+    </button>
+  );
+}
 
-  const { firstDay, daysInMonth } = useMemo(() => {
-    const first = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
-    return { 
-        firstDay: first === 0 ? 6 : first - 1, 
-        daysInMonth: new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate() 
-    };
-  }, [currentMonth]);
+// ─── Trust Strip ───────────────────────────────────────────────────────────────
+function TrustStrip() {
+  const items = [
+    { icon: Award, label: '10+ Years Experience' },
+    { icon: Users, label: '500+ Patients' },
+    { icon: Star, label: 'Expert Team' },
+    { icon: Clock, label: 'Flexible Timings' },
+  ];
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12,
+      background: T.primaryLight,
+      borderRadius: T.r.md, padding: 20,
+      marginTop: 20,
+    }}>
+      {items.map(({ icon: Icon, label }) => (
+        <div key={label} style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+          textAlign: 'center',
+        }}>
+          <Icon size={22} style={{ color: T.primary }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: T.primary, lineHeight: 1.3 }}>{label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  const isAvailable = (date) => availableDates.some((d) => d.toDateString() === date.toDateString());
-  const isPast = (date) => date < new Date(today.toDateString());
-  const service = clinicConfig.services.find((s) => s.id === selectedService) || clinicConfig.services[0];
+// ─── Success Card ─────────────────────────────────────────────────────────────
+function SuccessCard({ form }) {
+  return (
+    <div style={{
+      animation: 'scaleIn 0.4s ease both',
+      textAlign: 'center', padding: '32px 20px',
+    }}>
+      <div style={{
+        width: 80, height: 80, borderRadius: '50%',
+        background: 'linear-gradient(135deg, #34C759, #30B350)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        margin: '0 auto 20px',
+        boxShadow: '0 8px 30px rgba(52,199,89,0.40)',
+        animation: 'popIn 0.5s 0.2s ease both',
+      }}>
+        <CheckCircle2 size={40} color="white" />
+      </div>
+      <h3 style={{
+        fontFamily: "'Manrope', sans-serif",
+        fontSize: 22, fontWeight: 800, color: T.ink, marginBottom: 8,
+      }}>Appointment Requested!</h3>
+      <p style={{ fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 20 }}>
+        We've received your booking request for <strong>{form.service}</strong>.<br />
+        Our team will confirm your appointment via phone within 2 hours.
+      </p>
+      <div style={{
+        background: T.primaryLight, borderRadius: T.r.sm, padding: 14,
+        display: 'inline-block',
+      }}>
+        <p style={{ fontSize: 12, color: T.ink3 }}>
+          <strong style={{ color: T.primary }}>{form.name}</strong> · {form.phone}<br />
+          {form.date} · {form.slot}
+        </p>
+      </div>
+    </div>
+  );
+}
 
-  const handleBooking = async () => {
-    if (!selectedDate || !selectedSlot) return;
+// ─── Main Component ───────────────────────────────────────────────────────────
+export default function BookingPage() {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({
+    name: '', phone: '', email: '',
+    service: clinicConfig.services[0]?.name || 'Physiotherapy',
+    date: '', slot: '', message: '',
+  });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    document.title = `Book Appointment | ${clinicConfig.clinicName}`;
+  }, []);
+
+  // Min date = today
+  const today = new Date().toISOString().split('T')[0];
+
+  const slots = [
+    { id: 'morning', label: 'Morning', icon: SunMedium, time: '9AM – 12PM' },
+    { id: 'afternoon', label: 'Afternoon', icon: Sunset, time: '12PM – 5PM' },
+    { id: 'evening', label: 'Evening', icon: Moon, time: '5PM – 9PM' },
+  ];
+
+  const validate = () => {
+    const e = {};
+    if (!form.name.trim()) e.name = 'Please enter your full name';
+    if (!form.phone.trim() || !/^\d{10}$/.test(form.phone.replace(/\D/g, ''))) e.phone = 'Please enter a valid 10-digit phone number';
+    if (!form.email.trim() || !/\S+@\S+\.\S+/.test(form.email)) e.email = 'Please enter a valid email address';
+    if (!form.date) e.date = 'Please select a preferred date';
+    if (!form.slot) e.slot = 'Please select a time preference';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
+    await new Promise(r => setTimeout(r, 1500));
     const mockBookingId = `BK-${Date.now().toString().slice(-6)}`;
     navigate(`/intake/${mockBookingId}`, {
       state: {
-        date: selectedDate,
-        slot: selectedSlot,
-        serviceId: selectedService,
-        serviceName: service.name,
-        servicePrice: service.price,
-        serviceDuration: service.duration,
+        date: form.date,
+        slot: form.slot,
+        serviceName: form.service,
       },
     });
   };
 
   return (
-    <PageWrapper className="bg-gray-50/50 min-h-screen">
-      <div className="max-w-5xl mx-auto py-12 px-6">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-12">
-            <div>
-               <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full text-[10px] font-black uppercase tracking-widest text-primary mb-4">
-                  <Sparkles size={12} /> Personalized Care
-               </div>
-               <h1 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight mb-2">Secure Your Session</h1>
-               <p className="text-gray-500 font-bold max-w-md">Join over 1,500+ patients who have recovered with our expert-led physiotherapy plans.</p>
-            </div>
-            <div className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500"><ShieldCheck /></div>
-                <div>
-                   <p className="text-[10px] font-black uppercase text-gray-400">Step 01 / 03</p>
-                   <p className="text-sm font-bold text-gray-900">Choose Appointment</p>
-                </div>
-            </div>
+    <div style={{
+      minHeight: '100vh', background: T.white,
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;1,9..40,400&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        @keyframes popIn { 0% { transform: scale(0); } 70% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        input:focus, textarea:focus { border-color: ${T.primary} !important; }
+        @media (max-width: 768px) {
+          .trust-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .form-row { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
+
+      {/* ── Navbar ─────────────────────────────────────────────────────── */}
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: T.glass, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: `1px solid ${T.border}`,
+        padding: '0 24px', height: 60,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: `linear-gradient(135deg, ${T.primary}, ${T.accent})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <span style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 17, color: T.ink }}>
+            {clinicConfig.clinicName}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <a href={`tel:${clinicConfig.contactPhone}`} style={{
+            fontSize: 13, fontWeight: 600, color: T.primary,
+            textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Phone size={14} /> {clinicConfig.contactPhone}
+          </a>
+        </div>
+      </nav>
+
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
+      <div style={{
+        background: `linear-gradient(160deg, ${T.white} 0%, ${T.primaryLight} 60%, ${T.white} 100%)`,
+        padding: '48px 24px 40px',
+        textAlign: 'center',
+        animation: 'fadeUp 0.5s ease both',
+      }}>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: T.primaryLight, border: `1px solid ${T.border}`,
+          borderRadius: 100, padding: '4px 14px 4px 6px',
+          fontSize: 12, fontWeight: 600, color: T.primary, marginBottom: 20,
+        }}>
+          <div style={{
+            width: 20, height: 20, borderRadius: '50%',
+            background: `linear-gradient(135deg, ${T.primary}, ${T.accent})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: T.white, fontSize: 10,
+          }}>✓</div>
+          Book in Under 2 Minutes
         </div>
 
-        {/* Service Selector — Premium Chips */}
-        <div className="mb-12">
-           <p className="text-xs font-black uppercase tracking-widest text-gray-400 mb-6 pl-1">Select Specialization</p>
-           <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-             {clinicConfig.services.map((svc) => (
-                <button
-                  key={svc.id}
-                  onClick={() => { setSelectedService(svc.id); setSelectedSlot(null); }}
-                  className={`snap-center shrink-0 w-64 p-6 rounded-[2.5rem] border-2 transition-all duration-300 text-left relative overflow-hidden group
-                    ${selectedService === svc.id ? 'border-primary bg-white shadow-2xl shadow-primary/10' : 'border-gray-100 bg-white/50 hover:border-primary/30'}`}
-                >
-                   {selectedService === svc.id && (
-                       <div className="absolute top-0 right-0 p-4"><CheckCircle2 className="text-primary" size={20} /></div>
-                   )}
-                   <p className="text-xs font-black uppercase tracking-widest text-gray-400 mb-1">{svc.duration} Minutes</p>
-                   <p className="text-xl font-black text-gray-900 mb-4">{svc.name}</p>
-                   <div className="flex items-center justify-between">
-                      <p className="text-2xl font-black" style={{ color: clinicConfig.primaryColor }}>₹{svc.price}</p>
-                      <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center transition-transform group-hover:translate-x-1">
-                         <ArrowRight size={14} className="text-gray-400" />
-                      </div>
-                   </div>
-                </button>
-             ))}
-           </div>
-        </div>
+        <h1 style={{
+          fontFamily: "'Manrope', sans-serif",
+          fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 800,
+          color: T.ink, letterSpacing: '-1px', lineHeight: 1.1,
+          marginBottom: 12,
+        }}>
+          Book Your
+          <span style={{
+            color: T.primary,
+            display: 'block',
+          }}>Appointment</span>
+        </h1>
+        <p style={{
+          fontSize: 16, color: T.ink3, maxWidth: 480, margin: '0 auto',
+          lineHeight: 1.6,
+        }}>
+          Expert physiotherapy consultations tailored to your needs. Available for online and in-person sessions.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          
-          {/* Glass-Calendar */}
-          <div className="lg:col-span-7">
-            <Card className="p-8 rounded-[3rem] bg-white border-none shadow-2xl shadow-gray-200/50">
-              <div className="flex items-center justify-between mb-10 px-2">
-                <button onClick={prevMonth} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-                  <ChevronLeft size={24} />
-                </button>
-                <div className="text-center">
-                    <p className="text-sm font-black text-gray-900 uppercase tracking-widest">{monthLabel}</p>
-                </div>
-                <button onClick={nextMonth} className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center hover:bg-primary hover:text-white transition-all">
-                  <ChevronRight size={24} />
-                </button>
-              </div>
+      {/* ── Form ─────────────────────────────────────────────────────── */}
+      <div style={{
+        maxWidth: 560, margin: '0 auto', padding: '0 24px 60px',
+      }}>
+        <div style={{
+          background: T.white,
+          borderRadius: T.r.lg,
+          boxShadow: T.shadowLg,
+          border: `1px solid ${T.border}`,
+          padding: 32,
+          animation: 'fadeUp 0.6s 0.1s ease both',
+        }}>
+          {submitted ? (
+            <SuccessCard form={form} />
+          ) : (
+            <form onSubmit={handleSubmit} noValidate>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* Name */}
+                <FloatingInput
+                  label="Full Name" icon={User} value={form.name}
+                  onChange={v => { setForm({ ...form, name: v }); setErrors({ ...errors, name: '' }); }}
+                  required placeholder="Arun Patel"
+                  error={errors.name}
+                />
+                {errors.name && (
+                  <p style={{ fontSize: 11, color: T.red, marginTop: -12, fontWeight: 500 }}>{errors.name}</p>
+                )}
 
-              <div className="grid grid-cols-7 mb-6">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                  <div key={d} className="text-center text-[10px] font-black text-gray-300 uppercase tracking-widest py-1">{d}</div>
-                ))}
-              </div>
+                {/* Phone */}
+                <FloatingInput
+                  label="Phone Number" icon={Phone} type="tel" value={form.phone}
+                  onChange={v => { setForm({ ...form, phone: v }); setErrors({ ...errors, phone: '' }); }}
+                  required placeholder="98765 43210"
+                  error={errors.phone}
+                />
+                {errors.phone && (
+                  <p style={{ fontSize: 11, color: T.red, marginTop: -12, fontWeight: 500 }}>{errors.phone}</p>
+                )}
 
-              <div className="grid grid-cols-7 gap-3">
-                {[...Array(firstDay)].map((_, i) => <div key={`e${i}`} />)}
-                {[...Array(daysInMonth)].map((_, i) => {
-                  const day = i + 1;
-                  const dateObj = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
-                  const available = isAvailable(dateObj) && !isPast(dateObj);
-                  const selected = selectedDate?.toDateString() === dateObj.toDateString();
-                  return (
-                    <button
-                      key={day}
-                      disabled={!available}
-                      onClick={() => { setSelectedDate(dateObj); setSelectedSlot(null); }}
-                      className={`h-12 w-12 rounded-2xl text-sm font-bold transition-all mx-auto flex items-center justify-center relative
-                        ${!available ? 'text-gray-200 cursor-not-allowed' : 'hover:scale-110 active:scale-95'}
-                        ${selected ? 'text-white shadow-xl shadow-primary/30' : available ? 'bg-gray-50 text-gray-600' : ''}`}
-                      style={selected ? { backgroundColor: clinicConfig.primaryColor } : {}}
+                {/* Email */}
+                <FloatingInput
+                  label="Email Address" icon={Mail} type="email" value={form.email}
+                  onChange={v => { setForm({ ...form, email: v }); setErrors({ ...errors, email: '' }); }}
+                  required placeholder="arun@example.com"
+                  error={errors.email}
+                />
+                {errors.email && (
+                  <p style={{ fontSize: 11, color: T.red, marginTop: -12, fontWeight: 500 }}>{errors.email}</p>
+                )}
+
+                {/* Service */}
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'relative' }}>
+                    <Calendar size={16} style={{
+                      position: 'absolute', left: 16, top: 18,
+                      color: T.ink3, pointerEvents: 'none', zIndex: 1,
+                    }} />
+                    <select
+                      value={form.service}
+                      onChange={e => setForm({ ...form, service: e.target.value })}
+                      style={{
+                        width: '100%', padding: '22px 18px 8px',
+                        background: T.white,
+                        border: `1.5px solid ${T.border}`,
+                        borderRadius: T.r.sm,
+                        fontSize: 16, fontFamily: "'DM Sans', sans-serif",
+                        color: T.ink, outline: 'none',
+                        paddingLeft: 44,
+                        appearance: 'none', cursor: 'pointer',
+                      }}
                     >
-                      {day}
-                      {available && !selected && <div className="absolute bottom-1.5 w-1 h-1 rounded-full bg-primary/30" />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex gap-6 mt-10 pt-8 border-t border-gray-50">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  <div className="w-2 h-2 rounded-full bg-gray-50 border border-gray-100" /> Available
+                      {clinicConfig.services.map(s => (
+                        <option key={s.id} value={s.name}>{s.name} — ₹{s.price}</option>
+                      ))}
+                    </select>
+                    <label style={{
+                      position: 'absolute', left: 44, top: form.service ? 10 : 18,
+                      fontSize: form.service ? 11 : 15,
+                      fontWeight: form.service ? 600 : 400,
+                      color: T.ink3, pointerEvents: 'none',
+                      transition: 'all 0.2s',
+                      fontFamily: "'DM Sans', sans-serif",
+                    }}>Select Service</label>
+                    <ChevronRight size={16} style={{
+                      position: 'absolute', right: 16, top: 20,
+                      color: T.ink3, pointerEvents: 'none', transform: 'rotate(90deg)',
+                    }} />
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: clinicConfig.primaryColor }} /> Selected
-                </div>
-              </div>
-            </Card>
-          </div>
 
-          {/* Time Slots Section */}
-          <div className="lg:col-span-5">
-            <Card className={`p-8 rounded-[3rem] bg-white border-2 transition-all duration-500 overflow-hidden
-                ${selectedDate ? 'border-primary shadow-2xl shadow-primary/5' : 'border-dashed border-gray-200 opacity-60'}`}>
-              
-              <div className="flex items-center gap-3 mb-10">
-                <div className="w-12 h-12 rounded-[1.5rem] bg-gray-50 flex items-center justify-center text-primary"><Clock size={20} /></div>
+                {/* Date */}
+                <div style={{ position: 'relative' }}>
+                  <Calendar size={16} style={{
+                    position: 'absolute', left: 16, top: 18,
+                    color: T.ink3, pointerEvents: 'none', zIndex: 1,
+                  }} />
+                  <input
+                    type="date"
+                    value={form.date}
+                    min={today}
+                    onChange={e => { setForm({ ...form, date: e.target.value }); setErrors({ ...errors, date: '' }); }}
+                    style={{
+                      width: '100%', padding: '22px 18px 8px',
+                      background: T.white,
+                      border: `1.5px solid ${errors.date ? T.red : (form.date ? T.primary : T.border)}`,
+                      borderRadius: T.r.sm,
+                      fontSize: 16, fontFamily: "'DM Sans', sans-serif",
+                      color: T.ink, outline: 'none',
+                      paddingLeft: 44,
+                      boxShadow: errors.date ? `0 0 0 3px rgba(255,59,48,0.10)` : (form.date ? `0 0 0 3px rgba(13,115,119,0.10)` : 'none'),
+                      transition: 'border-color 0.2s, box-shadow 0.2s',
+                    }}
+                  />
+                  <label style={{
+                    position: 'absolute', left: 44, top: form.date ? 10 : 18,
+                    fontSize: form.date ? 11 : 15,
+                    fontWeight: form.date ? 600 : 400,
+                    color: errors.date ? T.red : (form.date ? T.primary : T.ink3),
+                    pointerEvents: 'none',
+                    transition: 'all 0.2s',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}>Preferred Date <span style={{ color: T.red }}>*</span></label>
+                </div>
+                {errors.date && (
+                  <p style={{ fontSize: 11, color: T.red, marginTop: -12, fontWeight: 500 }}>{errors.date}</p>
+                )}
+
+                {/* Time Slot */}
                 <div>
-                    <h2 className="text-lg font-black text-gray-900 tracking-tight">Available Slots</h2>
-                    <p className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
-                        {selectedDate ? selectedDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) : 'Pick a date first'}
+                  <label style={{
+                    display: 'block', fontSize: 12, fontWeight: 600,
+                    color: T.ink2, marginBottom: 10, letterSpacing: '0.2px',
+                  }}>
+                    Preferred Time Slot <span style={{ color: T.red }}>*</span>
+                  </label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    {slots.map(s => (
+                      <TimeChip
+                        key={s.id}
+                        label={s.label}
+                        icon={s.icon}
+                        selected={form.slot === s.id}
+                        onClick={() => { setForm({ ...form, slot: s.id }); setErrors({ ...errors, slot: '' }); }}
+                      />
+                    ))}
+                  </div>
+                  {form.slot && (
+                    <p style={{ fontSize: 11, color: T.ink3, marginTop: 6, textAlign: 'center' }}>
+                      {slots.find(s => s.id === form.slot)?.time}
                     </p>
+                  )}
+                  {errors.slot && (
+                    <p style={{ fontSize: 11, color: T.red, marginTop: 6, fontWeight: 500 }}>{errors.slot}</p>
+                  )}
                 </div>
+
+                {/* Message */}
+                <FloatingInput
+                  label="Chief Complaint / Message (optional)" icon={MessageSquare}
+                  type="textarea" value={form.message} rows={3}
+                  onChange={v => setForm({ ...form, message: v })}
+                  placeholder="Describe your symptoms or reason for consultation..."
+                />
               </div>
 
-              {selectedDate ? (
-                <div className="space-y-10 animate-in fade-in slide-in-from-right-10 duration-500">
-                  <SlotGrid label="Early Morning" icon={SunMedium} slots={groupedSlots.morning} selectedSlot={selectedSlot} onSelect={setSelectedSlot} />
-                  <SlotGrid label="Afternoon" icon={Sunset} slots={groupedSlots.afternoon} selectedSlot={selectedSlot} onSelect={setSelectedSlot} />
-                  <SlotGrid label="Evening" icon={Moon} slots={groupedSlots.evening} selectedSlot={selectedSlot} onSelect={setSelectedSlot} />
-                </div>
-              ) : (
-                <div className="text-center py-20">
-                  <div className="w-20 h-20 rounded-[2.5rem] bg-gray-50 flex items-center justify-center mx-auto mb-6 text-gray-300">
-                    <Calendar size={32} />
-                  </div>
-                  <p className="text-sm font-bold text-gray-400 uppercase tracking-widest leading-loose">Choose a date on the<br />calendar to see slots</p>
-                </div>
-              )}
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: '100%', height: 54, marginTop: 24,
+                  background: loading
+                    ? `linear-gradient(135deg, ${T.primary}CC, ${T.accent}CC)`
+                    : `linear-gradient(135deg, ${T.primary}, ${T.accent})`,
+                  color: T.white, border: 'none', borderRadius: T.r.md,
+                  fontSize: 16, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  boxShadow: `0 4px 20px rgba(13,115,119,0.35)`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s',
+                }}
+                onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.98)'; }}
+                onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {loading ? (
+                  <><Loader2 size={18} className="animate-spin" /> Processing...</>
+                ) : (
+                  <>Book Appointment <ChevronRight size={18} /></>
+                )}
+              </button>
 
-              {selectedDate && selectedSlot && (
-                <div className="mt-12 pt-10 border-t border-gray-100 animate-in zoom-in-95 duration-300 text-left">
-                  <div className="p-6 bg-gray-50 rounded-[2rem] mb-6 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary"><CheckCircle2 size={18} /></div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase text-gray-400">Ready to Book</p>
-                        <p className="text-sm font-black text-gray-900">{selectedSlot.label} · {selectedDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
-                      </div>
-                  </div>
-                  <Button fullWidth onClick={handleBooking} loading={loading} className="h-16 rounded-[1.8rem] shadow-xl shadow-primary/20 font-black uppercase tracking-widest text-xs">
-                    {loading ? <Loader2 className="animate-spin" /> : 'Confirm & Continue'}
-                  </Button>
-                </div>
-              )}
-            </Card>
-          </div>
+              <p style={{ fontSize: 11, color: T.ink4, textAlign: 'center', marginTop: 12 }}>
+                No payment required now · We'll call to confirm
+              </p>
+            </form>
+          )}
+        </div>
 
+        {/* Trust Strip */}
+        {!submitted && <TrustStrip />}
+
+        {/* Back link */}
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <a href="/" style={{ fontSize: 13, color: T.ink3, textDecoration: 'none', fontWeight: 500 }}>
+            ← Back to Home
+          </a>
         </div>
       </div>
-    </PageWrapper>
+    </div>
   );
-}
-
-// Internal Styled Component for Slot Grids
-function SlotGrid({ label, icon: Icon, slots, selectedSlot, onSelect }) {
-    const available = slots.filter((s) => !s.booked);
-    if (available.length === 0) return null;
-    return (
-      <div className="text-left">
-        <div className="flex items-center gap-2 mb-4">
-          <Icon size={14} className="text-primary" />
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</span>
-          <div className="h-px flex-1 bg-gray-50" />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {slots.map((slot) => (
-            <button
-              key={slot.id}
-              disabled={slot.booked}
-              onClick={() => onSelect(slot)}
-              className={`py-3 px-5 rounded-[1.2rem] text-xs font-black transition-all border-2
-                ${slot.booked
-                  ? 'bg-gray-50/50 text-gray-200 border-gray-50 cursor-not-allowed'
-                  : selectedSlot?.id === slot.id
-                  ? 'text-white border-primary shadow-lg shadow-primary/20 scale-105'
-                  : 'bg-white border-gray-100 text-gray-500 hover:border-primary/30 hover:text-primary'}
-              `}
-              style={selectedSlot?.id === slot.id ? { backgroundColor: clinicConfig.primaryColor } : {}}
-            >
-              {slot.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    );
 }

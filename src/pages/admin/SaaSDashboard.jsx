@@ -1,486 +1,725 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
-import PageWrapper from '@/components/layout/PageWrapper';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import {
-  Users,
-  Activity,
-  DollarSign,
-  Briefcase,
-  PlayCircle,
-  Database,
-  Smartphone,
-  BarChart,
-  Video,
-  Mail,
-  Plus,
-  Settings,
-  Globe,
-  CheckCircle2,
-  ShieldCheck,
-  TrendingUp,
-  AlertCircle,
-  ExternalLink,
-  Eye,
-  Ban,
-  Loader2,
+  Users, Calendar, Activity, TrendingUp, Plus,
+  Settings, LogOut, Menu, X, Crown,
+  Clock, UserX, Trash2, ExternalLink,
+  Globe, Loader2,
 } from 'lucide-react';
 
+// ─── Design Tokens ──────────────────────────────────────────────────────────────
+const T = {
+  sidebar: '#0F172A',
+  sidebarHover: '#1E293B',
+  sidebarActive: '#1D4ED8',
+  sidebarText: '#94A3B8',
+  sidebarTextBright: '#F1F5F9',
+  primary: '#0D7377',
+  primaryLight: '#E8F5F5',
+  accent: '#14A3A8',
+  surface: '#F8FAFC',
+  white: '#FFFFFF',
+  ink: '#1D1D1F',
+  ink2: '#3A3A3C',
+  ink3: '#636366',
+  ink4: '#AEAEB2',
+  border: 'rgba(0,0,0,0.06)',
+  shadowSm: '0 2px 8px rgba(0,0,0,0.06)',
+  shadowMd: '0 8px 24px rgba(0,0,0,0.10)',
+  green: '#10B981',
+  yellow: '#F59E0B',
+  red: '#EF4444',
+  blue: '#3B82F6',
+  r: { sm: 10, md: 14, lg: 20 },
+};
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: Activity },
+  { id: 'appointments', label: 'Appointments', icon: Calendar },
+  { id: 'clinics', label: 'Clinics', icon: Globe },
+  { id: 'users', label: 'User Management', icon: Users },
+  { id: 'settings', label: 'Settings', icon: Settings },
+];
+
+// ─── Stat Card ─────────────────────────────────────────────────────────────────
+function StatCard({ title, value, icon: Icon, trend, color, bg }) {
+  return (
+    <div style={{
+      background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`,
+      padding: 24, boxShadow: T.shadowSm,
+      display: 'flex', flexDirection: 'column', gap: 16,
+      transition: 'transform 0.2s, box-shadow 0.2s',
+    }}
+    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = T.shadowMd; }}
+    onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = T.shadowSm; }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon size={22} style={{ color }} />
+        </div>
+        {trend && (
+          <span style={{
+            fontSize: 12, fontWeight: 600, color: T.green,
+            background: '#D1FAE5', padding: '2px 8px', borderRadius: 20,
+          }}>↑ {trend}</span>
+        )}
+      </div>
+      <div>
+        <p style={{ fontFamily: "'Manrope', sans-serif", fontSize: 32, fontWeight: 800, color: T.ink, lineHeight: 1, letterSpacing: '-1px' }}>
+          {value}
+        </p>
+        <p style={{ fontSize: 13, color: T.ink3, marginTop: 4, fontWeight: 500 }}>{title}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Status Badge ───────────────────────────────────────────────────────────────
+function StatusBadge({ status }) {
+  const map = {
+    active: { color: T.green, bg: '#D1FAE5', label: 'Active' },
+    pending: { color: T.yellow, bg: '#FEF3C7', label: 'Pending' },
+    confirmed: { color: T.blue, bg: '#DBEAFE', label: 'Confirmed' },
+    completed: { color: T.green, bg: '#D1FAE5', label: 'Completed' },
+    suspended: { color: T.red, bg: '#FEE2E2', label: 'Suspended' },
+  };
+  const s = map[status] || map.pending;
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 700, color: s.color,
+      background: s.bg, padding: '3px 10px', borderRadius: 20,
+      textTransform: 'uppercase', letterSpacing: '0.3px',
+    }}>
+      {s.label}
+    </span>
+  );
+}
+
+// ─── Confirm Dialog ─────────────────────────────────────────────────────────────
+function ConfirmDialog({ title, message, onConfirm, onCancel, confirmLabel = 'Confirm', danger = false }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }} onClick={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div style={{
+        background: T.white, borderRadius: T.r.lg, padding: 32, maxWidth: 400, width: '100%',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+        animation: 'scaleIn 0.3s ease both',
+      }}>
+        <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 18, fontWeight: 800, color: T.ink, marginBottom: 8 }}>{title}</h3>
+        <p style={{ fontSize: 14, color: T.ink3, lineHeight: 1.6, marginBottom: 24 }}>{message}</p>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={onCancel} style={{
+            flex: 1, height: 44, background: T.surface, border: `1px solid ${T.border}`,
+            borderRadius: T.r.sm, fontSize: 14, fontWeight: 600, color: T.ink2,
+            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+          }}>Cancel</button>
+          <button onClick={onConfirm} style={{
+            flex: 1, height: 44, background: danger ? T.red : T.primary,
+            color: T.white, border: 'none', borderRadius: T.r.sm,
+            fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            fontFamily: "'DM Sans', sans-serif",
+            boxShadow: `0 4px 12px ${danger ? 'rgba(239,68,68,0.3)' : 'rgba(13,115,119,0.3)'}`,
+          }}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar ───────────────────────────────────────────────────────────────────
+function Sidebar({ activeTab, onTab, collapsed, onSignOut }) {
+  return (
+    <aside style={{
+      width: collapsed ? 72 : 240,
+      minHeight: '100vh', background: T.sidebar,
+      display: 'flex', flexDirection: 'column',
+      position: 'fixed', left: 0, top: 0, bottom: 0,
+      zIndex: 100, transition: 'width 0.3s',
+      overflow: 'hidden',
+    }}>
+      {/* Logo */}
+      <div style={{
+        height: 64, padding: '0 20px', display: 'flex', alignItems: 'center', gap: 12,
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 10,
+          background: `linear-gradient(135deg, ${T.primary}, ${T.accent})`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        {!collapsed && (
+          <div>
+            <p style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 16, color: T.sidebarTextBright, lineHeight: 1.1 }}>OnlinePT</p>
+            <p style={{ fontSize: 10, color: T.sidebarText, fontWeight: 500 }}>Platform Control</p>
+          </div>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => onTab(id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: collapsed ? '12px' : '12px 14px',
+              background: activeTab === id ? T.sidebarActive : 'transparent',
+              border: 'none', borderRadius: T.r.sm,
+              cursor: 'pointer', width: '100%',
+              color: activeTab === id ? T.white : T.sidebarText,
+              fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: 14,
+              transition: 'background 0.15s',
+              justifyContent: collapsed ? 'center' : 'flex-start',
+            }}
+            onMouseEnter={e => { if (activeTab !== id) e.currentTarget.style.background = T.sidebarHover; }}
+            onMouseLeave={e => { if (activeTab !== id) e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Icon size={20} style={{ flexShrink: 0 }} />
+            {!collapsed && <span>{label}</span>}
+          </button>
+        ))}
+      </nav>
+
+      {/* Bottom */}
+      <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+        <button
+          onClick={onSignOut}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: collapsed ? '12px' : '12px 14px',
+            background: 'transparent', border: 'none', borderRadius: T.r.sm,
+            cursor: 'pointer', width: '100%',
+            color: T.sidebarText, fontFamily: "'DM Sans', sans-serif",
+            fontWeight: 600, fontSize: 14,
+            transition: 'background 0.15s',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <LogOut size={20} />
+          {!collapsed && <span>Sign Out</span>}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ─── Table Row Helper ──────────────────────────────────────────────────────────
+function ActionButton({ onClick, label, bg, color, icon: Icon }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '4px 12px',
+        background: bg, color, border: 'none', borderRadius: 6,
+        fontSize: 11, fontWeight: 600, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 4,
+        fontFamily: "'DM Sans', sans-serif",
+      }}
+    >
+      {Icon && <Icon size={12} />} {label}
+    </button>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function SaaSDashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [apiKey, setApiKey] = useState('');
-  const [apiSecret, setApiSecret] = useState('');
-  
-  // LIVE DATA STATE
-  const [liveClinics, setLiveClinics] = useState([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [clinics, setClinics] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isEditingPlan, setIsEditingPlan] = useState(null);
-  const [livePlans, setLivePlans] = useState([
-    { id: 'Starter',        price: '₹1,999', subscribers: 34, features: ['Booking', 'Patient Mgmt', 'WhatsApp Reminders'] },
-    { id: 'Pro',            price: '₹3,999', subscribers: 84, features: ['All Starter', 'WebRTC Video', 'EHR', 'Analytics'] },
-    { id: 'Premium Bundle', price: '₹7,999', subscribers: 42, features: ['All Pro', 'HEP Vault', 'WhatsApp Automation', 'White-labeling'] },
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [confirmDialog, setConfirmDialog] = useState(null);
+  const [appointments, setAppointments] = useState([
+    { id: 1, patient: 'Priya Sharma', phone: '98765 43210', service: 'Physiotherapy', date: 'Mar 29, 2026', slot: 'Morning', status: 'pending' },
+    { id: 2, patient: 'Rahul Verma', phone: '98234 56789', service: 'Sports Rehab', date: 'Mar 29, 2026', slot: 'Afternoon', status: 'confirmed' },
+    { id: 3, patient: 'Anita Desai', phone: '97654 32109', service: 'Spine Care', date: 'Mar 28, 2026', slot: 'Morning', status: 'completed' },
+    { id: 4, patient: 'Vikram Patel', phone: '96543 21098', service: 'Joint Pain', date: 'Mar 28, 2026', slot: 'Evening', status: 'pending' },
+    { id: 5, patient: 'Sunita Rao', phone: '95432 10987', service: 'Trigger Point Therapy', date: 'Mar 27, 2026', slot: 'Afternoon', status: 'completed' },
+  ]);
+  const [users, setUsers] = useState([
+    { id: 1, name: 'Dr. Aruna Koladiya', email: 'pakoladiya@gmail.com', role: 'super_admin', status: 'active', joined: 'Jan 2025' },
+    { id: 2, name: 'Dr. Kiran Patel', email: 'kiran@spinecare.in', role: 'physio', status: 'active', joined: 'Feb 2025' },
+    { id: 3, name: 'Dr. Meera Singh', email: 'meera@movewell.com', role: 'physio', status: 'active', joined: 'Mar 2025' },
+    { id: 4, name: 'Dr. Ajay Kumar', email: 'ajay@cityphysio.com', role: 'physio', status: 'pending', joined: 'Mar 2026' },
   ]);
 
-  // ── Fetch Live Clinics ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (!db) return;
-
+    if (!db) { setLoading(false); return; }
     try {
-      // Removed orderBy to ensure it works without manual Firebase indexing
-      const q = query(collection(db, 'clinics'));
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const docs = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setLiveClinics(docs);
+      const unsub = onSnapshot(collection(db, 'clinics'), (snap) => {
+        setClinics(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         setLoading(false);
-      });
-
-      return () => unsubscribe();
-    } catch (err) {
-      console.error('Failed to listen to clinics:', err);
-      setLoading(false);
-    }
+      }, () => setLoading(false));
+      return () => unsub();
+    } catch { setLoading(false); }
   }, []);
 
-  // ── Mock stats (computed from live data where possible) ──────────────────────
+  const handleSignOut = async () => {
+    const { signOut } = await import('@/firebase/auth');
+    await signOut();
+    navigate('/dashboard-login');
+  };
+
+  const updateAppointmentStatus = (id, status) => {
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+    setConfirmDialog(null);
+  };
+
+  const deleteAppointment = (id) => {
+    setAppointments(prev => prev.filter(a => a.id !== id));
+    setConfirmDialog(null);
+  };
+
+  const filteredAppointments = appointments.filter(a => {
+    if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+    if (search && !a.patient.toLowerCase().includes(search.toLowerCase()) && !a.phone.includes(search)) return false;
+    return true;
+  });
+
+  const filteredUsers = users.filter(u =>
+    !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
+  );
+
   const stats = [
-    { title: 'Active Physios',       value: loading ? '...' : (liveClinics.length + 142).toString(),    icon: Users,     change: '+12% this month', color: 'text-primary',  bg: 'bg-primary/10' },
-    { title: 'Total Patients',        value: '12,450', icon: Activity,  change: '+24% this month', color: 'text-info',     bg: 'bg-blue-50' },
-    { title: 'MRR',                   value: loading ? '...' : `₹${(liveClinics.length * 4999).toLocaleString()}`,  icon: DollarSign,change: '+8% this month',  color: 'text-success',  bg: 'bg-green-50' },
-    { title: 'Consultations (30d)',   value: '3,842',  icon: Briefcase, change: '+18% this month', color: 'text-warning',  bg: 'bg-yellow-50' },
+    { title: 'Total Appointments', value: '1,284', icon: Calendar, trend: '12%', color: T.primary, bg: T.primaryLight },
+    { title: "Today's Appointments", value: '18', icon: Clock, trend: '5%', color: '#F59E0B', bg: '#FEF3C7' },
+    { title: 'Total Patients', value: '4,521', icon: Users, trend: '8%', color: '#3B82F6', bg: '#DBEAFE' },
+    { title: 'Pending Reviews', value: '23', icon: Activity, trend: null, color: '#EF4444', bg: '#FEE2E2' },
   ];
 
-  const bundleFeatures = [
-    { title: 'Multi-Tenant Dashboard',        icon: Globe,       color: 'bg-blue-50 text-blue-600',    description: 'Custom domains, per-clinic isolation.' },
-    { title: 'HEP Video Vault',               icon: PlayCircle,  color: 'bg-red-50 text-red-600',      description: 'Digital exercise prescription library.' },
-    { title: 'Secure Digital EHR',            icon: Database,    color: 'bg-green-50 text-green-600',  description: 'HIPAA-compliant patient records.' },
-    { title: 'WhatsApp Automation',           icon: Smartphone,  color: 'bg-teal-50 text-teal-600',   description: 'Reminders, payment links, HEP delivery.' },
-    { title: 'Advanced Analytics',            icon: BarChart,    color: 'bg-purple-50 text-purple-600',description: 'LTV, recovery rates, booking insights.' },
-    { title: 'Integrated WebRTC Video',       icon: Video,       color: 'bg-indigo-50 text-indigo-600',description: 'No Zoom—built-in "Consult Now" flow.' },
-    { title: 'Marketing Automation Kit',      icon: Mail,        color: 'bg-pink-50 text-pink-600',   description: 'Email templates and SEO controls.' },
-    { title: 'Recovery Subscription Packages',icon: Briefcase,   color: 'bg-orange-50 text-orange-600',description: '10-session bundles to boost cash flow.' },
-  ];
+  const sidebarWidth = sidebarCollapsed ? 72 : 240;
 
-  const clinics = liveClinics;
+  const tableHeaderStyle = (extra = {}) => ({
+    padding: '14px 20px', textAlign: 'left', fontSize: 11, fontWeight: 700,
+    color: T.ink3, textTransform: 'uppercase', letterSpacing: '0.5px',
+    background: T.surface, ...extra,
+  });
 
-  const plans = [
-    { name: 'Starter',        price: '₹1,999', subscribers: 34, features: ['Booking', 'Patient Mgmt', 'WhatsApp Reminders'] },
-    { name: 'Pro',            price: '₹3,999', subscribers: 84, features: ['All Starter', 'WebRTC Video', 'EHR', 'Analytics'] },
-    { name: 'Premium Bundle', price: '₹7,999', subscribers: 42, features: ['All Pro', 'HEP Vault', 'WhatsApp Automation', 'White-labeling'] },
-  ];
+  const tableCellStyle = { padding: '14px 20px', fontSize: 13, color: T.ink3 };
+  const tableRowStyle = (id) => ({
+    borderTop: `1px solid ${T.border}`, transition: 'background 0.15s',
+    cursor: 'default',
+  });
 
-  const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'clinics',  label: 'Clinics' },
-    { id: 'billing',  label: 'Subscriptions & Billing' },
-  ];
-
-  const statusBadge = (status) => {
-    if (status === 'active')               return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">Active</span>;
-    if (status === 'onboarding')           return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Onboarding</span>;
-    if (status === 'pending_verification') return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Verification Req.</span>;
-    return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">Suspended</span>;
-  };
-
-  const approveClinic = async (clinicId) => {
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'clinics', clinicId), { 
-        subscriptionStatus: 'active',
-        verifiedAt: new Date().toISOString()
-      });
-      alert('Clinic Verified & Activated!');
-    } catch (err) {
-      console.error('Failed to approve clinic:', err);
-      alert('Verification sync failed.');
-    }
-  };
-
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const pageTitle = NAV_ITEMS.find(n => n.id === activeTab)?.label || 'Dashboard';
 
   return (
-    <PageWrapper>
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'DM Sans', sans-serif", background: T.surface }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        tr:hover td { background: #F8FAFC !important; }
+        @media (max-width: 768px) {
+          aside { display: none !important; }
+          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
 
-        {/* ---- Header ---- */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Platform Command Center</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage your white-label SaaS offering for physiotherapists.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button variant="ghost" className="text-gray-400 hover:text-red-500" onClick={async () => {
-              const { signOut } = await import('@/firebase/auth');
-              await signOut();
-              window.location.href = '/';
-            }}>
-              Sign Out
-            </Button>
-            <Button variant="outline" onClick={() => window.open('/?tenant=demo', '_blank')}>
-              <Eye className="w-4 h-4 mr-2" /> Preview Demo
-            </Button>
-            <Button onClick={() => navigate('/saas/onboarding')}>
-              <Plus className="w-4 h-4 mr-2" /> Onboard New Clinic
-            </Button>
-          </div>
-        </div>
+      {/* Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        onTab={setActiveTab}
+        collapsed={sidebarCollapsed}
+        onSignOut={handleSignOut}
+      />
 
-        {/* ---- Tab Bar ---- */}
-        <div className="flex border-b border-gray-200 mb-8 overflow-x-auto gap-1">
-          {tabs.map((tab) => (
+      {/* Main Content */}
+      <div style={{ flex: 1, marginLeft: sidebarWidth, transition: 'margin-left 0.3s', minHeight: '100vh' }}>
+        {/* Header */}
+        <header style={{
+          background: T.white, borderBottom: `1px solid ${T.border}`,
+          padding: '0 28px', height: 64,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'sticky', top: 0, zIndex: 50,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`pb-4 px-4 text-sm font-semibold whitespace-nowrap border-b-2 transition-colors duration-150
-                ${activeTab === tab.id
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300'
-                }`}
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              style={{
+                width: 36, height: 36, borderRadius: 8,
+                background: T.surface, border: `1px solid ${T.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: T.ink3,
+              }}
             >
-              {tab.label}
+              {sidebarCollapsed ? <Menu size={18} /> : <X size={18} />}
             </button>
-          ))}
-        </div>
-
-        {/* ══════════════════════════════════════════
-            TAB 1 — OVERVIEW
-        ══════════════════════════════════════════ */}
-        {activeTab === 'overview' && (
-          <div className="space-y-8 animate-in fade-in duration-300">
-
-            {/* KPI Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {stats.map((stat) => (
-                <Card key={stat.title} className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                      <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                    </div>
-                    <div className={`p-3 rounded-full ${stat.bg} ${stat.color}`}>
-                      <stat.icon className="w-6 h-6" />
-                    </div>
-                  </div>
-                  <p className="text-xs text-green-600 mt-4 font-medium flex items-center">
-                    <TrendingUp className="w-3 h-3 mr-1" /> {stat.change}
-                  </p>
-                </Card>
-              ))}
+            <h1 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 18, fontWeight: 800, color: T.ink, lineHeight: 1.1 }}>
+              {pageTitle}
+            </h1>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Super Admin Badge */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: `linear-gradient(135deg, #F59E0B, #D97706)`,
+              color: '#fff', padding: '4px 12px', borderRadius: 20,
+              fontSize: 11, fontWeight: 700,
+              boxShadow: '0 2px 8px rgba(245,158,11,0.4)',
+            }}>
+              <Crown size={11} /> Super Admin
             </div>
+            {/* Avatar */}
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%',
+              background: `linear-gradient(135deg, ${T.primary}, ${T.accent})`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: T.white, fontFamily: "'Manrope', sans-serif",
+              fontWeight: 800, fontSize: 14,
+            }}>A</div>
+          </div>
+        </header>
 
-            {/* Bundle Features Grid */}
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-5">SaaS Bundle Features</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
-                {bundleFeatures.map((f, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white border border-gray-100 shadow-sm rounded-xl p-6 hover:shadow-md transition-shadow flex flex-col gap-3"
-                  >
-                    <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${f.color}`}>
-                      <f.icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="font-semibold text-gray-900 leading-snug">{f.title}</h3>
-                    <p className="text-xs text-gray-500 leading-relaxed flex-grow">{f.description}</p>
-                    <div className="flex items-center text-xs font-medium text-green-600 pt-2 border-t border-gray-100">
-                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Available in Premium Bundle
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Page Content */}
+        <div style={{ padding: 28 }}>
 
-            {/* Recently Onboarded */}
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-                <h3 className="font-semibold text-gray-900">Recently Onboarded Clinics</h3>
-                <Button variant="outline" size="sm" onClick={() => setActiveTab('clinics')}>View All</Button>
+          {/* ═══ DASHBOARD TAB ═══ */}
+          {activeTab === 'dashboard' && (
+            <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+              <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 32 }}>
+                {stats.map(s => <StatCard key={s.title} {...s} />)}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-gray-500 bg-gray-50 uppercase">
-                    <tr>
-                      <th className="px-6 py-3 font-medium">Clinic Name</th>
-                      <th className="px-6 py-3 font-medium">Domain</th>
-                      <th className="px-6 py-3 font-medium">Plan</th>
-                      <th className="px-6 py-3 font-medium">Status</th>
-                    </tr>
+
+              {/* Recent Appointments */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, overflow: 'hidden', marginBottom: 28 }}>
+                <div style={{ padding: '20px 24px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 16, color: T.ink }}>Recent Appointments</h2>
+                  <button onClick={() => setActiveTab('appointments')} style={{ fontSize: 13, fontWeight: 600, color: T.primary, background: 'none', border: 'none', cursor: 'pointer' }}>
+                    View All →
+                  </button>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>{['Patient', 'Service', 'Date', 'Slot', 'Status', 'Actions'].map(h => <th key={h} style={tableHeaderStyle()}>{h}</th>)}</tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100 italic text-gray-400">
-                    {loading ? (
-                      <tr>
-                        <td colSpan="4" className="px-6 py-12 text-center">
-                          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary opacity-50" />
-                          <p className="mt-2 text-xs font-medium text-gray-500 tracking-widest uppercase">Syncing with Live Database...</p>
+                  <tbody>
+                    {appointments.slice(0, 4).map(a => (
+                      <tr key={a.id} style={tableRowStyle(a.id)}>
+                        <td style={{ padding: '14px 20px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.primary, fontWeight: 700, fontSize: 13 }}>{a.patient.charAt(0)}</div>
+                            <div>
+                              <p style={{ fontWeight: 600, fontSize: 14, color: T.ink }}>{a.patient}</p>
+                              <p style={{ fontSize: 11, color: T.ink4 }}>{a.phone}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={tableCellStyle}>{a.service}</td>
+                        <td style={tableCellStyle}>{a.date}</td>
+                        <td style={tableCellStyle}>{a.slot}</td>
+                        <td style={{ padding: '14px 20px' }}><StatusBadge status={a.status} /></td>
+                        <td style={{ padding: '14px 20px' }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {a.status === 'pending' && <ActionButton label="Confirm" onClick={() => updateAppointmentStatus(a.id, 'confirmed')} bg="#DBEAFE" color="#2563EB" />}
+                            {a.status === 'confirmed' && <ActionButton label="Complete" onClick={() => updateAppointmentStatus(a.id, 'completed')} bg="#D1FAE5" color="#059669" />}
+                            <ActionButton label="" onClick={() => setConfirmDialog({ title: 'Delete Appointment', message: `Delete appointment for ${a.patient}?`, onConfirm: () => deleteAppointment(a.id), onCancel: () => setConfirmDialog(null), confirmLabel: 'Delete', danger: true })} bg="#FEE2E2" color="#DC2626" icon={Trash2} />
+                          </div>
                         </td>
                       </tr>
-                    ) : clinics.length === 0 ? (
-                      <tr>
-                        <td colSpan="4" className="px-6 py-16 text-center">
-                          <Globe className="w-12 h-12 mx-auto text-gray-200 mb-3" />
-                          <p className="text-gray-500 font-medium">No clinics registered yet.</p>
-                          <Button variant="ghost" size="sm" className="mt-2" onClick={() => navigate('/saas/onboarding')}>Onboard First Clinic</Button>
-                        </td>
-                      </tr>
-                    ) : (
-                      clinics.slice(0, 5).map((c) => (
-                        <tr key={c.id} className="hover:bg-gray-50 transition-colors not-italic text-gray-600">
-                          <td className="px-6 py-4 font-semibold text-gray-900">{c.clinicName || c.name}</td>
-                          <td className="px-6 py-4 font-mono text-xs">{c.domain}</td>
-                          <td className="px-6 py-4">{c.plan}</td>
-                          <td className="px-6 py-4">{statusBadge(c.subscriptionStatus || c.status)}</td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
                 </table>
               </div>
-            </Card>
-          </div>
-        )}
 
-        {/* ══════════════════════════════════════════
-            TAB 2 — CLINICS
-        ══════════════════════════════════════════ */}
-        {activeTab === 'clinics' && (
-          <div className="animate-in fade-in duration-300 space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-xl font-bold text-gray-900">All Tenants ({clinics.length})</h2>
+              {/* Active Clinics */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
+                <div style={{ padding: '20px 24px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h2 style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 16, color: T.ink }}>Active Clinics ({clinics.length})</h2>
+                  <button onClick={() => setActiveTab('clinics')} style={{ fontSize: 13, fontWeight: 600, color: T.primary, background: 'none', border: 'none', cursor: 'pointer' }}>Manage →</button>
+                </div>
+                {loading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40 }}><Loader2 size={24} className="animate-spin" style={{ color: T.primary }} /></div>
+                ) : clinics.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 40, color: T.ink3 }}>
+                    <Globe size={32} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                    <p style={{ fontSize: 14 }}>No clinics registered yet.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, padding: 20 }}>
+                    {clinics.slice(0, 6).map(c => (
+                      <div key={c.id} style={{ padding: 16, background: T.surface, borderRadius: T.r.md, border: `1px solid ${T.border}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${T.primary}, ${T.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.white, fontWeight: 800 }}>{(c.clinicName || c.name || 'C').charAt(0)}</div>
+                          <StatusBadge status={c.subscriptionStatus || 'active'} />
+                        </div>
+                        <p style={{ fontWeight: 700, fontSize: 14, color: T.ink }}>{c.clinicName || c.name}</p>
+                        <p style={{ fontSize: 11, color: T.ink4, marginTop: 2 }}>{c.domain}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ APPOINTMENTS TAB ═══ */}
+          {activeTab === 'appointments' && (
+            <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search by patient name or phone..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{
+                    flex: 1, minWidth: 240, height: 44, padding: '0 16px',
+                    background: T.white, border: `1px solid ${T.border}`,
+                    borderRadius: T.r.sm, fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                    color: T.ink, outline: 'none',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {['all', 'pending', 'confirmed', 'completed'].map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setStatusFilter(s)}
+                      style={{
+                        padding: '8px 16px', height: 36,
+                        background: statusFilter === s ? T.primary : T.white,
+                        color: statusFilter === s ? T.white : T.ink3,
+                        border: `1px solid ${statusFilter === s ? T.primary : T.border}`,
+                        borderRadius: T.r.sm, fontSize: 13, fontWeight: 600,
+                        cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>{['Patient', 'Phone', 'Service', 'Date', 'Slot', 'Status', 'Actions'].map(h => <th key={h} style={tableHeaderStyle()}>{h}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {filteredAppointments.length === 0 ? (
+                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: T.ink3, fontSize: 14 }}>No appointments found</td></tr>
+                    ) : filteredAppointments.map(a => (
+                      <tr key={a.id} style={tableRowStyle(a.id)}>
+                        <td style={{ padding: '14px 20px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: T.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.primary, fontWeight: 700, fontSize: 13 }}>{a.patient.charAt(0)}</div>
+                            <p style={{ fontWeight: 600, fontSize: 14, color: T.ink }}>{a.patient}</p>
+                          </div>
+                        </td>
+                        <td style={tableCellStyle}>{a.phone}</td>
+                        <td style={{ padding: '14px 20px', fontSize: 13, color: T.ink2 }}>{a.service}</td>
+                        <td style={tableCellStyle}>{a.date}</td>
+                        <td style={tableCellStyle}>{a.slot}</td>
+                        <td style={{ padding: '14px 20px' }}><StatusBadge status={a.status} /></td>
+                        <td style={{ padding: '14px 20px' }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {a.status === 'pending' && <ActionButton label="Confirm" onClick={() => updateAppointmentStatus(a.id, 'confirmed')} bg="#DBEAFE" color="#2563EB" />}
+                            {a.status === 'confirmed' && <ActionButton label="Complete" onClick={() => updateAppointmentStatus(a.id, 'completed')} bg="#D1FAE5" color="#059669" />}
+                            <ActionButton label="" onClick={() => setConfirmDialog({ title: 'Delete Appointment', message: 'This action cannot be undone.', onConfirm: () => deleteAppointment(a.id), onCancel: () => setConfirmDialog(null), confirmLabel: 'Delete', danger: true })} bg="#FEE2E2" color="#DC2626" icon={Trash2} />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ CLINICS TAB ═══ */}
+          {activeTab === 'clinics' && (
+            <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h2 style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 20, color: T.ink }}>All Clinics ({clinics.length})</h2>
+                <button
+                  onClick={() => navigate('/saas/onboarding')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: `linear-gradient(135deg, ${T.primary}, ${T.accent})`,
+                    color: T.white, border: 'none', borderRadius: T.r.sm,
+                    padding: '10px 20px', fontSize: 14, fontWeight: 700,
+                    cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                    boxShadow: `0 4px 16px rgba(13,115,119,0.3)`,
+                  }}
+                >
+                  <Plus size={16} /> Onboard Clinic
+                </button>
+              </div>
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
+                {loading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60 }}><Loader2 size={28} className="animate-spin" style={{ color: T.primary }} /></div>
+                ) : clinics.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 60, color: T.ink3 }}>
+                    <Globe size={40} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
+                    <p style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>No clinics yet</p>
+                    <p style={{ fontSize: 13 }}>Onboard your first clinic to get started.</p>
+                  </div>
+                ) : (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>{['Clinic', 'Domain', 'Plan', 'Patients', 'Status', 'Actions'].map(h => <th key={h} style={tableHeaderStyle()}>{h}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {clinics.map(c => (
+                        <tr key={c.id} style={tableRowStyle(c.id)}>
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${T.primary}, ${T.accent})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.white, fontWeight: 800 }}>{(c.clinicName || c.name || 'C').charAt(0)}</div>
+                              <p style={{ fontWeight: 700, fontSize: 14, color: T.ink }}>{c.clinicName || c.name}</p>
+                            </div>
+                          </td>
+                          <td style={{ padding: '14px 20px', fontSize: 13, color: T.primary, fontFamily: 'monospace' }}>{c.domain}</td>
+                          <td style={tableCellStyle}>{c.plan || 'Free'}</td>
+                          <td style={{ padding: '14px 20px', fontSize: 13, fontWeight: 600, color: T.ink }}>{c.patients || 0}</td>
+                          <td style={{ padding: '14px 20px' }}><StatusBadge status={c.subscriptionStatus || 'active'} /></td>
+                          <td style={{ padding: '14px 20px' }}>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <ActionButton label="Visit" onClick={() => window.open(`https://${c.domain}`, '_blank')} bg={T.surface} color={T.ink3} icon={ExternalLink} />
+                              <ActionButton label="Suspend" onClick={() => {}} bg="#FEF3C7" color="#D97706" />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ USERS TAB ═══ */}
+          {activeTab === 'users' && (
+            <div style={{ animation: 'fadeUp 0.4s ease both' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h2 style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 20, color: T.ink }}>User Management ({users.length})</h2>
+              </div>
               <input
                 type="text"
-                placeholder="Search clinics or domains..."
-                className="w-full sm:w-72 text-sm border border-gray-300 rounded-lg px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="Search users by name or email..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{
+                  width: '100%', maxWidth: 400, height: 44, padding: '0 16px',
+                  background: T.white, border: `1px solid ${T.border}`,
+                  borderRadius: T.r.sm, fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                  color: T.ink, outline: 'none', marginBottom: 20,
+                }}
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {clinics.map((clinic) => (
-                <Card key={clinic.id} className="p-6 flex flex-col gap-4">
-                  <div className="flex items-start justify-between">
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-xl
-                      ${clinic.id % 2 === 0 ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
-                      {(clinic.clinicName || clinic.name || 'C').charAt(0)}
-                    </div>
-                    {statusBadge(clinic.subscriptionStatus || clinic.status)}
-                  </div>
-
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-lg">{clinic.clinicName || clinic.name}</h3>
-                    <p className="text-sm text-gray-500 flex items-center gap-1 mt-0.5">
-                      <Globe className="w-3 h-3" /> {clinic.domain}
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between"><span className="text-gray-500">Plan</span><span className="font-semibold text-gray-900">{clinic.plan}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">Subdomain</span><span className="font-mono text-primary bg-primary/5 px-1.5 py-0.5 rounded text-[10px]">{clinic.subdomain || 'custom'}</span></div>
-                    <div className="flex justify-between"><span className="text-gray-500">Patients</span><span className="font-semibold text-gray-900">{clinic.patients || 0}</span></div>
-                  </div>
-
-                    <div className="flex flex-col gap-2 pt-3 border-t border-gray-100">
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => window.open(`https://${clinic.domain}`, '_blank')}
-                        >
-                          <ExternalLink className="w-3.5 h-3.5 mr-1.5" /> Visit
-                        </Button>
-                        {(clinic.subscriptionStatus || clinic.status) === 'pending_verification' && (
-                          <Button 
-                            variant="primary" 
-                            size="sm" 
-                            className="flex-1 bg-blue-600 hover:bg-blue-700"
-                            onClick={() => approveClinic(clinic.id)}
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Verify
-                          </Button>
-                        )}
-                      </div>
-                      <Button variant="ghost" size="sm" className="w-full text-red-600 hover:bg-red-50 hover:text-red-700">
-                        <Ban className="w-3.5 h-3.5 mr-1.5" /> Suspend
-                      </Button>
-                    </div>
-                </Card>
-              ))}
-
-              {/* Add Clinic CTA Card */}
-              <button
-                onClick={() => navigate('/saas/onboarding')}
-                className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center gap-3 text-gray-400 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-full border-2 border-dashed border-current flex items-center justify-center">
-                  <Plus className="w-6 h-6" />
-                </div>
-                <span className="text-sm font-semibold">Onboard New Clinic</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════════════════════
-            TAB 3 — BILLING
-        ══════════════════════════════════════════ */}
-        {activeTab === 'billing' && (
-          <div className="animate-in fade-in duration-300 space-y-8 max-w-4xl">
-            <h2 className="text-xl font-bold text-gray-900">Subscriptions & Billing</h2>
-
-            {/* Plans Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {livePlans.map((plan) => (
-                <Card key={plan.id} className="p-6 flex flex-col gap-4 relative group">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-gray-900">{plan.id}</h3>
-                      {isEditingPlan === plan.id ? (
-                        <input 
-                           className="text-lg font-black text-primary bg-gray-50 border-none outline-none w-full"
-                           value={plan.price}
-                           onChange={(e) => setLivePlans(prev => prev.map(p => p.id === plan.id ? {...p, price: e.target.value} : p))}
-                        />
-                      ) : (
-                        <p className="text-2xl font-extrabold text-primary mt-1">{plan.price}<span className="text-sm font-normal text-gray-500">/mo</span></p>
-                      )}
-                    </div>
-                    <span className="text-xs bg-gray-100 text-gray-600 font-semibold px-2.5 py-1 rounded-full">{plan.subscribers} active</span>
-                  </div>
-                  <ul className="space-y-1.5 text-sm text-gray-600">
-                    {plan.features.map((f, i) => (
-                      <li key={i} className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" /> {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-auto transition-all group-hover:bg-primary group-hover:text-white"
-                    onClick={() => setIsEditingPlan(isEditingPlan === plan.id ? null : plan.id)}
-                  >
-                    {isEditingPlan === plan.id ? 'Save Tier Configuration' : 'Edit Plan Details'}
-                  </Button>
-                </Card>
-              ))}
-            </div>
-
-            {/* Razorpay API Config */}
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b border-gray-100 bg-gray-50">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-primary" /> Razorpay API Configuration
-                </h3>
-              </div>
-              <div className="p-6 space-y-5">
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg flex items-start gap-3">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold text-sm">Connect your Razorpay Account</h4>
-                    <p className="text-xs mt-1">To automatically charge physios for their SaaS subscription, configure your live Razorpay API credentials. These are stored securely as environment variables and never exposed client-side.</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700 block mb-1.5">Razorpay Key ID</label>
-                    <input
-                      type="text"
-                      placeholder="rzp_live_xxxxxxxxxx"
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700 block mb-1.5">Razorpay Key Secret</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••••••"
-                      value={apiSecret}
-                      onChange={(e) => setApiSecret(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <Button>
-                    <ShieldCheck className="w-4 h-4 mr-2" /> Save API Keys
-                  </Button>
-                  <p className="text-xs text-gray-400">These keys will be stored as <code className="bg-gray-100 px-1 rounded">VITE_RAZORPAY_*</code> environment variables.</p>
-                </div>
-              </div>
-            </Card>
-
-            {/* Recent Transactions */}
-            <Card className="overflow-hidden">
-              <div className="p-6 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900">Recent Transactions</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase">
-                    <tr>
-                      <th className="px-6 py-3 font-medium">Clinic</th>
-                      <th className="px-6 py-3 font-medium">Plan</th>
-                      <th className="px-6 py-3 font-medium">Amount</th>
-                      <th className="px-6 py-3 font-medium">Date</th>
-                      <th className="px-6 py-3 font-medium">Status</th>
-                    </tr>
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>{['User', 'Role', 'Status', 'Joined', 'Actions'].map(h => <th key={h} style={tableHeaderStyle()}>{h}</th>)}</tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {[
-                      { clinic: 'Elite Sports Rehab', plan: 'Premium Bundle', amount: '₹7,999', date: 'Mar 28, 2026', status: 'Paid' },
-                      { clinic: 'City Walk Physio',   plan: 'Starter',        amount: '₹1,999', date: 'Mar 27, 2026', status: 'Paid' },
-                      { clinic: 'FlexCare Physio',    plan: 'Pro',            amount: '₹3,999', date: 'Mar 25, 2026', status: 'Paid' },
-                      { clinic: 'RehabPro Centre',    plan: 'Premium Bundle', amount: '₹7,999', date: 'Mar 24, 2026', status: 'Paid' },
-                    ].map((tx, i) => (
-                      <tr key={i} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-gray-900">{tx.clinic}</td>
-                        <td className="px-6 py-4 text-gray-600">{tx.plan}</td>
-                        <td className="px-6 py-4 font-semibold text-gray-900">{tx.amount}</td>
-                        <td className="px-6 py-4 text-gray-500">{tx.date}</td>
-                        <td className="px-6 py-4">
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">{tx.status}</span>
+                  <tbody>
+                    {filteredUsers.map(u => (
+                      <tr key={u.id} style={tableRowStyle(u.id)}>
+                        <td style={{ padding: '14px 20px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{
+                              width: 36, height: 36, borderRadius: '50%',
+                              background: u.role === 'super_admin' ? `linear-gradient(135deg, #F59E0B, #D97706)` : `linear-gradient(135deg, ${T.primary}, ${T.accent})`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              color: T.white, fontWeight: 800, fontSize: 14,
+                            }}>
+                              {u.name.split(' ').map(n => n.charAt(0)).slice(0, 2).join('')}
+                            </div>
+                            <div>
+                              <p style={{ fontWeight: 700, fontSize: 14, color: T.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                {u.name}
+                                {u.role === 'super_admin' && <Crown size={12} style={{ color: '#F59E0B' }} />}
+                              </p>
+                              <p style={{ fontSize: 11, color: T.ink4 }}>{u.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding: '14px 20px' }}>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700,
+                            color: u.role === 'super_admin' ? '#D97706' : T.primary,
+                            background: u.role === 'super_admin' ? '#FEF3C7' : T.primaryLight,
+                            padding: '3px 10px', borderRadius: 20, textTransform: 'uppercase',
+                          }}>
+                            {u.role === 'super_admin' ? 'Super Admin' : 'Physio'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '14px 20px' }}><StatusBadge status={u.status} /></td>
+                        <td style={tableCellStyle}>{u.joined}</td>
+                        <td style={{ padding: '14px 20px' }}>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {u.role !== 'super_admin' && (
+                              <>
+                                {u.status === 'pending' && <ActionButton label="Approve" onClick={() => setUsers(prev => prev.map(us => us.id === u.id ? { ...us, status: 'active' } : us))} bg="#D1FAE5" color="#059669" />}
+                                <ActionButton label="Remove" onClick={() => setConfirmDialog({ title: 'Remove User', message: `Are you sure you want to remove ${u.name}? This cannot be undone.`, onConfirm: () => { setUsers(prev => prev.filter(us => us.id !== u.id)); setConfirmDialog(null); }, onCancel: () => setConfirmDialog(null), confirmLabel: 'Remove User', danger: true })} bg="#FEE2E2" color="#DC2626" icon={UserX} />
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </Card>
-          </div>
-        )}
+            </div>
+          )}
 
+          {/* ═══ SETTINGS TAB ═══ */}
+          {activeTab === 'settings' && (
+            <div style={{ animation: 'fadeUp 0.4s ease both', maxWidth: 600 }}>
+              <h2 style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 20, color: T.ink, marginBottom: 24 }}>Platform Settings</h2>
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 28 }}>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 8 }}>Super Admin Email</label>
+                  <input type="email" value="pakoladiya@gmail.com" readOnly style={{
+                    width: '100%', height: 48, padding: '0 16px',
+                    background: T.surface, border: `1px solid ${T.border}`,
+                    borderRadius: T.r.sm, fontSize: 14, color: T.ink,
+                    fontFamily: "'DM Sans', sans-serif",
+                  }} />
+                  <p style={{ fontSize: 11, color: T.ink4, marginTop: 6 }}>Configure via <code>VITE_SUPER_ADMIN_EMAIL</code> env variable.</p>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button style={{
+                    padding: '10px 24px', background: T.primary, color: T.white,
+                    border: 'none', borderRadius: T.r.sm, fontSize: 14, fontWeight: 700,
+                    cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                    boxShadow: `0 4px 12px rgba(13,115,119,0.3)`,
+                  }}>Save Changes</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </PageWrapper>
+
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
+          confirmLabel={confirmDialog.confirmLabel}
+          danger={confirmDialog.danger}
+        />
+      )}
+    </div>
   );
 }

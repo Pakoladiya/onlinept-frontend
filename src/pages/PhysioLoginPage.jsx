@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailPassword } from '@/firebase/auth';
-import clinicConfig from '@/config/clinicConfig';
-import Button from '@/components/ui/Button';
-import { 
-    Eye, 
-    EyeOff, 
-    Loader2, 
-    AlertCircle, 
-    ShieldCheck, 
-    Sparkles, 
-    ArrowRight, 
-    CheckCircle2, 
-    Activity 
-} from 'lucide-react';
+import { auth } from '@/firebase/config';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound } from 'lucide-react';
+import { SUPER_ADMIN_EMAIL } from '@/config/superAdminConfig';
 
-/**
- * Luxe PhysioLoginPage — Re-designed for high-end professionalism and brand authority.
- * Features: Mesh gradient background, glassmorphic cards, and premium auth states.
- */
+const IOS = {
+  primary: '#007AFF',
+  primaryDark: '#0055CC',
+  primaryLight: '#E8F1FF',
+  accent: '#5AC8FA',
+  surface: '#F5F5F7',
+  white: '#FFFFFF',
+  ink: '#1D1D1F',
+  ink2: '#3A3A3C',
+  ink3: '#636366',
+  ink4: '#AEAEB2',
+  border: 'rgba(0,0,0,0.08)',
+  glass: 'rgba(255,255,255,0.80)',
+  blur: 'blur(20px)',
+  r: { sm: 12, md: 20, lg: 28, xl: 40 },
+};
+
 export default function PhysioLoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -26,143 +30,369 @@ export default function PhysioLoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
 
-  // SEO + Theme Update
   useEffect(() => {
-    document.title = `Physio Access | ${clinicConfig.clinicName}`;
+    document.title = 'Physio Access | OnlinePT';
   }, []);
 
-  const handleLogin = async (e) => {
+  async function handleLogin(e) {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please provide your clinical credentials.');
-      return;
-    }
+    if (!email || !password) { setError('Please enter your email and password.'); return; }
     setLoading(true);
     setError('');
     try {
-      const user = await signInWithEmailPassword(email, password);
-      if (user) navigate('/dashboard');
+      const cred = await signInWithEmailPassword(email, password);
+      if (cred?.user) {
+        // Silently detect super admin by email
+        const isSuper = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+        navigate(isSuper ? '/saas/dashboard' : '/dashboard');
+      }
     } catch (err) {
-      const msg = err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password'
-        ? 'Invalid clinical credentials.'
-        : 'Access denied. Please check your credentials.';
-      setError(msg);
+      const invalidCodes = [
+        'auth/user-not-found',
+        'auth/wrong-password',
+        'auth/invalid-credential',
+        'auth/invalid-email',
+      ];
+      setError(invalidCodes.includes(err.code)
+        ? 'Invalid email or password. Please try again.'
+        : `Access denied: ${err.message}`);
     }
     setLoading(false);
-  };
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gray-50 font-sans px-4">
-      
-      {/* Premium Mesh Background Decoration */}
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
-         <div 
-           className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] rounded-full blur-[120px]" 
-           style={{ backgroundColor: `${clinicConfig.primaryColor}40` }} 
-         />
-         <div 
-           className="absolute -bottom-[20%] -right-[10%] w-[60%] h-[60%] rounded-full blur-[120px]" 
-           style={{ backgroundColor: `${clinicConfig.secondaryColor}30` }} 
-         />
-      </div>
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: `radial-gradient(ellipse 70% 50% at 50% 0%, rgba(0,122,255,0.08) 0%, transparent 70%), ${IOS.surface}`,
+      padding: 24, fontFamily: "'DM Sans', sans-serif",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+        @keyframes fadeUp { from { opacity:0; transform: translateY(12px); } to { opacity:1; transform: none; } }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        input:focus { border-color: ${IOS.primary} !important; box-shadow: 0 0 0 3px ${IOS.primaryLight} !important; background: ${IOS.white} !important; }
+      `}</style>
 
-      <div className="w-full max-w-lg relative z-10 animate-in fade-in zoom-in-95 duration-700">
-        
-        {/* Branding Cluster */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/50 backdrop-blur-sm rounded-full border border-white/20 text-[10px] font-black uppercase tracking-widest text-primary mb-8 shadow-sm">
-             <ShieldCheck size={14} /> Secure Physio Gateway
+      <div style={{ width: '100%', maxWidth: 440, animation: 'fadeUp 0.6s ease both' }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{
+            width: 60, height: 60, borderRadius: 16,
+            background: `linear-gradient(135deg, ${IOS.primary} 0%, ${IOS.accent} 100%)`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 16px',
+            boxShadow: `0 8px 24px ${IOS.primary}40`,
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
-          <div
-            className="w-20 h-20 rounded-[2rem] mx-auto mb-6 flex items-center justify-center text-white shadow-2xl shadow-primary/30 transition-transform hover:scale-105"
-            style={{ backgroundColor: clinicConfig.primaryColor }}
-          >
-            <Activity size={40} />
-          </div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">{clinicConfig.clinicName}</h1>
-          <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Command Center Access</p>
+          <h1 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 28, fontWeight: 800, color: IOS.ink, letterSpacing: '-0.5px' }}>
+            Online<span style={{ color: IOS.primary }}>PT</span>
+          </h1>
+          <p style={{ fontSize: 13, color: IOS.ink4, fontWeight: 500, marginTop: 4 }}>Physio Dashboard Access</p>
         </div>
 
-        {/* The Glassmorphic Login Card */}
-        <div className="bg-white/80 backdrop-blur-2xl rounded-[3rem] border border-white shadow-2xl shadow-gray-200/50 p-10 sm:p-14 relative overflow-hidden">
-          
-          <div className="mb-10 text-left">
-            <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-2">Welcome Back</h2>
-            <p className="text-sm font-bold text-gray-400">Sign in to manage your clinical schedule and patient rehabs.</p>
-          </div>
+        {/* Card */}
+        <div style={{
+          background: IOS.white,
+          borderRadius: IOS.r.xl,
+          boxShadow: `0 8px 30px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)`,
+          border: `1px solid ${IOS.border}`,
+          padding: 32,
+        }}>
+          <h2 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 20, fontWeight: 800, color: IOS.ink, marginBottom: 4 }}>Welcome Back</h2>
+          <p style={{ fontSize: 14, color: IOS.ink3, marginBottom: 28 }}>Sign in to manage your page and patients.</p>
 
           {error && (
-            <div className="mb-8 flex items-center gap-3 p-5 rounded-[1.5rem] bg-red-50 border border-red-100 text-xs font-black uppercase text-red-500 animate-in slide-in-from-top-2">
-              <AlertCircle size={18} className="shrink-0" />
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: '#FEF2F2', border: '1px solid #FECACA',
+              borderRadius: IOS.r.md, padding: '12px 16px',
+              fontSize: 13, color: '#DC2626', fontWeight: 500,
+              marginBottom: 20,
+            }}>
+              <AlertCircle size={16} style={{ flexShrink: 0 }} />
               {error}
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-8">
-            <div className="space-y-2 text-left">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Clinical Email</label>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Email */}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: IOS.ink2, marginBottom: 8, letterSpacing: '0.2px' }}>Email Address</label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="physio@example.com"
-                className="w-full h-16 px-6 text-sm font-bold rounded-[1.5rem] border-2 border-transparent bg-gray-50 text-gray-900 placeholder:text-gray-300 focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 outline-none transition-all duration-300"
-                autoComplete="email"
+                type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="physio@example.com" autoComplete="email"
+                style={{
+                  width: '100%', height: 52,
+                  padding: '0 18px',
+                  background: IOS.surface,
+                  border: `1.5px solid ${IOS.border}`,
+                  borderRadius: IOS.r.md,
+                  fontSize: 15, fontFamily: "'DM Sans', sans-serif",
+                  color: IOS.ink, outline: 'none',
+                  transition: 'border-color 0.2s, box-shadow 0.2s',
+                }}
               />
             </div>
 
-            <div className="space-y-2 text-left">
-              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-2">Access Token</label>
-              <div className="relative">
-                <input
-                  type={showPw ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-16 px-6 pr-14 text-sm font-bold rounded-[1.5rem] border-2 border-transparent bg-gray-50 text-gray-900 placeholder:text-gray-300 focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 outline-none transition-all duration-300"
-                  autoComplete="current-password"
-                />
+            {/* Password */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: IOS.ink2, letterSpacing: '0.2px' }}>Password</label>
                 <button
                   type="button"
-                  onClick={() => setShowPw((s) => !s)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-primary transition-colors"
+                  onClick={() => setForgotMode(true)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 12, fontWeight: 600, color: IOS.primary,
+                    fontFamily: "'DM Sans', sans-serif",
+                    padding: 0,
+                  }}
                 >
-                  {showPw ? <EyeOff size={20} /> : <Eye size={20} />}
+                  Forgot password?
+                </button>
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPw ? 'text' : 'password'} value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••" autoComplete="current-password"
+                  style={{
+                    width: '100%', height: 52,
+                    padding: '0 50px 0 18px',
+                    background: IOS.surface,
+                    border: `1.5px solid ${IOS.border}`,
+                    borderRadius: IOS.r.md,
+                    fontSize: 15, fontFamily: "'DM Sans', sans-serif",
+                    color: IOS.ink, outline: 'none',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                  }}
+                />
+                <button type="button" onClick={() => setShowPw(!showPw)} style={{
+                  position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: IOS.ink4, display: 'flex', alignItems: 'center',
+                }}>
+                  {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
-            <Button 
-                type="submit" 
-                fullWidth 
-                disabled={loading} 
-                className="h-18 rounded-[1.8rem] shadow-2xl shadow-primary/20 font-black uppercase tracking-widest text-xs"
+            {/* Submit */}
+            <button
+              type="submit" disabled={loading}
+              style={{
+                width: '100%', height: 52,
+                background: loading ? IOS.primary + '80' : `linear-gradient(135deg, ${IOS.primary}, ${IOS.accent})`,
+                color: IOS.white, border: 'none', borderRadius: IOS.r.md,
+                fontSize: 15, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+                cursor: loading ? 'not-allowed' : 'pointer',
+                boxShadow: `0 4px 16px ${IOS.primary}30`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                marginTop: 4,
+                transition: 'transform 0.15s, box-shadow 0.15s',
+              }}
+              onMouseDown={e => { if (!loading) e.currentTarget.style.transform = 'scale(0.98)'; }}
+              onMouseUp={e => { e.currentTarget.style.transform = 'none'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
             >
-              {loading ? <Loader2 size={18} className="animate-spin mr-2" /> : <Sparkles size={18} className="mr-2" />}
-              {loading ? 'Authenticating...' : 'Enter Dashboard'}
-            </Button>
+              {loading ? (
+                <><Loader2 size={16} className="animate-spin" /> Signing in...</>
+              ) : (
+                <>Enter Dashboard <Sparkles size={16} /></>
+              )}
+            </button>
           </form>
 
-          {/* Verification Badges */}
-          <div className="mt-12 pt-8 border-t border-gray-50 flex items-center justify-center gap-6">
-             <div className="flex items-center gap-2 text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                <CheckCircle2 size={12} className="text-green-500" /> HIPPA Compliant
-             </div>
-             <div className="flex items-center gap-2 text-[10px] font-black text-gray-300 uppercase tracking-widest">
-                <CheckCircle2 size={12} className="text-green-500" /> SSL Encrypted
-             </div>
+          {/* Trust badges */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20,
+            marginTop: 24, paddingTop: 20,
+            borderTop: `1px solid ${IOS.border}`,
+          }}>
+            {['HIPAA Ready', 'SSL Encrypted', 'Firebase Auth'].map(label => (
+              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: IOS.ink4, fontWeight: 500 }}>
+                <CheckCircle2 size={12} style={{ color: '#34C759' }} /> {label}
+              </span>
+            ))}
           </div>
         </div>
 
-        {/* Footer Navigation */}
-        <div className="mt-8 text-center space-y-4">
-             <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">
-                Don't have clinical access? <Link to="/physio-signup" className="text-primary hover:underline ml-1">Create Account</Link>
-             </p>
-             <Link to="/" className="inline-flex items-center gap-2 text-[10px] font-black text-gray-300 hover:text-gray-500 uppercase tracking-widest transition-colors">
-                <ArrowRight size={12} className="rotate-180" /> Back to Terminal Home
-             </Link>
+        {/* ── Forgot Password Modal ──────────────────────────────────────────── */}
+        {forgotMode && (
+          <div
+            style={{
+              position: 'fixed', inset: 0, zIndex: 200,
+              background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: 24, animation: 'fadeUp 0.3s ease both',
+            }}
+            onClick={(e) => { if (e.target === e.currentTarget) setForgotMode(false); }}
+          >
+            <div style={{
+              background: IOS.white, borderRadius: IOS.r.xl,
+              padding: 32, width: '100%', maxWidth: 400,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+            }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 12,
+                    background: IOS.primaryLight,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <KeyRound size={18} style={{ color: IOS.primary }} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 17, fontWeight: 800, color: IOS.ink }}>
+                      Reset Password
+                    </h3>
+                    <p style={{ fontSize: 11, color: IOS.ink4 }}>We'll send you a reset link</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setForgotMode(false); setResetSent(false); setResetError(''); }}
+                  style={{
+                    width: 32, height: 32, borderRadius: 10,
+                    background: IOS.surface, border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: IOS.ink3,
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {resetSent ? (
+                <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                  <div style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    background: '#F0FDF4', border: '2px solid #BBF7D0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    margin: '0 auto 16px',
+                  }}>
+                    <CheckCircle2 size={28} style={{ color: '#22C55E' }} />
+                  </div>
+                  <h4 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 16, fontWeight: 800, color: IOS.ink, marginBottom: 8 }}>
+                    Check your email
+                  </h4>
+                  <p style={{ fontSize: 13, color: IOS.ink3, lineHeight: 1.5, marginBottom: 20 }}>
+                    We sent a password reset link to <strong style={{ color: IOS.ink }}>{email}</strong>.<br />
+                    Click the link in the email to reset your password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotMode(false); setResetSent(false); }}
+                    style={{
+                      width: '100%', height: 48,
+                      background: IOS.surface, border: `1.5px solid ${IOS.border}`,
+                      borderRadius: IOS.r.md, fontSize: 14, fontWeight: 600,
+                      color: IOS.ink, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                    }}
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {resetError && (
+                    <div style={{
+                      background: '#FEF2F2', border: '1px solid #FECACA',
+                      borderRadius: IOS.r.md, padding: '10px 14px',
+                      fontSize: 12, color: '#DC2626', fontWeight: 500,
+                      marginBottom: 16,
+                    }}>
+                      {resetError}
+                    </div>
+                  )}
+                  <p style={{ fontSize: 13, color: IOS.ink3, marginBottom: 16, lineHeight: 1.5 }}>
+                    Enter your registered email address and we'll send you a link to reset your password.
+                  </p>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="physio@example.com"
+                    autoComplete="email"
+                    style={{
+                      width: '100%', height: 52,
+                      padding: '0 18px',
+                      background: IOS.surface,
+                      border: `1.5px solid ${IOS.border}`,
+                      borderRadius: IOS.r.md,
+                      fontSize: 15, fontFamily: "'DM Sans', sans-serif",
+                      color: IOS.ink, outline: 'none',
+                      marginBottom: 14,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={resetLoading || !email}
+                    onClick={async () => {
+                      if (!email) { setResetError('Please enter your email address.'); return; }
+                      setResetLoading(true);
+                      setResetError('');
+                      try {
+                        await sendPasswordResetEmail(auth, email);
+                        setResetSent(true);
+                      } catch (err) {
+                        if (err.code === 'auth/user-not-found') {
+                          // Still show success to prevent email enumeration
+                          setResetSent(true);
+                        } else {
+                          setResetError('Failed to send reset email. Please try again.');
+                        }
+                      }
+                      setResetLoading(false);
+                    }}
+                    style={{
+                      width: '100%', height: 52,
+                      background: resetLoading || !email ? IOS.primaryLight : `linear-gradient(135deg, ${IOS.primary}, ${IOS.accent})`,
+                      color: resetLoading || !email ? IOS.primary : IOS.white,
+                      border: 'none', borderRadius: IOS.r.md,
+                      fontSize: 15, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+                      cursor: resetLoading || !email ? 'not-allowed' : 'pointer',
+                      boxShadow: !resetLoading && email ? `0 4px 16px ${IOS.primary}30` : 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      transition: 'transform 0.15s',
+                    }}
+                    onMouseDown={e => { if (!resetLoading && email) e.currentTarget.style.transform = 'scale(0.98)'; }}
+                    onMouseUp={e => e.currentTarget.style.transform = 'none'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                  >
+                    {resetLoading ? (
+                      <><Loader2 size={16} className="animate-spin" /> Sending...</>
+                    ) : (
+                      <><KeyRound size={16} /> Send Reset Link</>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Footer links */}
+        <div style={{ textAlign: 'center', marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <p style={{ fontSize: 13, color: IOS.ink3 }}>
+            Don't have an account?{' '}
+            <Link to="/physio-signup" style={{ color: IOS.primary, fontWeight: 600, textDecoration: 'none' }}>
+              Create Account
+            </Link>
+          </p>
+          <Link to="/" style={{ fontSize: 12, color: IOS.ink4, textDecoration: 'none', fontWeight: 500 }}>
+            ← Back to OnlinePT
+          </Link>
         </div>
       </div>
     </div>

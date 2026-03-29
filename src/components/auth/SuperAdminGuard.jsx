@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { onAuth } from '@/firebase/auth';
 import { getDocument } from '@/firebase/db';
+import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 /**
  * SuperAdminGuard — Bank-grade security for Master Command Center.
- * Verifies if the authenticated user has the 'super_admin' role in Firestore.
+ * Verifies if the authenticated user has the 'super_admin' role in Firestore,
+ * OR if their email matches the configured super admin email.
  */
 export default function SuperAdminGuard({ children }) {
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,12 @@ export default function SuperAdminGuard({ children }) {
       }
 
       try {
+        // Silently check by email first (the primary super admin)
+        if (isSuperAdminEmail(user.email)) {
+          setIsAdmin(true);
+          setLoading(false);
+          return;
+        }
         // Handshake with Firestore to verify role
         const userData = await getDocument('users', user.uid);
         if (userData && userData.role === 'super_admin') {
@@ -41,41 +49,68 @@ export default function SuperAdminGuard({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
-        <Loader2 className="w-10 h-10 animate-spin text-primary" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Authenticating Command Access...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0F172A', flexDirection: 'column', gap: 16 }}>
+        <Loader2 size={40} className="animate-spin" style={{ color: '#0D7377' }} />
+        <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', letterSpacing: '2px', textTransform: 'uppercase' }}>Authenticating Command Access...</p>
       </div>
     );
   }
 
   if (error || !isAdmin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-6">
-        <div className="max-w-md w-full text-center space-y-6 animate-in fade-in zoom-in-95 duration-500">
-           <div className="w-20 h-20 bg-red-50 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto shadow-xl shadow-red-100">
-              <ShieldAlert size={40} />
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0F172A', padding: 24 }}>
+        <div style={{ maxWidth: 480, width: '100%', textAlign: 'center', animation: 'scaleIn 0.4s ease both' }}>
+           <div style={{
+              width: 80, height: 80, borderRadius: '2rem',
+              background: 'rgba(239,68,68,0.15)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 24px',
+              border: '1px solid rgba(239,68,68,0.3)',
+           }}>
+              <ShieldAlert size={40} style={{ color: '#EF4444' }} />
            </div>
-           <div>
-              <h2 className="text-2xl font-black text-gray-900 tracking-tight">Access Restricted</h2>
-              <p className="text-sm font-bold text-gray-400 mt-2 leading-relaxed">
-                 You do not have the required clinical authorization level to access the Platform Command Center.
+           <div style={{ marginBottom: 32 }}>
+              <h2 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 28, fontWeight: 800, color: '#F1F5F9', letterSpacing: '-0.5px', marginBottom: 12 }}>
+                Access Restricted
+              </h2>
+              <p style={{ fontSize: 15, color: '#94A3B8', lineHeight: 1.6 }}>
+                 You do not have the required authorization level to access the Platform Command Center.
               </p>
            </div>
-           <div className="pt-4 flex flex-col gap-3">
-              <button 
+           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <button
                 onClick={() => window.location.href = '/dashboard-login'}
-                className="h-14 bg-gray-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-gray-200"
+                style={{
+                  height: 52, background: `linear-gradient(135deg, #0D7377, #14A3A8)`,
+                  color: 'white', border: 'none', borderRadius: 14,
+                  fontSize: 14, fontWeight: 700,
+                  cursor: 'pointer', width: '100%',
+                  boxShadow: '0 8px 24px rgba(13,115,119,0.4)',
+                  fontFamily: "'DM Sans', sans-serif",
+                  letterSpacing: '0.5px',
+                }}
               >
                 Log in as Super Admin
               </button>
-              <button 
+              <button
                 onClick={() => window.location.href = '/'}
-                className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-gray-900 transition-colors"
+                style={{
+                  background: 'none', border: 'none',
+                  fontSize: 13, color: '#64748B',
+                  cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
+                  transition: 'color 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#94A3B8'}
+                onMouseLeave={e => e.currentTarget.style.color = '#64748B'}
               >
-                Back to Patient Terminal
+                ← Back to Patient Site
               </button>
            </div>
         </div>
+        <style>{`
+          @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+          @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+        `}</style>
       </div>
     );
   }

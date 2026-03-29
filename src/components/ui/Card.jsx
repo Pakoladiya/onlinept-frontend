@@ -14,9 +14,9 @@ export default function Card({
   return (
     <div
       className={clsx(
-        'bg-white rounded-card shadow-card border border-border/50',
-        padding ? 'p-5' : '',
-        hover && 'hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 cursor-pointer',
+        'bg-white rounded-[3rem] shadow-2xl shadow-gray-200/40 border border-gray-100/50',
+        padding ? 'p-6' : '',
+        hover && 'hover:shadow-2xl hover:-translate-y-1 hover:shadow-gray-200/60 transition-all duration-300 cursor-pointer',
         className
       )}
       {...rest}

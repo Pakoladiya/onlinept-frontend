@@ -422,7 +422,7 @@ export default function ClinicOnboardingFlow() {
                   loading={loading}
                   disabled={loading}
                 >
-                  {loading ? 'Provisioning Clinic...' : 'Claim 14-Day Free Trial 🚀'}
+                  {loading ? 'Provisioning Clinic...' : 'Claim 14-Day Free Trial'}
                 </Button>
                 <Button variant="ghost" onClick={handleBack} disabled={loading}>Back to Edit</Button>
               </div>

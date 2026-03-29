@@ -71,20 +71,32 @@ export default function PhysioSignUpPage() {
     setError('');
     try {
       const cred = await signUp(form.email, form.password);
-      await setDoc(doc(db, 'clinics', form.subdomain || form.email.split('@')[0]), {
-        uid: cred.user.uid,
-        physioName: form.physioName,
-        clinicName: form.clinicName,
-        subdomain: form.subdomain,
-        email: form.email,
-        status: 'trial',
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        createdAt: serverTimestamp(),
-        settings: { primaryColor: '#39A900', secondaryColor: '#F6A000', videoMode: 'whatsapp' }
-      });
+      // Try to write clinic doc, but don't block signup if it fails
+      try {
+        await setDoc(doc(db, 'clinics', form.subdomain || form.email.split('@')[0]), {
+          uid: cred.user.uid,
+          physioName: form.physioName,
+          clinicName: form.clinicName,
+          subdomain: form.subdomain,
+          email: form.email,
+          status: 'trial',
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          createdAt: serverTimestamp(),
+          settings: { primaryColor: '#39A900', secondaryColor: '#F6A000', videoMode: 'whatsapp' }
+        });
+      } catch (dbErr) {
+        console.warn('Clinic doc write failed (non-blocking):', dbErr.code, dbErr.message);
+      }
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message.includes('email-already-in-use') ? 'An account already exists.' : 'Registration failed.');
+      console.error('Signup error:', err.code, err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        setError('An account with this email already exists. Please sign in instead.');
+      } else if (err.code === 'auth/weak-password') {
+        setError('Password must be at least 6 characters.');
+      } else {
+        setError(`Registration failed: ${err.code || err.message}`);
+      }
     }
     setLoading(false);
   };
