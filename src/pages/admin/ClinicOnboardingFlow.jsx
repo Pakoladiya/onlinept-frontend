@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { db } from '@/firebase/config';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import {
   CheckCircle2, ChevronRight, Stethoscope, Paintbrush,
   ShieldCheck, Rocket, LayoutTemplate, AlertCircle,
@@ -37,22 +37,51 @@ export default function ClinicOnboardingFlow() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [subdomainStatus, setSubdomainStatus] = useState({ status: 'idle', message: '' }); // 'idle' | 'checking' | 'available' | 'taken'
   const [formData, setFormData] = useState({
     physioName: '',
     email: '',
     clinicName: '',
     subdomain: '',
     phone: '',
-    primaryColor: '#39A900',
-    secondaryColor: '#F6A000',
+    primaryColor: '#007AFF',
+    secondaryColor: '#0055CC',
     plan: '',
   });
+
+  // ── Subdomain availability check ──────────────────────────────────────────────
+  const checkSubdomain = async (value) => {
+    const clean = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (!clean) {
+      setSubdomainStatus({ status: 'idle', message: '' });
+      return;
+    }
+    if (clean.length < 3) {
+      setSubdomainStatus({ status: 'idle', message: 'At least 3 characters required' });
+      return;
+    }
+    setSubdomainStatus({ status: 'checking', message: 'Checking...' });
+    try {
+      if (db) {
+        const snap = await getDoc(doc(db, 'clinics', clean));
+        setSubdomainStatus(snap.exists()
+          ? { status: 'taken', message: 'Already taken — try another' }
+          : { status: 'available', message: 'Available!' });
+      } else {
+        setSubdomainStatus({ status: 'available', message: 'Available!' });
+      }
+    } catch {
+      setSubdomainStatus({ status: 'idle', message: '' });
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     // Auto-lowercase + sanitise subdomain as the user types
     if (name === 'subdomain') {
-      setFormData((prev) => ({ ...prev, subdomain: value.toLowerCase().replace(/[^a-z0-9-]/g, '') }));
+      const clean = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      setFormData((prev) => ({ ...prev, subdomain: clean }));
+      checkSubdomain(clean);
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -236,9 +265,24 @@ export default function ClinicOnboardingFlow() {
                       .onlinept.in
                     </span>
                   </div>
-                  <p className="text-xs text-green-600 flex items-center mt-1">
-                    <CheckCircle2 className="w-3 h-3 mr-1" /> Available
-                  </p>
+                  {formData.subdomain && (
+                    <p className={`text-xs flex items-center mt-1 ${
+                      subdomainStatus.status === 'available' ? 'text-green-600'
+                      : subdomainStatus.status === 'taken' ? 'text-red-500'
+                      : subdomainStatus.status === 'checking' ? 'text-gray-400'
+                      : 'text-gray-400'
+                    }`}>
+                      {subdomainStatus.status === 'available' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                      {subdomainStatus.status === 'taken' && <AlertCircle className="w-3 h-3 mr-1" />}
+                      {subdomainStatus.status === 'checking' && (
+                        <svg className="animate-spin w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                      )}
+                      {subdomainStatus.message}
+                    </p>
+                  )}
                 </Field>
               </div>
 
@@ -444,18 +488,18 @@ export default function ClinicOnboardingFlow() {
               <div className="bg-gray-50 inline-block px-6 py-4 rounded-xl border border-gray-200 mb-8">
                 <p className="text-xs text-gray-500 uppercase font-semibold mb-1.5">Your Portal URL</p>
                 <a
-                  href={`/?tenant=${formData.subdomain}`}
+                  href={`https://${formData.subdomain}.onlinept.in`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-primary font-bold text-base hover:underline"
                 >
-                  https://{formData.subdomain}.physiosaas.com
+                  https://{formData.subdomain}.onlinept.in
                 </a>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button size="lg" onClick={() => navigate('/admin')}>Go to Master Dashboard</Button>
-                <Button size="lg" variant="outline" onClick={() => { setStep(1); setFormData({ physioName:'', email:'', clinicName:'', subdomain:'', primaryColor:'#39A900', secondaryColor:'#F6A000', plan:'Premium Bundle' }); }}>
+                <Button size="lg" variant="outline" onClick={() => { setStep(1); setSubdomainStatus({ status: 'idle', message: '' }); setFormData({ physioName:'', email:'', clinicName:'', subdomain:'', phone:'', primaryColor:'#007AFF', secondaryColor:'#0055CC', plan:'' }); }}>
                   Onboard Another Clinic
                 </Button>
               </div>
