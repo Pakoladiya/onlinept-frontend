@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import { db } from '@/firebase/config';
+import { db, auth } from '@/firebase/config';
 import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import {
   CheckCircle2, ChevronRight, Stethoscope, Paintbrush,
   ShieldCheck, Rocket, LayoutTemplate, AlertCircle,
@@ -106,8 +107,22 @@ export default function ClinicOnboardingFlow() {
         return;
       }
 
+      // Get authenticated user's uid (required by Firestore rules)
+      const getUid = () => new Promise((resolve) => {
+        if (auth?.currentUser?.uid) return resolve(auth.currentUser.uid);
+        const unsub = onAuthStateChanged(auth, (user) => {
+          unsub();
+          resolve(user?.uid || 'unknown');
+        });
+        // Timeout fallback
+        setTimeout(() => resolve('unknown'), 3000);
+      });
+
+      const uid = await getUid();
+
       // 5s timeout for setDoc
       const savePromise = setDoc(doc(collection(db, 'clinics'), clinicId), {
+        uid,
         clinicId,
         clinicName: formData.clinicName,
         physioName: formData.physioName,
