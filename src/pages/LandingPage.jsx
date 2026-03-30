@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { auth } from '@/firebase/config';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
   Plus,
   StickyNote,
@@ -152,6 +154,8 @@ export default function LandingPage() {
     email: '',
     password: '',
   });
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -166,10 +170,35 @@ export default function LandingPage() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    const params = new URLSearchParams(formData).toString();
-    navigate(`/physio-signup?${params}`);
+    setSignupLoading(true);
+    setSignupError('');
+    try {
+      const cred = auth
+        ? await createUserWithEmailAndPassword(auth, formData.email, formData.password)
+        : null;
+      const uid = cred?.user?.uid || 'demo-uid';
+      sessionStorage.setItem('pendingOnboarding', JSON.stringify({
+        uid,
+        physioName: `${formData.firstName} ${formData.lastName}`.trim(),
+        email: formData.email,
+        clinicName: formData.clinicName,
+        subdomain: formData.subdomain,
+        city: formData.city,
+        qualification: formData.qualification,
+      }));
+      navigate(`/saas/onboarding?uid=${uid}`);
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        setSignupError('An account with this email already exists. Please sign in instead.');
+      } else if (err.code === 'auth/weak-password') {
+        setSignupError('Password must be at least 6 characters.');
+      } else {
+        setSignupError(err.message || 'Sign up failed. Please try again.');
+      }
+      setSignupLoading(false);
+    }
   };
 
   // Shared responsive grid styles
@@ -688,10 +717,13 @@ export default function LandingPage() {
                          onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                 </div>
 
-                <button type="submit" style={{ width: '100%', padding: 15, background: C.blue, color: C.white, border: 'none', borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,122,255,0.30)', marginTop: 8, transition: 'background 0.15s, transform 0.15s, box-shadow 0.15s' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = C.blueDark; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,122,255,0.40)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = C.blue; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,122,255,0.30)'; }}>
-                  Create My Page Free →
+                {signupError && (
+                  <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#DC2626', fontSize: 13 }}>
+                    {signupError}
+                  </div>
+                )}
+                <button type="submit" disabled={signupLoading} style={{ width: '100%', padding: 15, background: signupLoading ? C.blueDark : C.blue, color: C.white, border: 'none', borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: signupLoading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 16px rgba(0,122,255,0.30)', marginTop: 8, transition: 'background 0.15s' }}>
+                  {signupLoading ? 'Creating Account…' : 'Create My Page Free →'}
                 </button>
                 <p style={{ fontSize: 12, color: C.ink4, textAlign: 'center', marginTop: 12 }}>By signing up you agree to our Terms of Service. No credit card required.</p>
               </form>

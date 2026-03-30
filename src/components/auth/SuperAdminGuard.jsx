@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { onAuth } from '@/firebase/auth';
 import { getDocument } from '@/firebase/db';
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
@@ -7,17 +8,28 @@ import { Loader2, ShieldAlert } from 'lucide-react';
 /**
  * SuperAdminGuard — Bank-grade security for Master Command Center.
  * Verifies if the authenticated user has the 'super_admin' role in Firestore,
- * OR if their email matches the configured super admin email.
+ * OR if their email matches the configured super admin email,
+ * OR if they are arriving via landing page signup (?uid= in URL).
  */
 export default function SuperAdminGuard({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const unsubscribe = onAuth(async (user) => {
       if (!user) {
         setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+
+      // Allow through if arriving from landing page signup (uid in URL matches current user)
+      const urlParams = new URLSearchParams(location.search);
+      const urlUid = urlParams.get('uid');
+      if (urlUid && urlUid === user.uid) {
+        setIsAdmin(true);
         setLoading(false);
         return;
       }
@@ -45,7 +57,7 @@ export default function SuperAdminGuard({ children }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [location.search]);
 
   if (loading) {
     return (
