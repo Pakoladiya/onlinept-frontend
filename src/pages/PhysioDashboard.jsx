@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { onAuth, signOut } from '@/firebase/auth';
 import { getPhysioBookings, getPhysioPatients, blockSlot } from '@/firebase/db';
-import clinicConfig from '@/config/clinicConfig';
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import {
   Settings, Clock, LogOut, ChevronRight, Video, Search, X,
@@ -17,7 +16,7 @@ const T = {
   primaryDark: '#0055CC',
   primaryLight: '#E8F1FF',
   accent: '#5AC8FA',
-  green: '#34C759',
+  blue: '#007AFF',
   red: '#FF3B30',
   orange: '#FF9F0A',
   surface: '#F5F5F7',
@@ -137,7 +136,7 @@ function BookingRow({ booking }) {
       </div>
       <span style={{
         fontSize: 10, fontWeight: 700,
-        color: isBlocked ? T.red : T.green,
+        color: isBlocked ? T.red : T.blue,
         background: isBlocked ? '#FEE2E2' : '#D1FAE5',
         padding: '3px 8px', borderRadius: 20,
         textTransform: 'uppercase', letterSpacing: '0.3px',
@@ -481,7 +480,7 @@ export default function PhysioDashboard() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <p style={{ fontFamily: "'Manrope', sans-serif", fontSize: 14, fontWeight: 800, color: T.ink, lineHeight: 1.1 }}>
-                  Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}, Dr. {clinicConfig.physioName}
+                  Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 17 ? 'Afternoon' : 'Evening'}, OnlinePT
                 </p>
                 {isSuper && (
                   <div style={{
@@ -496,7 +495,7 @@ export default function PhysioDashboard() {
                   </div>
                 )}
               </div>
-              <p style={{ fontSize: 11, color: T.green, fontWeight: 600 }}>● OnlinePT Active</p>
+              <p style={{ fontSize: 11, color: T.blue, fontWeight: 600 }}>● OnlinePT Active</p>
             </div>
           </div>
 
@@ -570,7 +569,7 @@ export default function PhysioDashboard() {
             {/* Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 24 }}>
               <StatCard label="Today Sessions" value={todayBookings.length} icon={Calendar} color={T.primary} />
-              <StatCard label="Active Patients" value={patients.length} icon={UserCheck} color={T.green} />
+              <StatCard label="Active Patients" value={patients.length} icon={UserCheck} color={T.blue} />
               <StatCard label="Upcoming" value={upcomingBookings.length} icon={Clock} color={T.orange} />
               <StatCard label="Total Bookings" value={bookings.length} icon={TrendingUp} color="#7C3AED" />
             </div>
@@ -1083,7 +1082,7 @@ export default function PhysioDashboard() {
                   padding: 14, border: `1px solid ${T.border}`,
                 }}>
                   <p style={{ fontSize: 10, fontWeight: 600, color: T.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>Status</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: T.green }}>{selectedPatient.status || 'Active'}</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: T.blue }}>{selectedPatient.status || 'Active'}</p>
                 </div>
               </div>
 

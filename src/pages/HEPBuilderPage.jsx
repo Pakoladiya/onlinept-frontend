@@ -3,7 +3,6 @@ import PageWrapper from '@/components/layout/PageWrapper';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import clinicConfig from '@/config/clinicConfig';
 import { onAuth } from '@/firebase/auth';
 import { getPhysioPatients, saveHEP } from '@/firebase/db';
 import {
@@ -93,12 +92,12 @@ export default function HEPBuilderPage() {
         await saveHEP(selectedPatientId, {
           exercises: selected,
           patientName: patient,
-          physioName: clinicConfig.physioName,
-          clinicName: clinicConfig.clinicName,
+          physioName: 'OnlinePT',
+          clinicName: 'OnlinePT',
         });
       }
-      const text = `*Home Exercise Plan from ${clinicConfig.clinicName}*\n\n` +
-        `Dr. ${clinicConfig.physioName}\n\n` +
+      const text = `*Home Exercise Plan from OnlinePT*\n\n` +
+        `Dr. OnlinePT\n\n` +
         selected.map((e, i) => `${i + 1}. ${e.name}\n   ${e.sets} sets x ${e.reps}\n   ${e.description}`).join('\n\n') +
         `\n\n_Please perform these exercises as instructed. Contact us if you have any questions._`;
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
@@ -265,7 +264,7 @@ export default function HEPBuilderPage() {
                         </div>
 
                         <div className="pt-4 flex flex-col items-center">
-                           <div className="w-14 h-14 rounded-[2rem] bg-green-50 flex items-center justify-center text-green-500 mb-3">
+                           <div className="w-14 h-14 rounded-[2rem] bg-blue-50 flex items-center justify-center text-blue-500 mb-3">
                               <CheckCircle2 size={28} />
                            </div>
                            <p className="text-[10px] font-black uppercase tracking-[.2em] text-gray-400 text-center">

@@ -4,7 +4,6 @@ import { db } from '@/firebase/config';
 import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { onAuth } from '@/firebase/auth';
 import { updateClinicConfig } from '@/config/clinicConfig';
-import clinicConfig from '@/config/clinicConfig';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import {
@@ -31,7 +30,7 @@ import {
 // ─── Color Palettes ────────────────────────────────────────────────────────────
 const COLOR_PALETTES = [
   // Name, primary color, secondary color, preview label
-  { name: 'Forest Fresh',      primary: '#39A900', secondary: '#F6A000' },
+  { name: 'Forest Fresh',      primary: '#007AFF', secondary: '#F6A000' },
   { name: 'Ocean Calm',       primary: '#0066CC', secondary: '#00B4D8' },
   { name: 'Sunset Warmth',    primary: '#E85D04', secondary: '#FFBA08' },
   { name: 'Royal Purple',     primary: '#7C3AED', secondary: '#A78BFA' },
@@ -138,7 +137,7 @@ export default function ClinicSettings() {
 
   async function loadClinic(u) {
     if (!db) {
-      setFormData(clinicConfig);
+      setFormData({ primaryColor: '#007AFF', secondaryColor: '#F6A000', videoMode: 'whatsapp', razorpayEnabled: false, consultationFee: 500 });
       setLoading(false);
       return;
     }
@@ -150,12 +149,12 @@ export default function ClinicSettings() {
         setClinicId(id);
         setFormData(data);
       } else {
-        // Fallback: use local config
-        setFormData(clinicConfig);
+        // Fallback: use defaults
+        setFormData({ primaryColor: '#007AFF', secondaryColor: '#F6A000', videoMode: 'whatsapp', razorpayEnabled: false, consultationFee: 500 });
       }
     } catch (err) {
       console.error('Error loading clinic:', err);
-      setFormData(clinicConfig);
+      setFormData({ primaryColor: '#007AFF', secondaryColor: '#F6A000', videoMode: 'whatsapp', razorpayEnabled: false, consultationFee: 500 });
     }
     setLoading(false);
   }
@@ -291,7 +290,7 @@ export default function ClinicSettings() {
             <div className="pt-6 border-t border-gray-50 space-y-4">
               <PalettePicker
                 label="Brand Color Palette"
-                primaryColor={formData.primaryColor || '#39A900'}
+                primaryColor={formData.primaryColor || '#007AFF'}
                 secondaryColor={formData.secondaryColor || '#F6A000'}
                 onApply={applyPalette}
               />
@@ -301,17 +300,17 @@ export default function ClinicSettings() {
                 <div className="space-y-2 text-left">
                   <label className="text-xs font-black uppercase text-gray-400 ml-1 flex items-center gap-1.5">
                     Primary Color
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: formData.primaryColor || '#39A900' }} />
+                    <div className="w-4 h-4 rounded" style={{ backgroundColor: formData.primaryColor || '#007AFF' }} />
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="color"
-                      value={formData.primaryColor || '#39A900'}
+                      value={formData.primaryColor || '#007AFF'}
                       onChange={e => updateField('primaryColor', e.target.value)}
                       className="w-14 h-14 rounded-xl border border-gray-100 cursor-pointer"
                     />
                     <input
-                      value={formData.primaryColor || '#39A900'}
+                      value={formData.primaryColor || '#007AFF'}
                       onChange={e => updateField('primaryColor', e.target.value)}
                       className="flex-1 h-14 bg-gray-50 rounded-xl px-5 font-mono font-bold uppercase border border-gray-100 focus:border-primary/50 outline-none transition-all"
                     />
@@ -349,7 +348,7 @@ export default function ClinicSettings() {
             </div>
             <button
               onClick={() => updateField('razorpayEnabled', !formData.razorpayEnabled)}
-              className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.razorpayEnabled ? 'bg-green-500' : 'bg-gray-200'}`}
+              className={`w-12 h-6 rounded-full relative transition-all duration-300 ${formData.razorpayEnabled ? 'bg-blue-500' : 'bg-gray-200'}`}
             >
               <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform duration-300 ${formData.razorpayEnabled ? 'translate-x-6' : ''}`} />
             </button>
@@ -450,12 +449,12 @@ export default function ClinicSettings() {
           <div className="flex items-center gap-2 text-gray-400 font-black uppercase tracking-[0.2em] text-xs">
             <span className="text-lg">💰</span> Professional Fees & Pricing
           </div>
-          <Card className="p-8 rounded-[2rem] bg-white space-y-8 text-left border-2 border-green-50/50">
+          <Card className="p-8 rounded-[2rem] bg-white space-y-8 text-left border-2 border-blue-50/50">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase text-gray-400 flex items-center gap-2">
                   Consultation Fee (INR)
-                  <span className="p-1 px-2 rounded-md bg-green-50 text-green-600 font-bold text-[9px]">Per Session</span>
+                  <span className="p-1 px-2 rounded-md bg-blue-50 text-blue-600 font-bold text-[9px]">Per Session</span>
                 </label>
                 <div className="relative">
                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-black">₹</div>
@@ -463,16 +462,16 @@ export default function ClinicSettings() {
                      type="number"
                      value={formData.consultationFee || 500}
                      onChange={e => updateField('consultationFee', parseInt(e.target.value))}
-                     className="w-full h-14 bg-gray-50 rounded-xl pl-10 pr-5 font-black text-xl outline-none border border-gray-100 focus:border-green-500/50 transition-all shadow-sm"
+                     className="w-full h-14 bg-gray-50 rounded-xl pl-10 pr-5 font-black text-xl outline-none border border-gray-100 focus:border-blue-500/50 transition-all shadow-sm"
                      placeholder="500"
                    />
                 </div>
               </div>
-              <div className="p-6 bg-green-50/50 rounded-2xl border border-green-100 flex items-start gap-4">
-                <ShieldCheck className="text-green-600 w-5 h-5 shrink-0" />
+              <div className="p-6 bg-blue-50/50 rounded-2xl border border-blue-100 flex items-start gap-4">
+                <ShieldCheck className="text-blue-600 w-5 h-5 shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-green-700 uppercase">Automated Billing</p>
-                  <p className="text-xs text-green-600 font-medium leading-relaxed">
+                  <p className="text-[10px] font-black text-blue-700 uppercase">Automated Billing</p>
+                  <p className="text-xs text-blue-600 font-medium leading-relaxed">
                     This amount will be displayed to your patients on your booking page and collected via Razorpay securely.
                   </p>
                 </div>

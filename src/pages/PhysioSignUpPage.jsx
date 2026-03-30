@@ -82,7 +82,7 @@ export default function PhysioSignUpPage() {
           status: 'trial',
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
           createdAt: serverTimestamp(),
-          settings: { primaryColor: '#39A900', secondaryColor: '#F6A000', videoMode: 'whatsapp' }
+          settings: { primaryColor: '#007AFF', secondaryColor: '#F6A000', videoMode: 'whatsapp' }
         });
       } catch (dbErr) {
         console.warn('Clinic doc write failed (non-blocking):', dbErr.code, dbErr.message);
@@ -117,8 +117,8 @@ export default function PhysioSignUpPage() {
                <ArrowLeft size={14} /> Back to Terminal Home
             </Link>
             
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-50 rounded-full border border-green-100 text-[10px] font-black uppercase tracking-[0.2em] text-green-600 mb-6 shadow-sm">
-                <Zap size={10} className="fill-green-600" /> Start your 14-Day Elite Trial
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-full border border-blue-100 text-[10px] font-black uppercase tracking-[0.2em] text-blue-600 mb-6 shadow-sm">
+                <Zap size={10} className="fill-blue-600" /> Start your 14-Day Elite Trial
             </div>
             
             <h1 className="text-6xl font-black text-gray-900 leading-tight tracking-tighter mb-8">

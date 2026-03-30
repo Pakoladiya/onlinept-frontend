@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
-import clinicConfig from '@/config/clinicConfig';
 import {
   ArrowRight,
   ArrowLeft,
@@ -17,6 +16,8 @@ import {
   Zap,
   Calendar,
 } from 'lucide-react';
+
+const B = { primary: '#007AFF', dark: '#0055CC', light: '#E8F1FF', accent: '#5AC8FA' };
 
 const STEPS = [
   { id: 'clinic', label: 'Clinic Info', icon: Stethoscope },
@@ -44,23 +45,23 @@ export default function OnboardingPage() {
   const [done, setDone] = useState(false);
 
   const [data, setData] = useState({
-    clinicName: clinicConfig.clinicName,
-    physioName: clinicConfig.physioName,
-    qualifications: clinicConfig.qualifications,
-    experience: clinicConfig.experience,
-    phone: clinicConfig.phone,
-    email: clinicConfig.email,
-    address: clinicConfig.address || '',
-    services: clinicConfig.services || [
+    clinicName: 'OnlinePT',
+    physioName: '',
+    qualifications: '',
+    experience: '',
+    phone: '',
+    email: '',
+    address: '',
+    services: [
       { id: 'initial', name: 'Initial Consultation', duration: 45, price: 500, description: 'Comprehensive initial physiotherapy assessment and consultation.' },
       { id: 'followup', name: 'Follow-up Session', duration: 30, price: 300, description: 'Review progress and continue treatment plan.' },
       { id: 'report', name: 'Report Review', duration: 20, price: 200, description: 'Review medical reports and imaging.' },
     ],
-    primaryColor: clinicConfig.primaryColor,
-    secondaryColor: clinicConfig.secondaryColor,
-    features: { ...clinicConfig.features },
-    videoMode: clinicConfig.videoMode,
-    workingHours: { ...clinicConfig.workingHours },
+    primaryColor: B.primary,
+    secondaryColor: B.accent,
+    features: { payments: true, hepBuilder: true, soapNotes: true, invoicing: true, analytics: true },
+    videoMode: 'whatsapp',
+    workingHours: { days: [1, 2, 3, 4, 5], start: '09:00', end: '18:00' },
   });
 
   const update = (key, val) => setData((d) => ({ ...d, [key]: val }));
@@ -155,7 +156,7 @@ export default function OnboardingPage() {
             <div className="space-y-4">
               <h2 className="font-semibold text-text-primary">Clinic Information</h2>
               {[
-                { key: 'clinicName', label: 'Clinic Name', placeholder: 'e.g. Nijanand Fitness Centre' },
+                { key: 'clinicName', label: 'Clinic Name', placeholder: 'e.g. OnlinePT Clinic' },
                 { key: 'physioName', label: 'Physiotherapist Name', placeholder: 'e.g. Dr. Jiten Makwana' },
                 { key: 'qualifications', label: 'Qualifications', placeholder: 'e.g. BPT, MIAP' },
                 { key: 'experience', label: 'Experience', placeholder: 'e.g. 8+ years' },

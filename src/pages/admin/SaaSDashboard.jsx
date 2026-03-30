@@ -28,10 +28,9 @@ const T = {
   border: 'rgba(0,0,0,0.06)',
   shadowSm: '0 2px 8px rgba(0,0,0,0.06)',
   shadowMd: '0 8px 24px rgba(0,0,0,0.10)',
-  green: '#10B981',
+  blue: '#007AFF',
   yellow: '#F59E0B',
   red: '#EF4444',
-  blue: '#3B82F6',
   r: { sm: 10, md: 14, lg: 20 },
 };
 
@@ -64,8 +63,8 @@ function StatCard({ title, value, icon: Icon, trend, color, bg }) {
         </div>
         {trend && (
           <span style={{
-            fontSize: 12, fontWeight: 600, color: T.green,
-            background: '#D1FAE5', padding: '2px 8px', borderRadius: 20,
+            fontSize: 12, fontWeight: 600, color: T.blue,
+            background: '#E8F1FF', padding: '2px 8px', borderRadius: 20,
           }}>↑ {trend}</span>
         )}
       </div>
@@ -82,10 +81,10 @@ function StatCard({ title, value, icon: Icon, trend, color, bg }) {
 // ─── Status Badge ───────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const map = {
-    active: { color: T.green, bg: '#D1FAE5', label: 'Active' },
+    active: { color: T.blue, bg: '#E8F1FF', label: 'Active' },
     pending: { color: T.yellow, bg: '#FEF3C7', label: 'Pending' },
     confirmed: { color: T.blue, bg: '#DBEAFE', label: 'Confirmed' },
-    completed: { color: T.green, bg: '#D1FAE5', label: 'Completed' },
+    completed: { color: T.blue, bg: '#E8F1FF', label: 'Completed' },
     suspended: { color: T.red, bg: '#FEE2E2', label: 'Suspended' },
   };
   const s = map[status] || map.pending;
@@ -430,7 +429,7 @@ export default function SaaSDashboard() {
                         <td style={{ padding: '14px 20px' }}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             {a.status === 'pending' && <ActionButton label="Confirm" onClick={() => updateAppointmentStatus(a.id, 'confirmed')} bg="#DBEAFE" color="#2563EB" />}
-                            {a.status === 'confirmed' && <ActionButton label="Complete" onClick={() => updateAppointmentStatus(a.id, 'completed')} bg="#D1FAE5" color="#059669" />}
+                            {a.status === 'confirmed' && <ActionButton label="Complete" onClick={() => updateAppointmentStatus(a.id, 'completed')} bg="#D1FAE5" color="#007AFF" />}
                             <ActionButton label="" onClick={() => setConfirmDialog({ title: 'Delete Appointment', message: `Delete appointment for ${a.patient}?`, onConfirm: () => deleteAppointment(a.id), onCancel: () => setConfirmDialog(null), confirmLabel: 'Delete', danger: true })} bg="#FEE2E2" color="#DC2626" icon={Trash2} />
                           </div>
                         </td>
@@ -532,7 +531,7 @@ export default function SaaSDashboard() {
                         <td style={{ padding: '14px 20px' }}>
                           <div style={{ display: 'flex', gap: 6 }}>
                             {a.status === 'pending' && <ActionButton label="Confirm" onClick={() => updateAppointmentStatus(a.id, 'confirmed')} bg="#DBEAFE" color="#2563EB" />}
-                            {a.status === 'confirmed' && <ActionButton label="Complete" onClick={() => updateAppointmentStatus(a.id, 'completed')} bg="#D1FAE5" color="#059669" />}
+                            {a.status === 'confirmed' && <ActionButton label="Complete" onClick={() => updateAppointmentStatus(a.id, 'completed')} bg="#D1FAE5" color="#007AFF" />}
                             <ActionButton label="" onClick={() => setConfirmDialog({ title: 'Delete Appointment', message: 'This action cannot be undone.', onConfirm: () => deleteAppointment(a.id), onCancel: () => setConfirmDialog(null), confirmLabel: 'Delete', danger: true })} bg="#FEE2E2" color="#DC2626" icon={Trash2} />
                           </div>
                         </td>
@@ -666,7 +665,7 @@ export default function SaaSDashboard() {
                           <div style={{ display: 'flex', gap: 6 }}>
                             {u.role !== 'super_admin' && (
                               <>
-                                {u.status === 'pending' && <ActionButton label="Approve" onClick={() => setUsers(prev => prev.map(us => us.id === u.id ? { ...us, status: 'active' } : us))} bg="#D1FAE5" color="#059669" />}
+                                {u.status === 'pending' && <ActionButton label="Approve" onClick={() => setUsers(prev => prev.map(us => us.id === u.id ? { ...us, status: 'active' } : us))} bg="#D1FAE5" color="#007AFF" />}
                                 <ActionButton label="Remove" onClick={() => setConfirmDialog({ title: 'Remove User', message: `Are you sure you want to remove ${u.name}? This cannot be undone.`, onConfirm: () => { setUsers(prev => prev.filter(us => us.id !== u.id)); setConfirmDialog(null); }, onCancel: () => setConfirmDialog(null), confirmLabel: 'Remove User', danger: true })} bg="#FEE2E2" color="#DC2626" icon={UserX} />
                               </>
                             )}

@@ -11,7 +11,6 @@ const T = {
   blue: '#007AFF',
   blueDark: '#0055CC',
   blueLight: '#E8F1FF',
-  green: '#34C759',
   surface: '#F5F5F7',
   white: '#FFFFFF',
   ink: '#1D1D1F',

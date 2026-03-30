@@ -108,7 +108,7 @@ export default function MasterAdminPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface">
-        <Loader2 size={24} className="animate-spin" style={{ color: '#39A900' }} />
+        <Loader2 size={24} className="animate-spin" style={{ color: '#007AFF' }} />
       </div>
     );
   }

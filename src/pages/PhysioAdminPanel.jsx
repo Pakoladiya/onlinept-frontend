@@ -19,7 +19,7 @@ const T = {
   primaryDark: '#0055CC',
   primaryLight: '#E8F1FF',
   accent: '#5AC8FA',
-  green: '#34C759',
+  blue: '#007AFF',
   orange: '#FF9F0A',
   surface: '#F5F5F7',
   surface2: '#E5E5EA',
@@ -37,7 +37,7 @@ const T = {
 // ─── Color Palettes ─────────────────────────────────────────────────────────────
 const PALETTES = [
   { name: 'iOS Blue',     p: '#007AFF', d: '#0055CC', l: '#E8F1FF', a: '#5AC8FA' },
-  { name: 'Forest Green',  p: '#39A900', d: '#2C7E00', l: '#E5F7D0', a: '#7DD654' },
+  { name: 'Forest Green',  p: '#007AFF', d: '#0055CC', l: '#E8F1FF', a: '#5AC8FA' },
   { name: 'Ocean Blue',   p: '#0066CC', d: '#0055AA', l: '#E5F4FF', a: '#00B4D8' },
   { name: 'Sunset',       p: '#E85D04', d: '#CC4D00', l: '#FFF0E5', a: '#FFBA08' },
   { name: 'Royal Purple', p: '#7C3AED', d: '#6D28D9', l: '#EDE9FE', a: '#A78BFA' },
@@ -169,7 +169,7 @@ function Toggle({ checked, onChange }) {
       onClick={() => onChange(!checked)}
       style={{
         width: 51, height: 31, borderRadius: 16,
-        background: checked ? (T.green) : (T.surface2),
+        background: checked ? (T.blue) : (T.surface2),
         border: 'none', cursor: 'pointer', position: 'relative',
         transition: 'background 0.2s',
         flexShrink: 0,
@@ -488,7 +488,7 @@ export default function PhysioAdminPanel() {
           {/* Right: save */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {saved && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: T.green, fontWeight: 600, animation: 'fadeUp 0.3s ease' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: T.blue, fontWeight: 600, animation: 'fadeUp 0.3s ease' }}>
                 <CheckCircle2 size={14} /> Saved
               </span>
             )}

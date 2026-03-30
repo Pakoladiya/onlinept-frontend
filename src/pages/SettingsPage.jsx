@@ -17,7 +17,7 @@ import {
 
 // ─── Color Palettes ────────────────────────────────────────────────────────────
 const COLOR_PALETTES = [
-  { name: 'Forest Fresh',    primary: '#39A900', secondary: '#F6A000' },
+  { name: 'Forest Fresh',    primary: '#007AFF', secondary: '#F6A000' },
   { name: 'Ocean Calm',      primary: '#0066CC', secondary: '#00B4D8' },
   { name: 'Sunset Warmth',   primary: '#E85D04', secondary: '#FFBA08' },
   { name: 'Royal Purple',    primary: '#7C3AED', secondary: '#A78BFA' },
@@ -164,7 +164,7 @@ export default function SettingsPage() {
     logo: '',
     coverPhoto: '',
     physioPhoto: '',
-    primaryColor: '#39A900',
+    primaryColor: '#007AFF',
     secondaryColor: '#F6A000',
     videoMode: 'whatsapp',
     zoomLink: '',
@@ -190,7 +190,7 @@ export default function SettingsPage() {
             logo: data.settings?.logo || '',
             coverPhoto: data.settings?.coverPhoto || '',
             physioPhoto: data.settings?.physioPhoto || '',
-            primaryColor: data.settings?.primaryColor || '#39A900',
+            primaryColor: data.settings?.primaryColor || '#007AFF',
             secondaryColor: data.settings?.secondaryColor || '#F6A000',
             videoMode: data.settings?.videoMode || 'whatsapp',
             zoomLink: data.settings?.zoomLink || '',
@@ -272,7 +272,7 @@ export default function SettingsPage() {
           </Link>
           <div className="flex items-center gap-2">
             {saved && (
-              <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+              <span className="inline-flex items-center gap-1 text-xs text-blue-600 font-medium">
                 <CheckCircle2 size={14} /> Saved!
               </span>
             )}
@@ -419,8 +419,8 @@ export default function SettingsPage() {
             </div>
           )}
           {settings.videoMode === 'whatsapp' && (
-            <div className="mt-4 p-3 rounded-lg bg-green-50 border border-green-200">
-              <p className="text-xs text-green-700 font-medium">WhatsApp video is free and works instantly. Your patients will see your WhatsApp number when they book.</p>
+            <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-200">
+              <p className="text-xs text-blue-700 font-medium">WhatsApp video is free and works instantly. Your patients will see your WhatsApp number when they book.</p>
             </div>
           )}
         </Card>
