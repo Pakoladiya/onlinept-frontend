@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import {
   Users, Calendar, Activity, TrendingUp, Plus,
@@ -16,9 +16,9 @@ const T = {
   sidebarActive: '#1D4ED8',
   sidebarText: '#94A3B8',
   sidebarTextBright: '#F1F5F9',
-  primary: '#0D7377',
-  primaryLight: '#E8F5F5',
-  accent: '#14A3A8',
+  primary: '#007AFF',
+  primaryLight: '#E8F1FF',
+  accent: '#0055CC',
   surface: '#F8FAFC',
   white: '#FFFFFF',
   ink: '#1D1D1F',
@@ -83,9 +83,11 @@ function StatusBadge({ status }) {
   const map = {
     active: { color: T.blue, bg: '#E8F1FF', label: 'Active' },
     pending: { color: T.yellow, bg: '#FEF3C7', label: 'Pending' },
+    pending_approval: { color: T.yellow, bg: '#FEF3C7', label: 'Pending Approval' },
     confirmed: { color: T.blue, bg: '#DBEAFE', label: 'Confirmed' },
     completed: { color: T.blue, bg: '#E8F1FF', label: 'Completed' },
     suspended: { color: T.red, bg: '#FEE2E2', label: 'Suspended' },
+    rejected: { color: T.red, bg: '#FEE2E2', label: 'Rejected' },
   };
   const s = map[status] || map.pending;
   return (
@@ -125,7 +127,7 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, confirmLabel = 'Co
             color: T.white, border: 'none', borderRadius: T.r.sm,
             fontSize: 14, fontWeight: 700, cursor: 'pointer',
             fontFamily: "'DM Sans', sans-serif",
-            boxShadow: `0 4px 12px ${danger ? 'rgba(239,68,68,0.3)' : 'rgba(13,115,119,0.3)'}`,
+            boxShadow: `0 4px 12px ${danger ? 'rgba(239,68,68,0.3)' : 'rgba(0,122,255,0.3)'}`,
           }}>{confirmLabel}</button>
         </div>
       </div>
@@ -286,6 +288,26 @@ export default function SaaSDashboard() {
     setConfirmDialog(null);
   };
 
+  const approveClinic = async (clinicId) => {
+    try {
+      if (db) await updateDoc(doc(db, 'clinics', clinicId), { subscriptionStatus: 'active' });
+      else setClinics(prev => prev.map(c => c.id === clinicId ? { ...c, subscriptionStatus: 'active' } : c));
+    } catch (err) {
+      console.error('Approve clinic failed:', err);
+    }
+    setConfirmDialog(null);
+  };
+
+  const rejectClinic = async (clinicId) => {
+    try {
+      if (db) await updateDoc(doc(db, 'clinics', clinicId), { subscriptionStatus: 'rejected' });
+      else setClinics(prev => prev.map(c => c.id === clinicId ? { ...c, subscriptionStatus: 'rejected' } : c));
+    } catch (err) {
+      console.error('Reject clinic failed:', err);
+    }
+    setConfirmDialog(null);
+  };
+
   const filteredAppointments = appointments.filter(a => {
     if (statusFilter !== 'all' && a.status !== statusFilter) return false;
     if (search && !a.patient.toLowerCase().includes(search.toLowerCase()) && !a.phone.includes(search)) return false;
@@ -326,6 +348,7 @@ export default function SaaSDashboard() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
         @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         tr:hover td { background: #F8FAFC !important; }
         @media (max-width: 768px) {
           aside { display: none !important; }
@@ -397,6 +420,35 @@ export default function SaaSDashboard() {
               <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginBottom: 32 }}>
                 {stats.map(s => <StatCard key={s.title} {...s} />)}
               </div>
+
+              {/* Pending Enrollments */}
+              {(() => {
+                const pending = clinics.filter(c => c.subscriptionStatus === 'pending_approval');
+                if (pending.length === 0) return null;
+                return (
+                  <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: T.r.lg, padding: '20px 24px', marginBottom: 28 }}>
+                    <h2 style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 16, color: '#92400E', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F59E0B', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                      Pending Enrollments ({pending.length})
+                    </h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {pending.map(c => (
+                        <div key={c.id} style={{ background: '#fff', border: '1px solid #FDE68A', borderRadius: T.r.md, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: 200 }}>
+                            <p style={{ fontWeight: 700, fontSize: 14, color: T.ink }}>{c.clinicName || c.name}</p>
+                            <p style={{ fontSize: 12, color: T.ink4, marginTop: 2 }}>{c.physioName || ''} &bull; {c.email || ''}</p>
+                            <p style={{ fontSize: 11, color: T.ink4, marginTop: 2, fontFamily: 'monospace' }}>{c.domain}</p>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <ActionButton label="Approve" onClick={() => setConfirmDialog({ title: 'Approve Clinic Enrollment', message: `Approve enrollment for ${c.clinicName || c.name}? Their clinic portal will be activated.`, onConfirm: () => approveClinic(c.id), onCancel: () => setConfirmDialog(null), confirmLabel: 'Approve Enrollment' })} bg="#D1FAE5" color="#007AFF" />
+                            <ActionButton label="Reject" onClick={() => setConfirmDialog({ title: 'Reject Clinic Enrollment', message: `Reject enrollment for ${c.clinicName || c.name}? This will deny their access.`, onConfirm: () => rejectClinic(c.id), onCancel: () => setConfirmDialog(null), confirmLabel: 'Reject Enrollment', danger: true })} bg="#FEE2E2" color="#DC2626" />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Recent Appointments */}
               <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, overflow: 'hidden', marginBottom: 28 }}>
@@ -556,7 +608,7 @@ export default function SaaSDashboard() {
                     color: T.white, border: 'none', borderRadius: T.r.sm,
                     padding: '10px 20px', fontSize: 14, fontWeight: 700,
                     cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-                    boxShadow: `0 4px 16px rgba(13,115,119,0.3)`,
+                    boxShadow: `0 4px 16px rgba(0,122,255,0.3)`,
                   }}
                 >
                   <Plus size={16} /> Onboard Clinic
@@ -592,7 +644,7 @@ export default function SaaSDashboard() {
                           <td style={{ padding: '14px 20px' }}>
                             <div style={{ display: 'flex', gap: 6 }}>
                               <ActionButton label="Visit" onClick={() => window.open(`https://${c.domain}`, '_blank')} bg={T.surface} color={T.ink3} icon={ExternalLink} />
-                              <ActionButton label="Suspend" onClick={() => {}} bg="#FEF3C7" color="#D97706" />
+                              <ActionButton label="Suspend" onClick={() => setConfirmDialog({ title: 'Suspend Clinic', message: 'Suspend this clinic? Their portal will be taken offline.', onConfirm: () => setConfirmDialog(null), onCancel: () => setConfirmDialog(null), confirmLabel: 'Suspend' })} bg="#FEF3C7" color="#D97706" />
                             </div>
                           </td>
                         </tr>
@@ -699,7 +751,7 @@ export default function SaaSDashboard() {
                     padding: '10px 24px', background: T.primary, color: T.white,
                     border: 'none', borderRadius: T.r.sm, fontSize: 14, fontWeight: 700,
                     cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-                    boxShadow: `0 4px 12px rgba(13,115,119,0.3)`,
+                    boxShadow: `0 4px 12px rgba(0,122,255,0.3)`,
                   }}>Save Changes</button>
                 </div>
               </div>

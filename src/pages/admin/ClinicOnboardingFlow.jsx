@@ -9,7 +9,8 @@ import {
   CheckCircle2, ChevronRight, Stethoscope, Paintbrush,
   ShieldCheck, Rocket, LayoutTemplate, AlertCircle,
 } from 'lucide-react';
-import clinicConfig from '@/config/clinicConfig';
+// Brand name — hardcoded for the SaaS onboarding engine
+const BRAND_NAME = 'OnlinePT';
 
 // ── simple controlled input ───────────────────────────────────────────────────
 function Field({ label, hint, children }) {
@@ -161,7 +162,7 @@ export default function ClinicOnboardingFlow() {
         tagline: `Expert physiotherapy consultations online`,
         plan: formData.plan,
         trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        subscriptionStatus: 'pending_verification',
+        subscriptionStatus: 'pending_approval',
         workingHours: { start: '09:00', end: '19:00', days: [1, 2, 3, 4, 5, 6] },
         slotDurationMinutes: 30,
         videoMode: 'zoom',
@@ -208,7 +209,7 @@ export default function ClinicOnboardingFlow() {
           <div key={n} className={`flex flex-col items-center flex-1 ${idx < stepMeta.length - 1 ? 'relative' : ''}`}>
             <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 z-10 bg-white transition-all duration-300
               ${isActive ? 'border-primary text-primary shadow-md scale-110'
-                : isPast  ? 'border-green-500 bg-green-50 text-green-600'
+                : isPast  ? 'border-blue-500 bg-blue-50 text-blue-600'
                 : 'border-gray-200 text-gray-400'}`
             }>
               {isPast ? <CheckCircle2 className="w-6 h-6" /> : <Icon className="w-5 h-5" />}
@@ -216,7 +217,7 @@ export default function ClinicOnboardingFlow() {
             <p className={`text-xs mt-2 font-medium ${isActive ? 'text-primary' : 'text-gray-500'}`}>{label}</p>
             {idx < stepMeta.length - 1 && (
               <div
-                className={`absolute top-6 h-[2px] transition-all duration-500 ${isPast ? 'bg-green-400' : 'bg-gray-200'}`}
+                className={`absolute top-6 h-[2px] transition-all duration-500 ${isPast ? 'bg-blue-400' : 'bg-gray-200'}`}
                 style={{ left: '50%', right: '-50%', zIndex: 0 }}
               />
             )}
@@ -257,7 +258,7 @@ export default function ClinicOnboardingFlow() {
         <div className="flex items-center gap-2">
           <Stethoscope className="w-6 h-6 text-primary" />
           <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-            {clinicConfig.clinicName} SaaS
+            {BRAND_NAME} SaaS
           </span>
         </div>
         <span className="text-sm text-gray-500 font-medium hidden sm:block">Clinic Provisioning Engine</span>
@@ -273,7 +274,7 @@ export default function ClinicOnboardingFlow() {
           {/* ── Step 1: Details ── */}
           {step === 1 && (
             <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Let's set up your clinic.</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Let's Set Up Your Clinic</h2>
               <p className="text-gray-500 text-sm mb-8">Enter your details to generate your white-labeled instance.</p>
 
               <div className="space-y-5">
@@ -293,7 +294,7 @@ export default function ClinicOnboardingFlow() {
                   <TextInput name="clinicName" value={formData.clinicName} onChange={handleChange} placeholder="Clinic Name" />
                 </Field>
 
-                <Field label="Choose your Subdomain" hint="Only lowercase letters, numbers, and hyphens allowed.">
+                <Field label="Choose Your Subdomain" hint="Only lowercase letters, numbers, and hyphens allowed.">
                   <div className="flex">
                     <TextInput
                       name="subdomain"
@@ -308,7 +309,7 @@ export default function ClinicOnboardingFlow() {
                   </div>
                   {formData.subdomain && (
                     <p className={`text-xs flex items-center mt-1 ${
-                      subdomainStatus.status === 'available' ? 'text-green-600'
+                      subdomainStatus.status === 'available' ? 'text-blue-600'
                       : subdomainStatus.status === 'taken' ? 'text-red-500'
                       : subdomainStatus.status === 'checking' ? 'text-gray-400'
                       : 'text-gray-400'
@@ -338,7 +339,7 @@ export default function ClinicOnboardingFlow() {
           {/* ── Step 2: Branding ── */}
           {step === 2 && (
             <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Design your portal.</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Design Your Portal</h2>
               <p className="text-gray-500 text-sm mb-8">Choose the brand colors for your clinic's patient-facing app.</p>
 
               <div className="space-y-6">
@@ -408,7 +409,7 @@ export default function ClinicOnboardingFlow() {
           {/* ── Step 3: Plan ── */}
           {step === 3 && (
             <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose your subscription.</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose Your Subscription</h2>
               <p className="text-gray-500 text-sm mb-8">All plans include a 14-day free trial. No credit card required.</p>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -438,7 +439,7 @@ export default function ClinicOnboardingFlow() {
                       <ul className="space-y-3 mb-8 flex-grow">
                          {plan.features.map((f, i) => (
                            <li key={i} className="flex items-start gap-2 text-[10px] font-bold text-gray-500 leading-tight">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" /> {f}
+                              <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" /> {f}
                            </li>
                          ))}
                       </ul>
@@ -463,7 +464,7 @@ export default function ClinicOnboardingFlow() {
             <div className="p-8">
               <div className="text-center mb-8">
                 <Rocket className="w-16 h-16 text-primary mx-auto mb-4" />
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">Ready for Liftoff!</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Ready for Liftoff</h2>
                 <p className="text-gray-500">Review everything and claim your free trial.</p>
               </div>
 
@@ -514,32 +515,28 @@ export default function ClinicOnboardingFlow() {
             </div>
           )}
 
-          {/* ── Step 5: Success ── */}
+          {/* ── Step 5: Pending Approval ── */}
           {step === 5 && (
             <div className="p-10 text-center">
-              <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <CheckCircle2 className="w-12 h-12" />
               </div>
-              <h2 className="text-3xl font-extrabold text-gray-900 mb-3">Clinic Created!</h2>
+              <h2 className="text-3xl font-extrabold text-gray-900 mb-3">Enrollment Submitted!</h2>
               <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                Welcome, <strong>{formData.physioName}</strong>! Your white-labeled clinic portal is now live.
-                Credentials have been sent to <strong>{formData.email}</strong>.
+                Thank you, <strong>{formData.physioName}</strong>! Your clinic enrollment has been submitted for review.
+                The OnlinePT team will verify your details and activate your portal within 24 hours.
+                You will receive an email at <strong>{formData.email}</strong> once approved.
               </p>
 
-              <div className="bg-gray-50 inline-block px-6 py-4 rounded-xl border border-gray-200 mb-8">
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-1.5">Your Portal URL</p>
-                <a
-                  href={`https://${formData.subdomain}.onlinept.in`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-primary font-bold text-base hover:underline"
-                >
-                  https://{formData.subdomain}.onlinept.in
-                </a>
+              <div className="bg-blue-50 inline-block px-6 py-4 rounded-xl border border-blue-100 mb-8">
+                <p className="text-xs text-blue-600 uppercase font-semibold mb-1.5">Clinic Subdomain</p>
+                <p className="text-primary font-bold text-base">
+                  {formData.subdomain}.onlinept.in
+                </p>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button size="lg" onClick={() => navigate('/admin')}>Go to Master Dashboard</Button>
+                <Button size="lg" onClick={() => navigate('/dashboard-login')}>Go to Dashboard Login</Button>
                 <Button size="lg" variant="outline" onClick={() => { setStep(1); setSubdomainStatus({ status: 'idle', message: '' }); setFormData({ physioName:'', email:'', clinicName:'', subdomain:'', phone:'', primaryColor:'#007AFF', secondaryColor:'#0055CC', plan:'' }); }}>
                   Onboard Another Clinic
                 </Button>
