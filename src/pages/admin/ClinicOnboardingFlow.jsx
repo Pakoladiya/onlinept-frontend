@@ -39,16 +39,33 @@ export default function ClinicOnboardingFlow() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [subdomainStatus, setSubdomainStatus] = useState({ status: 'idle', message: '' }); // 'idle' | 'checking' | 'available' | 'taken'
-  const [formData, setFormData] = useState({
-    physioName: '',
-    email: '',
-    clinicName: '',
-    subdomain: '',
-    phone: '',
-    primaryColor: '#007AFF',
-    secondaryColor: '#0055CC',
-    plan: '',
-  });
+
+  // Pre-fill from sessionStorage if available (set by SaaS landing page signup)
+  const getInitialFormData = () => {
+    try {
+      const saved = sessionStorage.getItem('pendingOnboarding');
+      if (saved) {
+        const data = JSON.parse(saved);
+        sessionStorage.removeItem('pendingOnboarding');
+        return {
+          physioName: data.physioName || '',
+          email: data.email || '',
+          clinicName: data.clinicName || '',
+          subdomain: data.subdomain || '',
+          phone: '',
+          primaryColor: '#007AFF',
+          secondaryColor: '#0055CC',
+          plan: '',
+        };
+      }
+    } catch {}
+    return {
+      physioName: '', email: '', clinicName: '', subdomain: '',
+      phone: '', primaryColor: '#007AFF', secondaryColor: '#0055CC', plan: '',
+    };
+  };
+
+  const [formData, setFormData] = useState(getInitialFormData());
 
   // ── Subdomain availability check ──────────────────────────────────────────────
   const checkSubdomain = async (value) => {
@@ -108,15 +125,24 @@ export default function ClinicOnboardingFlow() {
       }
 
       // Get authenticated user's uid (required by Firestore rules)
-      const getUid = () => new Promise((resolve) => {
-        if (auth?.currentUser?.uid) return resolve(auth.currentUser.uid);
-        const unsub = onAuthStateChanged(auth, (user) => {
-          unsub();
-          resolve(user?.uid || 'unknown');
+      // Prefer sessionStorage (set by landing page signup) over auth state
+      const getUid = () => {
+        try {
+          const saved = sessionStorage.getItem('pendingOnboarding');
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (data.uid) return Promise.resolve(data.uid);
+          }
+        } catch {}
+        return new Promise((resolve) => {
+          if (auth?.currentUser?.uid) return resolve(auth.currentUser.uid);
+          const unsub = onAuthStateChanged(auth, (user) => {
+            unsub();
+            resolve(user?.uid || 'unknown');
+          });
+          setTimeout(() => resolve('unknown'), 3000);
         });
-        // Timeout fallback
-        setTimeout(() => resolve('unknown'), 3000);
-      });
+      };
 
       const uid = await getUid();
 

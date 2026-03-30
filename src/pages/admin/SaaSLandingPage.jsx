@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { auth } from '@/firebase/config';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
   Check, ChevronRight, ArrowRight, Plus,
   Video, Settings, Smartphone, Shield, Globe,
@@ -259,10 +261,13 @@ function FaqItem({ q, a, delay }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function SaaSLandingPage() {
+  const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [subdomain, setSubdomain] = useState('');
   const [form, setForm] = useState({ firstName: '', lastName: '', clinic: '', city: '', qualification: '', email: '', password: '' });
   const [signupDone, setSignupDone] = useState(false);
+  const [signupLoading, setSignupLoading] = useState(false);
+  const [signupError, setSignupError] = useState('');
   const navRef = useRef(null);
 
   useEffect(() => {
@@ -275,10 +280,42 @@ export default function SaaSLandingPage() {
     setSubdomain(v.toLowerCase().replace(/[^a-z0-9-]/g, ''));
   };
 
-  const handleSignup = (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
-    setSignupDone(true);
-    setTimeout(() => setSignupDone(false), 3000);
+    setSignupLoading(true);
+    setSignupError('');
+    try {
+      if (!auth) {
+        // Dev mode: skip Firebase, go straight to onboarding
+        sessionStorage.setItem('pendingOnboarding', JSON.stringify({
+          physioName: `${form.firstName} ${form.lastName}`,
+          email: form.email,
+          clinicName: form.clinic,
+          subdomain,
+        }));
+        navigate('/saas/onboarding');
+        return;
+      }
+      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+      // Store pre-fill data for onboarding
+      sessionStorage.setItem('pendingOnboarding', JSON.stringify({
+        uid: cred.user.uid,
+        physioName: `${form.firstName} ${form.lastName}`,
+        email: form.email,
+        clinicName: form.clinic,
+        subdomain,
+      }));
+      navigate('/saas/onboarding');
+    } catch (err) {
+      if (err.code === 'auth/email-already-in-use') {
+        setSignupError('An account with this email already exists. Try signing in instead.');
+      } else if (err.code === 'auth/weak-password') {
+        setSignupError('Password should be at least 6 characters.');
+      } else {
+        setSignupError(err.message || 'Sign up failed. Please try again.');
+      }
+      setSignupLoading(false);
+    }
   };
 
   const section = (pad = '100px 24px') => ({
@@ -726,15 +763,20 @@ export default function SaaSLandingPage() {
                     style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
                 </div>
 
-                <button type="submit" style={{
-                  width: '100%', padding: 15, background: signupDone ? T.blue : T.blue, color: T.white,
+                {signupError && (
+                  <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#DC2626', fontSize: 13 }}>
+                    {signupError}
+                  </div>
+                )}
+                <button type="submit" disabled={signupLoading} style={{
+                  width: '100%', padding: 15, background: signupLoading ? T.blueDark : T.blue, color: T.white,
                   border: 'none', borderRadius: T.r.sm,
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: signupLoading ? 'not-allowed' : 'pointer',
                   boxShadow: '0 4px 16px rgba(0,122,255,0.30)',
-                  transition: 'background 0.15s, transform 0.15s, box-shadow 0.15s',
+                  transition: 'background 0.15s',
                   marginTop: 8,
                 }}>
-                  {signupDone ? 'Page Created! Redirecting…' : 'Create My Page Free'}
+                  {signupLoading ? 'Creating Account…' : 'Create My Page Free'}
                 </button>
                 <p style={{ fontSize: 12, color: T.ink4, textAlign: 'center', marginTop: 12 }}>
                   By signing up you agree to our Terms of Service. No credit card required.
