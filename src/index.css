@@ -11,11 +11,11 @@
    ───────────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --color-primary: #39A900;
-    --color-primary-hover: #2f8e00;
-    --color-primary-light: #edf7e6;
-    --color-secondary: #F6A000;
-    --color-secondary-hover: #dd9000;
+    --color-primary: #007AFF;
+    --color-primary-hover: #0055CC;
+    --color-primary-light: #E8F1FF;
+    --color-secondary: #0055CC;
+    --color-secondary-hover: #003399;
     --color-background: #ffffff;
     --color-surface: #f9fafb;
     --color-text-primary: #111827;
