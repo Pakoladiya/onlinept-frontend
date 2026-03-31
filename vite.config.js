@@ -8,12 +8,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: false,
+      injectRegister: 'auto',
       manifest: {
         name: 'Physio On Web',
         short_name: 'PhysioWeb',
         description: 'Elite virtual physical therapy clinic platform.',
-        theme_color: '#39A900',
+        theme_color: '#007AFF',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
