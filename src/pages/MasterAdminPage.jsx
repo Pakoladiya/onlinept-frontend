@@ -139,7 +139,7 @@ export default function MasterAdminPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           {[
             { label: 'Total Clinics', value: stats.total, icon: LayoutDashboard, color: '#3b82f6' },
-            { label: 'Active', value: stats.active, icon: CheckCircle2, color: '#10b981' },
+            { label: 'Active', value: stats.active, icon: CheckCircle2, color: '#0066FF' },
             { label: 'On Trial', value: stats.trial, icon: Clock, color: '#f59e0b' },
             { label: 'Deactivated', value: stats.deactivated, icon: Ban, color: '#ef4444' },
           ].map(({ label, value, icon: Icon, color }) => (
@@ -200,7 +200,7 @@ export default function MasterAdminPage() {
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                        style={{ backgroundColor: clinic.settings?.primaryColor || '#39A900' }}
+                        style={{ backgroundColor: clinic.settings?.primaryColor || '#0066FF' }}
                       >
                         {(clinic.physioName || 'P').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>

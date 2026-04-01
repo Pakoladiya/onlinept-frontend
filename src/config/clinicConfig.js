@@ -66,9 +66,9 @@ const clinicConfig = {
 
   // ── Brand Colors ─────────────────────────────────────────────
   // primaryColor: CTAs, active states, primary actions
-  primaryColor: '#39A900',
+  primaryColor: '#0066FF',
   // secondaryColor: accents, highlights, secondary actions
-  secondaryColor: '#F6A000',
+  secondaryColor: '#3B82F6',
 
   // ── Contact Information ───────────────────────────────────────
   phone: '+91 63551 08454',

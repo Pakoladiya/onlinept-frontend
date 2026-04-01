@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '@/firebase/config';
+import { auth, db } from '@/firebase/config';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import {
   Check, ChevronRight, ArrowRight, Plus,
   Video, Settings, Smartphone, Shield, Globe,
@@ -297,15 +298,29 @@ export default function SaaSLandingPage() {
         return;
       }
       const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      // Store pre-fill data for onboarding
-      sessionStorage.setItem('pendingOnboarding', JSON.stringify({
-        uid: cred.user.uid,
-        physioName: `${form.firstName} ${form.lastName}`,
-        email: form.email,
-        clinicName: form.clinic,
-        subdomain,
-      }));
-      navigate('/saas/onboarding');
+      const uid = cred.user.uid;
+
+      // Create the clinic record with 'pending_approval' status
+      const clinicId = subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      if (db && clinicId) {
+        await setDoc(doc(collection(db, 'clinics'), clinicId), {
+          uid,
+          clinicId,
+          clinicName: form.clinic,
+          physioName: `${form.firstName} ${form.lastName}`.trim(),
+          email: form.email,
+          domain: `${clinicId}.onlinept.in`,
+          subdomain: clinicId,
+          city: form.city || '',
+          qualification: form.qualification || '',
+          subscriptionStatus: 'pending_approval',
+          createdAt: serverTimestamp(),
+          createdBy: 'saas_signup',
+        });
+      }
+
+      sessionStorage.removeItem('pendingOnboarding');
+      navigate('/saas/pending');
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
         setSignupError('An account with this email already exists. Try signing in instead.');

@@ -48,8 +48,8 @@ export async function loadTenantConfig() {
           id: 'demo',
           clinicName: 'Test Physio Clinic',
           physioName: 'Dr. Test Physio',
-          primaryColor: '#39A900',
-          secondaryColor: '#F6A000',
+          primaryColor: '#0066FF',
+          secondaryColor: '#3B82F6',
           tagline: 'Your premium white-labeled dashboard is ready.'
         };
       }

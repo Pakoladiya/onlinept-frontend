@@ -25,15 +25,7 @@ export default function SuperAdminGuard({ children }) {
         return;
       }
 
-      // Allow through if arriving from landing page signup (uid in URL matches current user)
-      const urlParams = new URLSearchParams(location.search);
-      const urlUid = urlParams.get('uid');
-      if (urlUid && urlUid === user.uid) {
-        setIsAdmin(true);
-        setLoading(false);
-        return;
-      }
-
+      // Super Admin handshakes only. No backdoors.
       try {
         // Silently check by email first (the primary super admin)
         if (isSuperAdminEmail(user.email)) {

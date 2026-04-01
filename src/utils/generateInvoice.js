@@ -20,7 +20,7 @@ export function openInvoice({ clinicName, clinicAddress, phone, email, gstNumber
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: Inter, system-ui, sans-serif; padding: 40px; max-width: 800px; margin: auto; color: #111827; font-size: 14px; }
   .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-  .clinic-name { font-size: 22px; font-weight: 700; color: #39A900; }
+  .clinic-name { font-size: 22px; font-weight: 700; color: #0066FF; }
   .clinic-sub { color: #6b7280; margin-top: 4px; }
   .invoice-meta { text-align: right; }
   .invoice-title { font-size: 20px; font-weight: 700; }
@@ -35,7 +35,7 @@ export function openInvoice({ clinicName, clinicAddress, phone, email, gstNumber
   .text-right { text-align: right; }
   .totals { margin-left: auto; width: 280px; }
   .totals td { padding: 6px 0; border: none; }
-  .totals .grand-total { font-size: 16px; font-weight: 700; border-top: 2px solid #39A900; padding-top: 10px; }
+  .totals .grand-total { font-size: 16px; font-weight: 700; border-top: 2px solid #0066FF; padding-top: 10px; }
   .footer { margin-top: 48px; color: #9ca3af; font-size: 12px; line-height: 1.8; }
   .footer strong { color: #374151; }
   @media print { body { padding: 20px; } }

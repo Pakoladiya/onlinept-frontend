@@ -17,6 +17,7 @@ import PhysioAdminPanel from '@/pages/PhysioAdminPanel';
 import SaaSDashboard from '@/pages/admin/SaaSDashboard';
 import SaaSLandingPage from '@/pages/admin/SaaSLandingPage';
 import ClinicOnboardingFlow from '@/pages/admin/ClinicOnboardingFlow';
+import ClinicPendingApprovalPage from '@/pages/admin/ClinicPendingApprovalPage';
 import ClinicSettings from '@/pages/clinic/ClinicSettings';
 import SuperAdminGuard from '@/components/auth/SuperAdminGuard';
 import PhysioGuard from '@/components/auth/PhysioGuard';
@@ -47,6 +48,7 @@ export default function AppRouter() {
       <Route path="/saas/dashboard" element={<SuperAdminGuard><SaaSDashboard /></SuperAdminGuard>} />
       <Route path="/saas" element={<SuperAdminGuard><SaaSLandingPage /></SuperAdminGuard>} />
       <Route path="/saas/onboarding" element={<SuperAdminGuard><ClinicOnboardingFlow /></SuperAdminGuard>} />
+      <Route path="/saas/pending" element={<ClinicPendingApprovalPage />} />
       <Route path="/saas/settings" element={<SuperAdminGuard><ClinicSettings /></SuperAdminGuard>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />

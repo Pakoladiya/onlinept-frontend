@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { auth } from '@/firebase/config';
+import { auth, db } from '@/firebase/config';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import {
   Plus,
   StickyNote,
@@ -175,20 +176,35 @@ export default function LandingPage() {
     setSignupLoading(true);
     setSignupError('');
     try {
+      // 1. Create firebase auth account
       const cred = auth
         ? await createUserWithEmailAndPassword(auth, formData.email, formData.password)
         : null;
       const uid = cred?.user?.uid || 'demo-uid';
-      sessionStorage.setItem('pendingOnboarding', JSON.stringify({
-        uid,
-        physioName: `${formData.firstName} ${formData.lastName}`.trim(),
-        email: formData.email,
-        clinicName: formData.clinicName,
-        subdomain: formData.subdomain,
-        city: formData.city,
-        qualification: formData.qualification,
-      }));
-      navigate(`/saas/onboarding?uid=${uid}`);
+
+      // 2. Create the clinic record with 'pending_approval' status
+      // We use the subdomain as the unique clinic/doc ID
+      const clinicId = formData.subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      if (db && clinicId) {
+        await setDoc(doc(collection(db, 'clinics'), clinicId), {
+          uid,
+          clinicId,
+          clinicName: formData.clinicName,
+          physioName: `${formData.firstName} ${formData.lastName}`.trim(),
+          email: formData.email,
+          domain: `${clinicId}.onlinept.in`,
+          subdomain: clinicId,
+          city: formData.city || '',
+          qualification: formData.qualification || '',
+          subscriptionStatus: 'pending_approval', // ── CRITICAL: Blocked until Super Admin validates
+          createdAt: serverTimestamp(),
+          createdBy: 'owner_signup',
+        });
+      }
+
+      // 3. Clear session and navigate to a "Thank You" pending page
+      sessionStorage.removeItem('pendingOnboarding');
+      navigate(`/saas/pending`);
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
         setSignupError('An account with this email already exists. Please sign in instead.');

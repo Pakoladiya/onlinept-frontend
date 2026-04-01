@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { onAuth, signOut } from '@/firebase/auth';
-import { getPhysioBookings, getPhysioPatients, blockSlot } from '@/firebase/db';
+import { getPhysioBookings, getPhysioPatients, blockSlot, getClinicByOwner } from '@/firebase/db';
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import {
   Settings, Clock, LogOut, ChevronRight, Video, Search, X,
@@ -390,6 +390,15 @@ export default function PhysioDashboard() {
 
       setDataLoading(true);
       try {
+        // ── Check Clinic Status ──
+        const clinicDoc = await getClinicByOwner(u.uid);
+        const isSuper = isSuperAdminEmail(u.email);
+        
+        if (clinicDoc && clinicDoc.subscriptionStatus !== 'active' && !isSuper) {
+          navigate('/saas/pending');
+          return;
+        }
+
         const [loadedBookings, loadedPatients] = await Promise.all([
           getPhysioBookings(u.uid),
           getPhysioPatients(u.uid),

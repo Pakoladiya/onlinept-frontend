@@ -37,7 +37,7 @@ const T = {
 // ─── Color Palettes ─────────────────────────────────────────────────────────────
 const PALETTES = [
   { name: 'iOS Blue',     p: '#007AFF', d: '#0055CC', l: '#E8F1FF', a: '#5AC8FA' },
-  { name: 'Forest Green',  p: '#007AFF', d: '#0055CC', l: '#E8F1FF', a: '#5AC8FA' },
+  { name: 'Deep Blue',    p: '#0066FF', d: '#0050CC', l: '#E8F1FF', a: '#3B82F6' },
   { name: 'Ocean Blue',   p: '#0066CC', d: '#0055AA', l: '#E5F4FF', a: '#00B4D8' },
   { name: 'Sunset',       p: '#E85D04', d: '#CC4D00', l: '#FFF0E5', a: '#FFBA08' },
   { name: 'Royal Purple', p: '#7C3AED', d: '#6D28D9', l: '#EDE9FE', a: '#A78BFA' },

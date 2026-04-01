@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Frontend (Vite dev server)",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\npm.cmd",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "C:\\Users\\jiten\\Documents\\Online Consultation",
+      "port": 5173
+    },
+    {
+      "name": "Backend (Express API)",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--watch", "server.js"],
+      "cwd": "C:\\Users\\jiten\\Documents\\Online Consultation\\backend",
+      "port": 5000
+    }
+  ]
+}

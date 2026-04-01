@@ -86,6 +86,20 @@ export async function getClinic(clinicSlug) {
 }
 
 /**
+ * Get a clinic by its owner's UID.
+ * @param {string} uid
+ */
+export async function getClinicByOwner(uid) {
+  if (!db) return null;
+  const col = collection(db, 'clinics');
+  const q = query(col, where('uid', '==', uid));
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+  const doc = snapshot.docs[0];
+  return { id: doc.id, ...doc.data() };
+}
+
+/**
  * Get all available slots for a given date (ISO string YYYY-MM-DD).
  * @param {string} clinicSlug
  * @param {string} dateStr
