@@ -28,6 +28,10 @@ const SaaSLandingPage = lazyRetry(() => import('@/pages/admin/SaaSLandingPage'))
 const ClinicOnboardingFlow = lazyRetry(() => import('@/pages/admin/ClinicOnboardingFlow'));
 const ClinicPendingApprovalPage = lazyRetry(() => import('@/pages/admin/ClinicPendingApprovalPage'));
 const ClinicSettings = lazyRetry(() => import('@/pages/clinic/ClinicSettings'));
+const ResourceLibrary = lazyRetry(() => import('@/pages/ResourceLibrary'));
+const ContentCreator = lazyRetry(() => import('@/pages/ContentCreator'));
+const ClinicBranding = lazyRetry(() => import('@/pages/ClinicBranding'));
+const BulkMessaging = lazyRetry(() => import('@/pages/BulkMessaging'));
 const PrivacyPolicyPage = lazyRetry(() => import('@/pages/PrivacyPolicyPage'));
 const ContactUsPage = lazyRetry(() => import('@/pages/ContactUsPage'));
 const HelpCenterPage = lazyRetry(() => import('@/pages/HelpCenterPage'));
@@ -70,7 +74,7 @@ export default function AppRouter() {
       <Routes>
         <Route 
           path="/" 
-          element={isClinicPortal ? <BookingPage /> : <SaaSLandingPage />} 
+          element={isClinicPortal ? <BookingPage /> : <LandingPage />} 
         />
         <Route path="/book" element={<BookingPage />} />
         <Route path="/reschedule/:bookingId" element={<ReschedulePage />} />
@@ -85,6 +89,10 @@ export default function AppRouter() {
         <Route path="/dashboard" element={<PhysioDashboard />} />
         <Route path="/hep" element={<HEPBuilderPage />} />
         <Route path="/post-session/:bookingId" element={<PostSessionPage />} />
+        <Route path="/resources" element={<PhysioGuard><ResourceLibrary /></PhysioGuard>} />
+        <Route path="/content-creator" element={<PhysioGuard><ContentCreator /></PhysioGuard>} />
+        <Route path="/clinic-branding" element={<PhysioGuard><ClinicBranding /></PhysioGuard>} />
+        <Route path="/bulk-messaging" element={<PhysioGuard><BulkMessaging /></PhysioGuard>} />
 
         {/* ── Physio Own Settings (Firebase Auth) ── */}
         <Route path="/settings" element={<SettingsPage />} />
@@ -96,7 +104,7 @@ export default function AppRouter() {
         <Route path="/saas/dashboard" element={<SuperAdminGuard><SaaSDashboard /></SuperAdminGuard>} />
         
         {/* PUBLIC SaaS routes for signup/onboarding */}
-        <Route path="/saas" element={<SaaSLandingPage />} />
+        <Route path="/saas" element={<LandingPage />} />
         <Route path="/saas/onboarding" element={<ClinicOnboardingFlow />} />
         
         <Route path="/saas/pending" element={<ClinicPendingApprovalPage />} />

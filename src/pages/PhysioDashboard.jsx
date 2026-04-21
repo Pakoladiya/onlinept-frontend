@@ -5,12 +5,14 @@ import { getPhysioBookings, getPhysioPatients, blockSlot, getClinicByOwner } fro
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase/config';
+import SessionOutcomesWidget from '@/components/SessionOutcomesWidget';
 import {
   Settings, Clock, LogOut, ChevronRight, Video, Search, X,
   Loader2, Calendar, ShieldCheck, ChevronLeft,
   Users, CalendarCheck, TrendingUp, UserCheck, Activity,
   BarChart3, MessageSquare, Crown, Menu, PlusCircle, Share2, Copy, Send,
-  HeartPulse, FileText, RefreshCw, PhoneCall, ArrowRight
+  HeartPulse, FileText, RefreshCw, PhoneCall, ArrowRight,
+  FolderOpen, Layers, Palette
 } from 'lucide-react';
 
 // ---─ Design Tokens ------------------------------------------------------------------------------------------
@@ -31,7 +33,8 @@ const T = {
   r: { sm: 12, md: 18, lg: 24, xl: 32 },
 };
 
-const TABS = ['Overview', 'Patients', 'Schedule', 'Insights'];
+const TABS = ['Overview', 'Patients', 'Schedule', 'Insights', 'Outcomes'];
+const TOOLS = ['Resources', 'Content', 'Branding', 'Messages'];
 
 const toTitleCase = (str) => {
   if (!str) return '';
@@ -354,7 +357,9 @@ export default function PhysioDashboard() {
              </div>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+             <button onClick={() => navigate('/resources')} style={{ width: 40, height: 40, borderRadius: 12, background: T.white, border: `1.5px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="Resource Library"><FolderOpen size={18} color={T.ink3} /></button>
+             <button onClick={() => navigate('/content-creator')} style={{ width: 40, height: 40, borderRadius: 12, background: T.white, border: `1.5px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="Content Creator"><Layers size={18} color={T.ink3} /></button>
              <button onClick={() => navigate('/admin')} style={{ width: 40, height: 40, borderRadius: 12, background: T.white, border: `1.5px solid ${T.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Settings size={18} color={T.ink3} /></button>
              <button onClick={async () => { await signOut(); navigate('/'); }} style={{ width: 40, height: 40, borderRadius: 12, background: '#FEF2F2', border: '1.5px solid #FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><LogOut size={18} color="var(--color-error)" /></button>
           </div>
@@ -365,6 +370,11 @@ export default function PhysioDashboard() {
               {TABS.map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 18px', borderRadius: 100, fontSize: 14, fontWeight: 700, border: 'none', background: activeTab === tab ? T.primary : 'transparent', color: activeTab === tab ? T.white : T.ink3, cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>{tab}</button>
               ))}
+              <span style={{ width: 1, height: 24, background: T.border, display: 'inline-block', margin: '0 8px', verticalAlign: 'middle' }} />
+              <button onClick={() => navigate('/resources')} style={{ padding: '8px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: 'none', background: 'transparent', color: T.ink3, cursor: 'pointer' }}><FolderOpen size={14} className="inline mr-1" />Library</button>
+              <button onClick={() => navigate('/content-creator')} style={{ padding: '8px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: 'none', background: 'transparent', color: T.ink3, cursor: 'pointer' }}><Layers size={14} className="inline mr-1" />Create</button>
+              <button onClick={() => navigate('/clinic-branding')} style={{ padding: '8px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: 'none', background: 'transparent', color: T.ink3, cursor: 'pointer' }}><Palette size={14} className="inline mr-1" />Branding</button>
+              <button onClick={() => navigate('/bulk-messaging')} style={{ padding: '8px 14px', borderRadius: 100, fontSize: 12, fontWeight: 700, border: 'none', background: 'transparent', color: T.ink3, cursor: 'pointer' }}><MessageSquare size={14} className="inline mr-1" />Messages</button>
            </div>
         </div>
       </header>
@@ -561,6 +571,11 @@ export default function PhysioDashboard() {
                ))}
             </div>
           </div>
+        )}
+
+        {/* --- Outcomes --- */}
+        {activeTab === 'Outcomes' && user && (
+          <SessionOutcomesWidget user={user} />
         )}
 
         {/* Patient Record Modal */}

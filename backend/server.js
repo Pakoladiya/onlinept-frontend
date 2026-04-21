@@ -8,6 +8,8 @@ import appointmentsRouter from './routes/appointments.js';
 import slotsRouter from './routes/slots.js';
 import zoomRouter from './routes/zoom.js';
 import paymentsRouter from './routes/payments.js';
+import notificationsRouter from './routes/notifications.js';
+import storageRouter from './routes/storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -30,6 +32,8 @@ app.use('/api/appointments', appointmentsRouter);
 app.use('/api/slots', slotsRouter);
 app.use('/api/zoom', zoomRouter);
 app.use('/api/payments', paymentsRouter);
+app.use('/api/notifications', notificationsRouter);
+app.use('/api/storage', storageRouter);
 
 // ── Health check ─────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {

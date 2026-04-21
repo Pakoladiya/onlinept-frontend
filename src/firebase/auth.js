@@ -4,6 +4,9 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
 } from 'firebase/auth';
 import { auth } from './config';
 
@@ -64,4 +67,14 @@ export function onAuth(callback) {
 export async function sendResetEmail(email) {
   if (!auth) throw new Error('Firebase configuration missing.');
   return sendPasswordResetEmail(auth, email);
+}
+
+/**
+ * Set auth persistence.
+ * @param {boolean} rememberMe 
+ */
+export async function setAuthPersistence(rememberMe) {
+  if (!auth) return;
+  const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+  return setPersistence(auth, persistence);
 }

@@ -286,21 +286,96 @@ export default function ClinicSettings() {
               </div>
             </div>
 
+            {/* Logo Settings */}
+            <div className="pt-8 border-t border-gray-100 space-y-6">
+              <div className="flex items-center gap-2 text-gray-400 font-black uppercase tracking-[0.1em] text-[10px]">
+                <ImageIcon className="w-4 h-4" /> Logo & Dimensions
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                <div className="space-y-4">
+                  <div className="space-y-2 text-left">
+                    <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Logo Image URL</label>
+                    <input
+                      value={formData.logo || ''}
+                      onChange={e => updateField('logo', e.target.value)}
+                      placeholder="https://example.com/logo.png"
+                      className="w-full h-12 bg-gray-50 rounded-xl px-4 text-xs font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 text-left">
+                      <label className="text-[10px] font-black uppercase text-gray-400 ml-1 flex justify-between">
+                        Width <span>{formData.logoWidth || 44}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="20"
+                        max="300"
+                        value={formData.logoWidth || 44}
+                        onChange={e => updateField('logoWidth', parseInt(e.target.value))}
+                        className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                    </div>
+                    <div className="space-y-2 text-left">
+                      <label className="text-[10px] font-black uppercase text-gray-400 ml-1 flex justify-between">
+                        Height <span>{formData.logoHeight || 44}px</span>
+                      </label>
+                      <input
+                        type="range"
+                        min="20"
+                        max="300"
+                        value={formData.logoHeight || 44}
+                        onChange={e => updateField('logoHeight', parseInt(e.target.value))}
+                        className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-2xl p-6 border border-dashed border-gray-200 flex flex-col items-center justify-center min-h-[160px]">
+                   {formData.logo ? (
+                     <div style={{ position: 'relative' }}>
+                        <img 
+                          src={formData.logo} 
+                          alt="Preview" 
+                          style={{ 
+                            width: formData.logoWidth || 44, 
+                            height: formData.logoHeight || 44, 
+                            objectFit: 'contain',
+                            borderRadius: '50%',
+                            background: '#FFF',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                          }} 
+                        />
+                        <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-md border border-gray-100">
+                           <CheckCircle2 size={12} className="text-green-500" />
+                        </div>
+                     </div>
+                   ) : (
+                     <div className="text-center space-y-2">
+                        <ImageIcon size={24} className="text-gray-300 mx-auto" />
+                        <p className="text-[10px] font-bold text-gray-400 uppercase">Logo Preview</p>
+                     </div>
+                   )}
+                </div>
+              </div>
+            </div>
+
             {/* Color Palettes */}
-            <div className="pt-6 border-t border-gray-50 space-y-4">
+            <div className="pt-8 border-t border-gray-100 space-y-4">
               <PalettePicker
                 label="Brand Color Palette"
                 primaryColor={formData.primaryColor || '#007AFF'}
                 secondaryColor={formData.secondaryColor || '#F6A000'}
                 onApply={applyPalette}
               />
-
-              {/* Manual Override */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                 <div className="space-y-2 text-left">
                   <label className="text-xs font-black uppercase text-gray-400 ml-1 flex items-center gap-1.5">
                     Primary Color
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: formData.primaryColor || '#007AFF' }} />
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -319,7 +394,6 @@ export default function ClinicSettings() {
                 <div className="space-y-2 text-left">
                   <label className="text-xs font-black uppercase text-gray-400 ml-1 flex items-center gap-1.5">
                     Secondary Color
-                    <div className="w-4 h-4 rounded" style={{ backgroundColor: formData.secondaryColor || '#F6A000' }} />
                   </label>
                   <div className="flex gap-2">
                     <input
@@ -487,20 +561,47 @@ export default function ClinicSettings() {
           </div>
           <Card className="p-8 rounded-[2rem] bg-white space-y-8 text-left">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2 text-left">
-                <label className="text-xs font-black uppercase text-gray-400 ml-1">Physio Name</label>
-                <input
-                  value={formData.physioName || ''}
-                  onChange={e => updateField('physioName', e.target.value)}
-                  className="w-full h-14 bg-gray-50 rounded-xl px-5 font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
-                />
+              <div className="space-y-4">
+                 <div className="space-y-2 text-left">
+                    <label className="text-xs font-black uppercase text-gray-400 ml-1">Physio Photo URL</label>
+                    <input
+                      value={formData.physioPhoto || ''}
+                      onChange={e => updateField('physioPhoto', e.target.value)}
+                      placeholder="https://example.com/your-photo.jpg"
+                      className="w-full h-12 bg-gray-50 rounded-xl px-4 text-xs font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
+                    />
+                 </div>
+                 <div className="space-y-2 text-left">
+                  <label className="text-xs font-black uppercase text-gray-400 ml-1">Physio Name</label>
+                  <input
+                    value={formData.physioName || ''}
+                    onChange={e => updateField('physioName', e.target.value)}
+                    className="w-full h-12 bg-gray-50 rounded-xl px-4 text-xs font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
+                  />
+                </div>
               </div>
+
+              <div className="bg-gray-50 rounded-2xl p-6 border border-dashed border-gray-200 flex flex-col items-center justify-center min-h-[140px]">
+                 {formData.physioPhoto ? (
+                    <img 
+                      src={formData.physioPhoto} 
+                      alt="Physio Preview" 
+                      className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                    />
+                 ) : (
+                    <div className="text-center space-y-2">
+                       <User size={24} className="text-gray-300 mx-auto" />
+                       <p className="text-[10px] font-bold text-gray-400 uppercase">Profile Photo Preview</p>
+                    </div>
+                 )}
+              </div>
+
               <div className="space-y-2 text-left">
                 <label className="text-xs font-black uppercase text-gray-400 ml-1">Qualifications</label>
                 <input
                   value={formData.qualifications || ''}
                   onChange={e => updateField('qualifications', e.target.value)}
-                  className="w-full h-14 bg-gray-50 rounded-xl px-5 font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
+                  className="w-full h-12 bg-gray-50 rounded-xl px-4 text-xs font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
                 />
               </div>
               <div className="space-y-2 text-left">
@@ -509,7 +610,7 @@ export default function ClinicSettings() {
                   value={formData.experience || ''}
                   onChange={e => updateField('experience', e.target.value)}
                   placeholder="e.g. 12+ Years"
-                  className="w-full h-14 bg-gray-50 rounded-xl px-5 font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
+                  className="w-full h-12 bg-gray-50 rounded-xl px-4 text-xs font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
                 />
               </div>
               <div className="space-y-2 text-left">
@@ -517,7 +618,7 @@ export default function ClinicSettings() {
                 <input
                   value={formData.phone || ''}
                   onChange={e => updateField('phone', e.target.value)}
-                  className="w-full h-14 bg-gray-50 rounded-xl px-5 font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
+                  className="w-full h-12 bg-gray-50 rounded-xl px-4 text-xs font-bold outline-none border border-gray-100 focus:border-primary/50 transition-all"
                 />
               </div>
               <div className="space-y-2 text-left">

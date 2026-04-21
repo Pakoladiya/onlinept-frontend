@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailPassword } from '@/firebase/auth';
+import { signInWithEmailPassword, setAuthPersistence } from '@/firebase/auth';
 import { auth } from '@/firebase/config';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound, Fingerprint } from 'lucide-react';
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import { isBiometricAvailable } from '@/utils/biometricAuth';
 
@@ -36,6 +36,7 @@ export default function PhysioLoginPage() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState('');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
     document.title = 'Physio Access | OnlinePT';
@@ -48,6 +49,7 @@ export default function PhysioLoginPage() {
     setLoading(true);
     setError('');
     try {
+      await setAuthPersistence(rememberMe);
       const cred = await signInWithEmailPassword(email, password);
       if (cred?.user) {
         // Offer biometric enrollment if not already registered
@@ -187,6 +189,28 @@ export default function PhysioLoginPage() {
                 </button>
               </div>
             </div>
+ 
+            {/* Remember Me Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: -4 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
+                <div 
+                  onClick={() => setRememberMe(!rememberMe)}
+                  style={{
+                    width: 40, height: 22, borderRadius: 100,
+                    background: rememberMe ? IOS.primary : IOS.ink4,
+                    position: 'relative', transition: '0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                >
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%', background: IOS.white,
+                    position: 'absolute', top: 2, left: rememberMe ? 20 : 2,
+                    transition: '0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  }} />
+                </div>
+                <span style={{ fontSize: 13, color: IOS.ink2, fontWeight: 500 }}>Remember Me</span>
+              </label>
+            </div>
 
             {/* Submit */}
             <button
@@ -230,7 +254,8 @@ export default function PhysioLoginPage() {
 
         {/* ── Biometric Login ─────────────────────────────────────────────────── */}
         {biometricAvailable && localStorage.getItem('biometric_creds') && (
-          <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <p style={{ fontSize: 12, color: IOS.ink4, fontWeight: 500, marginBottom: 12 }}>Continuous Login Position Available</p>
             <button
               type="button"
               onClick={async () => {
@@ -244,18 +269,20 @@ export default function PhysioLoginPage() {
                 }
               }}
               style={{
-                width: '100%', height: 52,
-                background: IOS.surface, border: `1.5px solid ${IOS.border}`, borderRadius: IOS.r.md,
-                fontSize: 15, fontWeight: 600, fontFamily: "'DM Sans', sans-serif",
+                width: '100%', height: 60,
+                background: `linear-gradient(135deg, ${IOS.white}, ${IOS.surface})`,
+                border: `1.5px solid ${IOS.primary}40`, borderRadius: IOS.r.md,
+                fontSize: 16, fontWeight: 800, fontFamily: "'Manrope', sans-serif",
                 color: IOS.primary, cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                boxShadow: `0 8px 20px ${IOS.primary}15`,
+                transition: 'transform 0.2s, box-shadow 0.2s',
               }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 12px 24px ${IOS.primary}20`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = `0 8px 20px ${IOS.primary}15`; }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={IOS.primary} strokeWidth="2">
-                <rect x="5" y="11" width="14" height="10" rx="3"/>
-                <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-              </svg>
-              Use Face ID / Fingerprint
+              <Fingerprint size={24} />
+              Login with Fingerprint
             </button>
           </div>
         )}
