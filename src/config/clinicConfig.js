@@ -59,7 +59,7 @@ const clinicConfig = {
   physioName: 'Dr. Jiten Makwana',
   qualifications: 'BPT, MIAP',
   experience: '8+ years',
-  photo: '/assets/physio-photo.jpg',
+  physioPhoto: '/assets/images/indian_physio_consultation_1775753981763.png',
   bio: 'Specializes in musculoskeletal disorders, sports rehabilitation, and online physiotherapy consultation. Committed to evidence-based practice and personalized care plans.',
   bio_hi: '',
   bio_gu: '',
@@ -100,6 +100,20 @@ const clinicConfig = {
   // "zoom" | "meet" | "whatsapp"
   videoMode: 'zoom',
   meetLink: '',
+  
+  // ── Appearance & Site Structure ─────────────────────────────
+  siteType: 'single', // 'single' (scroller) | 'multi' (separated tabs)
+  theme: {
+    darkMode: false,
+    borderRadius: 16,
+    activeColor: 'var(--color-primary)',
+    fontFamily: "'Manrope', sans-serif",
+  },
+
+  // ── Personal Video Hosting (SSD Based) ──────────────────────
+  heroVideoUrl: '', // Featured looping video for landing section
+  bioVideoUrl: '',  // Introduction video for the 'About' section
+  welcomeVideoUrl: '', // Post-booking 'Thank You' video
 
   // ── Payments ────────────────────────────────────────────────
   razorpayEnabled: false,
@@ -133,6 +147,29 @@ const clinicConfig = {
     },
   ],
 
+  // ── Packages ────────────────────────────────────────────────
+  packages: [
+    {
+      id: 'rehab-5',
+      name: '5-Session Rehab Bundle',
+      price: 1350,
+      totalSessions: 5,
+      description: 'Pre-paid bundle for post-op or severe injury rehab (10% off).',
+    }
+  ],
+
+  // ── Coupons ────────────────────────────────────────────────
+  coupons: [
+    {
+      code: 'FIRST10',
+      discountPercent: 10,
+    },
+    {
+      code: 'MAKWANA',
+      discountPercent: 100,
+    }
+  ],
+
   // Default consultation fee (falls back to first service price if not set)
   consultationFee: 500,
 
@@ -141,9 +178,16 @@ const clinicConfig = {
 
   // ── Working Hours ───────────────────────────────────────────
   workingHours: {
-    start: '09:00',
-    end: '19:00',
-    days: [1, 2, 3, 4, 5, 6], // Mon–Sat
+    // 0=Sun, 1=Mon... Day-wise shifts with noon breaks
+    schedule: {
+      0: { isOpen: false, shifts: [] }, // Sunday Off
+      1: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+      2: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+      3: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+      4: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+      5: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+      6: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }] }, // Sat half day
+    }
   },
 
   // ── Locale ─────────────────────────────────────────────────

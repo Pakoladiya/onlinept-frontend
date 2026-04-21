@@ -3,6 +3,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   where,
@@ -14,6 +15,17 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from './config';
+
+/**
+ * Delete a document by ID.
+ * @param {string} collectionName
+ * @param {string} docId
+ */
+export async function deleteDocument(collectionName, docId) {
+  if (!db) return;
+  const ref = doc(db, collectionName, docId);
+  return deleteDoc(ref);
+}
 
 /**
  * Get a single document by ID.
@@ -158,10 +170,12 @@ export async function getPhysioPatients(uid) {
 export async function saveIntakeData(bookingId, intakeData) {
   if (!db) return;
   const ref = doc(db, 'bookings', bookingId);
-  return updateDoc(ref, {
+  return setDoc(ref, {
     intake: intakeData,
     intakeCompletedAt: serverTimestamp(),
-  });
+    status: 'pending_payment',
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 /**
@@ -224,4 +238,101 @@ export async function createBooking(data) {
  */
 export async function updateBookingStatus(bookingId, status, extraFields = {}) {
   return updateDocument('bookings', bookingId, { status, ...extraFields });
+}
+
+/**
+ * Check if a booking is within the rescheduling window (e.g., at least 4 hours before).
+ * @param {object} booking
+ * @param {number} hours
+ */
+export function isWithinRescheduleWindow(booking, hours = 4) {
+  if (!booking || !booking.date || !booking.slot) return false;
+  
+  let bDate;
+  try {
+    if (booking.date instanceof Date) {
+      bDate = new Date(booking.date);
+    } else if (booking.date?.toDate) {
+      bDate = booking.date.toDate();
+    } else {
+      bDate = new Date(booking.date);
+    }
+
+    // Extract time from slot (e.g., "09:00 AM")
+    const timeStr = (typeof booking.slot === 'object' ? booking.slot?.label : booking.slot) || '';
+    const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    
+    if (timeMatch) {
+      let [_, h, m, meridiem] = timeMatch;
+      h = parseInt(h);
+      m = parseInt(m);
+      if (meridiem) {
+        if (meridiem.toUpperCase() === 'PM' && h < 12) h += 12;
+        if (meridiem.toUpperCase() === 'AM' && h === 12) h = 0;
+      }
+      bDate.setHours(h, m, 0, 0);
+    }
+
+    const now = new Date();
+    const diffMs = bDate.getTime() - now.getTime();
+    const diffHours = diffMs / (1000 * 60 * 60);
+    
+    return diffHours >= hours;
+  } catch (err) {
+    console.error('Window Check Error:', err);
+    return false;
+  }
+}
+
+/**
+ * Reschedule a booking (can only be done once, at least 4h before).
+ * @param {string} bookingId
+ * @param {object} newSlot  - { date, slot }
+ */
+export async function rescheduleBooking(bookingId, newSlot) {
+  const booking = await getBooking(bookingId);
+  if (!booking) throw new Error('Booking not found.');
+  
+  const count = (booking.rescheduleCount || 0);
+  if (count >= 1) {
+    throw new Error('Appointment has already been rescheduled once and cannot be moved again.');
+  }
+
+  if (!isWithinRescheduleWindow(booking, 4)) {
+    throw new Error('Appointments can only be rescheduled up to 4 hours before the scheduled time.');
+  }
+
+  return updateDocument('bookings', bookingId, {
+    date: newSlot.date,
+    slot: newSlot.slot,
+    rescheduleCount: count + 1,
+    status: 'rescheduled',
+    isRescheduled: true,
+  });
+}
+
+/**
+ * Get all platform bookings for Super Admin.
+ */
+export async function getAllPlatformBookings() {
+  if (!db) return [];
+  try {
+    const col = collection(db, 'bookings');
+    // We remove orderBy from query because it requires a manual index in Firestore.
+    // If the index isn't created yet, the query returns empty or errors.
+    // We'll sort locally instead for the Super Admin view.
+    const q = query(col, limit(1000)); 
+    const snapshot = await getDocs(q);
+    const results = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    // Local sort by createdAt desc
+    return results.sort((a, b) => {
+      const timeA = a.createdAt?.seconds || 0;
+      const timeB = b.createdAt?.seconds || 0;
+      return timeB - timeA;
+    });
+  } catch (err) {
+    console.error('Failed to get platform bookings:', err);
+    return [];
+  }
 }

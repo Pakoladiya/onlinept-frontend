@@ -1,18 +1,12 @@
-import clinicConfig, { derivedConfig } from '@/config/clinicConfig';
+import { useContext } from 'react';
+import { ClinicConfigContext } from '@/context/ClinicConfigContext';
+import clinicConfig from '@/config/clinicConfig';
 
 /**
- * useClinicConfig — provides white-label config values throughout the app.
- *
- * Usage:
- *   const config = useClinicConfig();
- *   config.clinicName   // → "Nijanand Fitness Centre"
- *   config.primaryColor // → "#39A900"
+ * useClinicConfig — provides reactive white-label config values throughout the app.
+ * Reads from ClinicConfigContext for live updates, with static fallback.
  */
 export default function useClinicConfig() {
-  return {
-    ...clinicConfig,
-    ...derivedConfig,
-    cssVariables: derivedConfig.cssVariables,
-    whatsappLink: derivedConfig.whatsappLink,
-  };
+  const ctx = useContext(ClinicConfigContext);
+  return ctx?.config ?? clinicConfig;
 }

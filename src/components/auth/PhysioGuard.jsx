@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
 import { onAuth } from '@/firebase/auth';
+import { getClinicByOwner } from '@/firebase/db';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -11,6 +13,7 @@ import { Loader2 } from 'lucide-react';
 export default function PhysioGuard({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     // Store skip flag so it survives the redirect
@@ -28,8 +31,20 @@ export default function PhysioGuard({ children }) {
       return;
     }
 
-    const unsubscribe = onAuth((user) => {
-      setIsAuthed(!!user);
+    const unsubscribe = onAuth(async (user) => {
+      if (user) {
+        setIsAuthed(true);
+        try {
+          const clinic = await getClinicByOwner(user.uid);
+          if (clinic?.subscriptionStatus === 'pending_approval') {
+            setIsPending(true);
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      } else {
+        setIsAuthed(false);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
@@ -45,8 +60,11 @@ export default function PhysioGuard({ children }) {
   }
 
   if (!isAuthed) {
-    window.location.href = '/dashboard-login';
-    return null;
+    return <Navigate to="/dashboard-login" replace />;
+  }
+
+  if (isPending) {
+    return <Navigate to="/saas/pending" replace />;
   }
 
   return children;

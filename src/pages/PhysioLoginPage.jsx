@@ -4,7 +4,7 @@ import { signInWithEmailPassword } from '@/firebase/auth';
 import { auth } from '@/firebase/config';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound } from 'lucide-react';
-import { SUPER_ADMIN_EMAIL } from '@/config/superAdminConfig';
+import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import { isBiometricAvailable } from '@/utils/biometricAuth';
 
 const IOS = {
@@ -62,8 +62,7 @@ export default function PhysioLoginPage() {
           }
         } catch {}
         // Silently detect super admin by email
-        const isSuper = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
-        navigate(isSuper ? '/saas/dashboard' : '/dashboard');
+        navigate(isSuperAdminEmail(email) ? '/saas/dashboard' : '/dashboard');
       }
     } catch (err) {
       const invalidCodes = [
@@ -94,19 +93,8 @@ export default function PhysioLoginPage() {
 
       <div style={{ width: '100%', maxWidth: 440, animation: 'fadeUp 0.6s ease both' }}>
 
-        {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 60, height: 60, borderRadius: 16,
-            background: `linear-gradient(135deg, ${IOS.primary} 0%, ${IOS.accent} 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px',
-            boxShadow: `0 8px 24px ${IOS.primary}40`,
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+          <img src="/logo.png" alt="OnlinePT" style={{ width: 80, height: 80, objectFit: 'contain', borderRadius: '50%', marginBottom: 16 }} />
           <h1 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 28, fontWeight: 800, color: IOS.ink, letterSpacing: '-0.5px' }}>
             Online<span style={{ color: IOS.primary }}>PT</span>
           </h1>

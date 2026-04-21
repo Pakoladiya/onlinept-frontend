@@ -16,33 +16,40 @@ export async function loadTenantConfig() {
   // ── Subdomain Parsing Strategy ──────────────────────────────────────────
   // If we're on a real domain like 'amit.onlinept.in', we should extract 'amit'
   // so we can look it up in Firestore as the 'subdomain' field.
-  const isProdDomain = hostname.endsWith('onlinept.in');
+  // Strip www. prefix: www.abcefgh.onlinept.in → abcefgh.onlinept.in
+  const cleanHostname = hostname.replace(/^www\./, '');
+  const isProdDomain = cleanHostname.endsWith('onlinept.in') || cleanHostname.endsWith('stackstaging.com');
   
   if (isProdDomain && !testTenant) {
-    const parts = hostname.split('.');
-    // If hostname is x.onlinept.in, length is 3. The first part is the subdomain.
-    if (parts.length >= 3) {
-      searchDomain = parts[0]; 
-      console.log(`[TenantLoader] Subdomain detected: ${searchDomain}`);
+    if (cleanHostname.includes('stackstaging.com')) {
+      // For the staging URL 'onlinept-in.stackstaging.com', we treat it as the main domain
+      searchDomain = 'onlinept.in';
+    } else {
+      const parts = cleanHostname.split('.');
+      // If hostname is x.onlinept.in, length is 3. The first part is the subdomain.
+      if (parts.length >= 3) {
+        searchDomain = parts[0];
+      }
     }
   }
 
-  // Localhost fallback
+  // ── Localhost Support & Default Tenant ────────────────────────────────────
   if ((hostname.includes('localhost') || hostname.includes('127.0.0.1')) && !testTenant) {
-    console.log('[TenantLoader] Localhost detected, using fallback local clinicConfig.');
-    return;
+    searchDomain = 'demo';
+    // We don't return here anymore; we'll attempt to fetch a 'default' or first clinic
+    // to provide a "flowless" offline experience where components have real data.
+    searchDomain = 'demo'; // Fallback to demo config if nothing else found
   }
 
   try {
     // 5s timeout promise
     const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Firebase timeout')), 5000)
+      setTimeout(() => reject(new Error('Connection to Clinical Database timed out. Please check your internet or refresh.')), 15000)
     );
 
     const fetchTask = (async () => {
-      console.log(`[TenantLoader] Fetching config for: ${searchDomain}`);
-      
-      // 🛑 BYPASS FOR DEMO
+
+      // BYPASS FOR DEMO
       if (searchDomain === 'demo' || searchDomain === 'test') {
          return {
           id: 'demo',
@@ -55,7 +62,7 @@ export async function loadTenantConfig() {
       }
 
       if (!db) {
-        console.warn('[TenantLoader] DB not initialized. Check your Firebase config.');
+        return null;
         return null;
       }
 
@@ -81,12 +88,26 @@ export async function loadTenantConfig() {
     const tenantData = await Promise.race([fetchTask, timeout]);
 
     if (tenantData) {
+      const status = tenantData.subscriptionStatus || 'active'; // Fallback to active for legacy
+      
+      if (status === 'pending_approval') {
+        throw new Error('This clinical portal is currently awaiting Super Admin approval. Please check back soon.');
+      }
+      
+      if (status === 'suspended') {
+        throw new Error('This clinical portal has been suspended. Please contact platform support.');
+      }
+
+      if (status === 'rejected') {
+        throw new Error('This clinical enrollment was not approved. Access denied.');
+      }
+
       updateClinicConfig(tenantData);
-      console.log(`[TenantLoader] Successfully loaded clinic: ${tenantData.clinicName}`);
     } else {
-      console.warn(`[TenantLoader] No clinic matches for: ${searchDomain}`);
+      // No clinic found for domain
+    }
     }
   } catch (error) {
-    console.error('[TenantLoader] Error loading tenant:', error.message || error);
+    throw error;
   }
 }

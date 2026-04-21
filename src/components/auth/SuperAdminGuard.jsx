@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { onAuth } from '@/firebase/auth';
 import { getDocument } from '@/firebase/db';
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
@@ -15,7 +15,7 @@ export default function SuperAdminGuard({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState(false);
-  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuth(async (user) => {
@@ -83,7 +83,7 @@ export default function SuperAdminGuard({ children }) {
            </div>
            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <button
-                onClick={() => window.location.href = '/dashboard-login'}
+                onClick={() => navigate('/dashboard-login')}
                 style={{
                   height: 52, background: `linear-gradient(135deg, #0D7377, #14A3A8)`,
                   color: 'white', border: 'none', borderRadius: 14,
@@ -97,7 +97,7 @@ export default function SuperAdminGuard({ children }) {
                 Log in as Super Admin
               </button>
               <button
-                onClick={() => window.location.href = '/'}
+                onClick={() => navigate('/')}
                 style={{
                   background: 'none', border: 'none',
                   fontSize: 13, color: '#64748B',

@@ -22,6 +22,11 @@ import {
  * Luxe HEPBuilder — "Clinical Rehab Architect" with Firestore persistence.
  */
 
+const toTitleCase = (str) => {
+  if (!str) return '';
+  return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+};
+
 const EXERCISES = [
   { id: 'e1', name: 'Cat-Cow Stretch', category: 'Mobility', description: 'Kneel on hands and knees. Arch back up then dip down gently.', target: 'Lower back', sets: 3, reps: '10' },
   { id: 'e2', name: 'Knee to Chest', category: 'Mobility', description: 'Lie on back. Hug one knee to chest, hold 30s. Switch sides.', target: 'Lower back, hips', sets: 3, reps: '8 each' },
@@ -255,7 +260,7 @@ export default function HEPBuilderPage() {
                               ) : (
                                 <input
                                   value={patient}
-                                  onChange={e => setPatient(e.target.value)}
+                                  onChange={e => setPatient(toTitleCase(e.target.value))}
                                   placeholder="Patient Name"
                                   className="w-full h-12 px-4 font-bold bg-gray-50 rounded-xl border-none text-xs outline-none"
                                 />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { onAuth } from '@/firebase/auth';
+import { onAuth, sendResetEmail } from '@/firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { updateClinicConfig } from '@/config/clinicConfig';
@@ -11,7 +11,7 @@ import { uploadFile } from '@/firebase/storage';
 import {
   ArrowLeft, Save, Check, Upload,
   Image, User, Palette, Video,
-  Globe, Phone, Mail, MapPin,
+  Globe, Phone, Mail, MapPin, Key,
   Loader2, AlertCircle, CheckCircle2, X, ChevronRight
 } from 'lucide-react';
 
@@ -154,6 +154,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [clinicId, setClinicId] = useState('');
   const [settings, setSettings] = useState({
     physioName: '',
@@ -168,6 +170,12 @@ export default function SettingsPage() {
     secondaryColor: '#F6A000',
     videoMode: 'whatsapp',
     zoomLink: '',
+    workingHours: { start: '09:00', end: '19:00' },
+    blockedDates: [], // Array of YYYY-MM-DD
+    blockedSlots: {},  // Map of date -> [time, time]
+    heroImage: '',
+    aboutImage: '',
+    galleryImages: [],
   });
 
   useEffect(() => {
@@ -194,6 +202,10 @@ export default function SettingsPage() {
             secondaryColor: data.settings?.secondaryColor || '#F6A000',
             videoMode: data.settings?.videoMode || 'whatsapp',
             zoomLink: data.settings?.zoomLink || '',
+            workingHours: data.workingHours || { start: '09:00', end: '19:00' },
+            heroImage: data.settings?.heroImage || '',
+            aboutImage: data.settings?.aboutImage || '',
+            galleryImages: data.settings?.galleryImages || [],
           }));
         }
       } catch (e) {
@@ -215,6 +227,10 @@ export default function SettingsPage() {
         email: settings.email,
         phone: settings.phone,
         address: settings.address,
+        passingYear: settings.passingYear,
+        workingHours: settings.workingHours,
+        blockedDates: settings.blockedDates || [],
+        blockedSlots: settings.blockedSlots || {},
         settings: {
           logo: settings.logo,
           coverPhoto: settings.coverPhoto,
@@ -223,6 +239,9 @@ export default function SettingsPage() {
           secondaryColor: settings.secondaryColor,
           videoMode: settings.videoMode,
           zoomLink: settings.zoomLink,
+          heroImage: settings.heroImage,
+          aboutImage: settings.aboutImage,
+          galleryImages: settings.galleryImages,
         },
       });
       // Apply locally so changes show immediately
@@ -314,6 +333,58 @@ export default function SettingsPage() {
           </div>
         </Card>
 
+        {/* Template Visuals */}
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${settings.primaryColor}15` }}>
+              <Sparkles size={16} style={{ color: settings.primaryColor }} />
+            </div>
+            <div>
+              <h2 className="font-semibold text-text-primary">Template Visuals</h2>
+              <p className="text-xs text-text-secondary">Manage your website's main imagery</p>
+            </div>
+          </div>
+          <div className="space-y-6">
+            <ImageUpload 
+              label="Main Hero Background" 
+              value={settings.heroImage} 
+              onChange={(v) => update('heroImage', v)} 
+              path="hero" 
+              clinicId={clinicId} 
+              aspect="16/9" 
+            />
+            <ImageUpload 
+              label="About Section Image" 
+              value={settings.aboutImage} 
+              onChange={(v) => update('aboutImage', v)} 
+              path="about" 
+              clinicId={clinicId} 
+              aspect="4/5" 
+            />
+            
+            <div>
+              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Clinic Gallery (Up to 3 images)</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[0, 1, 2].map((idx) => (
+                  <ImageUpload 
+                    key={idx}
+                    label={`Gallery ${idx + 1}`} 
+                    value={settings.galleryImages[idx]} 
+                    onChange={(url) => {
+                      const newGallery = [...settings.galleryImages];
+                      newGallery[idx] = url;
+                      update('galleryImages', newGallery);
+                    }} 
+                    path={`gallery_${idx}`} 
+                    clinicId={clinicId} 
+                    aspect="1/1" 
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* Brand Colors */}
         <Card>
           <div className="flex items-center gap-2 mb-4">
@@ -346,37 +417,78 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        {/* Clinic Information */}
+        {/* Schedule & Availability */}
         <Card>
           <div className="flex items-center gap-2 mb-4">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${settings.primaryColor}15` }}>
-              <User size={16} style={{ color: settings.primaryColor }} />
+              <Clock size={16} style={{ color: settings.primaryColor }} />
             </div>
-            <h2 className="font-semibold text-text-primary">Clinic Information</h2>
+            <h2 className="font-semibold text-text-primary">Schedule & Availability</h2>
           </div>
-          <div className="space-y-4">
+          
+          <div className="space-y-6">
             <div>
-              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Physio Name</label>
-              <input value={settings.physioName} onChange={(e) => update('physioName', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary" />
+              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Operational Hours</label>
+              <div className="flex items-center gap-3">
+                <input 
+                  type="time" 
+                  value={settings.workingHours.start} 
+                  onChange={(e) => update('workingHours', { ...settings.workingHours, start: e.target.value })} 
+                  className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary" 
+                />
+                <span className="text-xs text-text-secondary font-bold uppercase">to</span>
+                <input 
+                  type="time" 
+                  value={settings.workingHours.end} 
+                  onChange={(e) => update('workingHours', { ...settings.workingHours, end: e.target.value })} 
+                  className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary" 
+                />
+              </div>
             </div>
+
             <div>
-              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Clinic Name</label>
-              <input value={settings.clinicName} onChange={(e) => update('clinicName', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary" />
-            </div>
-            <div>
-              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Email</label>
-              <input type="email" value={settings.email} onChange={(e) => update('email', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary" />
-            </div>
-            <div>
-              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Phone</label>
-              <input value={settings.phone} onChange={(e) => update('phone', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary" />
-            </div>
-            <div>
-              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Address</label>
-              <input value={settings.address} onChange={(e) => update('address', e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary" />
+              <label className="text-xs text-text-secondary uppercase tracking-wide mb-1.5 block">Closed Dates (Holidays/Away)</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {settings.blockedDates.map(date => (
+                  <Badge key={date} variant="secondary" className="pl-3 pr-1 py-1 flex items-center gap-2">
+                    {date}
+                    <button 
+                      onClick={() => update('blockedDates', settings.blockedDates.filter(d => d !== date))}
+                      className="p-0.5 hover:bg-black/10 rounded-full transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </Badge>
+                ))}
+                {settings.blockedDates.length === 0 && <p className="text-xs text-text-secondary/50 py-2">No closed dates added yet.</p>}
+              </div>
+              
+              <div className="flex gap-2">
+                <input 
+                  type="date" 
+                  className="flex-1 px-3 py-2 text-sm rounded-lg border border-border bg-surface focus:outline-none focus:border-primary" 
+                  id="add-blocked-date"
+                />
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => {
+                    const el = document.getElementById('add-blocked-date');
+                    const val = el.value;
+                    if (val && !settings.blockedDates.includes(val)) {
+                      update('blockedDates', [...settings.blockedDates, val]);
+                      el.value = '';
+                    }
+                  }}
+                >
+                  Block Date
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
+
+        {/* Clinic Information */}
 
         {/* Video Consultation */}
         <Card>
@@ -423,6 +535,45 @@ export default function SettingsPage() {
               <p className="text-xs text-blue-700 font-medium">WhatsApp video is free and works instantly. Your patients will see your WhatsApp number when they book.</p>
             </div>
           )}
+        </Card>
+
+
+        {/* Security */}
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center p-0" style={{ backgroundColor: '#FEF2F2' }}>
+              <Key size={16} style={{ color: '#EF4444' }} />
+            </div>
+            <div>
+              <h2 className="font-semibold text-text-primary">Security</h2>
+              <p className="text-xs text-text-secondary">Manage your password and authentication.</p>
+            </div>
+          </div>
+          <div className="p-4 rounded-xl border border-border bg-surface flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <p className="text-sm font-semibold text-text-primary">Change Password</p>
+              <p className="text-xs text-text-secondary mt-0.5">We will send a password reset link to your registered email.</p>
+            </div>
+            <Button 
+               size="sm" 
+               variant="outline" 
+               disabled={resetLoading || resetSent}
+               onClick={async () => {
+                 try {
+                   setResetLoading(true);
+                   await sendResetEmail(user.email);
+                   setResetSent(true);
+                   setTimeout(() => setResetSent(false), 4000);
+                 } catch (e) {
+                   setError('Failed to send reset email.');
+                 }
+                 setResetLoading(false);
+               }}
+            >
+              {resetLoading ? <Loader2 size={14} className="animate-spin" /> : (resetSent ? <CheckCircle2 size={14} className="text-green-600" /> : <Key size={14} />)}
+              {resetLoading ? 'Sending...' : (resetSent ? 'Link Sent' : 'Reset Password')}
+            </Button>
+          </div>
         </Card>
       </main>
     </div>

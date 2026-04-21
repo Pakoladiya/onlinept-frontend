@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { auth, db } from '@/firebase/config';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import {
   Plus,
   StickyNote,
@@ -13,7 +13,7 @@ import {
   MapPin,
   HeartPulse,
   Video,
-  CheckCircle,
+  CheckCircle, AlertCircle,
   Zap,
   Wallet,
   Wrench,
@@ -27,12 +27,12 @@ import {
 } from 'lucide-react';
 
 // Design tokens
+// Design tokens linked to CSS variables
 const C = {
-  blue: '#007AFF',
-  blueLight: '#E8F1FF',
-  blueDark: '#0055CC',
-  green: '#34C759', // kept for reference, prefer blue for branding
-  surface: '#F5F5F7',
+  blue: 'var(--color-primary, #007AFF)',
+  blueLight: 'var(--color-primary-light, #E8F1FF)',
+  blueDark: 'var(--color-primary-dark, #0055CC)',
+  surface: 'var(--color-surface, #F5F5F7)',
   white: '#FFFFFF',
   ink: '#1D1D1F',
   ink2: '#3A3A3C',
@@ -153,8 +153,10 @@ export default function LandingPage() {
     city: '',
     qualification: '',
     email: '',
+    whatsapp: '',
     password: '',
   });
+  const [subdomainStatus, setSubdomainStatus] = useState({ status: 'idle', message: '' }); // 'idle' | 'checking' | 'available' | 'taken'
   const [signupLoading, setSignupLoading] = useState(false);
   const [signupError, setSignupError] = useState('');
   const navigate = useNavigate();
@@ -167,27 +169,63 @@ export default function LandingPage() {
 
   useReveal();
 
+  const checkSubdomain = async (value) => {
+    const clean = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    if (!clean) {
+      setSubdomainStatus({ status: 'idle', message: '' });
+      return;
+    }
+    if (clean.length < 3) {
+      setSubdomainStatus({ status: 'idle', message: 'At least 3 characters required' });
+      return;
+    }
+    setSubdomainStatus({ status: 'checking', message: 'Checking availability...' });
+    try {
+      if (db) {
+        const snap = await getDoc(doc(db, 'clinics', clean));
+        setSubdomainStatus(snap.exists()
+          ? { status: 'taken', message: 'Already taken — try another' }
+          : { status: 'available', message: 'Subdomain is available!' });
+      } else {
+        setSubdomainStatus({ status: 'available', message: 'Available!' });
+      }
+    } catch {
+      setSubdomainStatus({ status: 'idle', message: '' });
+    }
+  };
+
   const handleFormChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === 'subdomain') {
+      const clean = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      setFormData((prev) => ({ ...prev, [name]: clean }));
+      checkSubdomain(clean);
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    setSignupLoading(true);
-    setSignupError('');
+    if (subdomainStatus.status === 'taken') {
+      setSignupError('This subdomain is already taken. Please choose another one.');
+      return;
+    }
     try {
+      console.log('[SIGNUP-HOME] Starting Auth creation for:', formData.email);
       // 1. Create firebase auth account
       const cred = auth
         ? await createUserWithEmailAndPassword(auth, formData.email, formData.password)
         : null;
       const uid = cred?.user?.uid || 'demo-uid';
+      console.log('[SIGNUP-HOME] Auth created. UID:', uid);
 
       // 2. Create the clinic record with 'pending_approval' status
-      // We use the subdomain as the unique clinic/doc ID
       const clinicId = formData.subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
       if (db && clinicId) {
-        await setDoc(doc(collection(db, 'clinics'), clinicId), {
-          uid,
+        console.log('[SIGNUP-HOME] Writing to clinics/' + clinicId);
+        const clinicDocData = {
+          uid: uid,
           clinicId,
           clinicName: formData.clinicName,
           physioName: `${formData.firstName} ${formData.lastName}`.trim(),
@@ -195,17 +233,30 @@ export default function LandingPage() {
           domain: `${clinicId}.onlinept.in`,
           subdomain: clinicId,
           city: formData.city || '',
+          whatsappNumber: formData.whatsapp || '',
           qualification: formData.qualification || '',
-          subscriptionStatus: 'pending_approval', // ── CRITICAL: Blocked until Super Admin validates
+          subscriptionStatus: 'pending_approval', 
           createdAt: serverTimestamp(),
           createdBy: 'owner_signup',
-        });
+        };
+
+        console.log('[SIGNUP-HOME] Document data:', clinicDocData);
+
+        try {
+          await setDoc(doc(db, 'clinics', clinicId), clinicDocData);
+          console.log('[SIGNUP-HOME] Firestore write successful');
+        } catch (fErr) {
+          console.error('[SIGNUP-HOME] Firestore setDoc failed:', fErr);
+          throw fErr;
+        }
       }
 
-      // 3. Clear session and navigate to a "Thank You" pending page
+      // 3. Clear session and store subdomain for the success/pending page
       sessionStorage.removeItem('pendingOnboarding');
+      localStorage.setItem('registered_subdomain', clinicId);
       navigate(`/saas/pending`);
     } catch (err) {
+      console.error('[SIGNUP-HOME] Registration failed:', err);
       if (err.code === 'auth/email-already-in-use') {
         setSignupError('An account with this email already exists. Please sign in instead.');
       } else if (err.code === 'auth/weak-password') {
@@ -244,16 +295,7 @@ export default function LandingPage() {
     transition: 'box-shadow 0.3s',
   };
 
-  const logoMarkStyle = {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    background: `linear-gradient(135deg, ${C.blue} 0%, #5AC8FA 100%)`,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: '0 4px 12px rgba(0,122,255,0.35)',
-  };
+
 
   const logoTextStyle = {
     fontFamily: "'Manrope', sans-serif",
@@ -373,19 +415,19 @@ export default function LandingPage() {
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: C.white, color: C.ink, overflowX: 'hidden' }}>
 
       {/* ── NAVBAR ────────────────────────────── */}
-      <nav style={navbarStyle}>
+      <nav 
+        style={{
+          ...navbarStyle,
+          padding: '0 min(40px, 5vw)',
+        }}
+      >
         <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={logoMarkStyle}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-              <rect x="11" y="5" width="2" height="14" rx="1"/>
-              <rect x="7" y="9" width="2" height="10" rx="1"/>
-              <rect x="15" y="9" width="2" height="10" rx="1"/>
-            </svg>
-          </div>
+          <img src="/logo.png" alt="OnlinePT Logo" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: '50%' }} />
           <span style={logoTextStyle}>Online<span style={{ color: C.blue }}>PT</span></span>
         </Link>
 
-        <ul style={{ display: 'flex', gap: 32, listStyle: 'none', margin: 0, padding: 0 }}>
+        {/* Desktop Nav */}
+        <ul className="hidden lg:flex" style={{ gap: 32, listStyle: 'none', margin: 0, padding: 0 }}>
           {['#how', '#features', '#preview', '#faq'].map((href) => (
             <li key={href}>
               <a href={href} style={{ fontSize: 14, fontWeight: 500, color: C.ink2, textDecoration: 'none', transition: 'color 0.2s' }}
@@ -397,7 +439,7 @@ export default function LandingPage() {
           ))}
         </ul>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="hidden lg:flex" style={{ alignItems: 'center', gap: 12 }}>
           <Link to="/dashboard-login" style={{ fontSize: 14, fontWeight: 500, color: C.ink2, textDecoration: 'none', padding: '8px 16px', borderRadius: 20, transition: 'background 0.2s, color 0.2s' }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = C.surface; e.currentTarget.style.color = C.ink; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.ink2; }}>
@@ -409,6 +451,38 @@ export default function LandingPage() {
             Get Started Free →
           </a>
         </div>
+
+        {/* Mobile menu toggle */}
+        <button 
+          className="lg:hidden p-2"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          style={{ background: 'none', border: 'none', color: C.ink }}
+        >
+          {isMenuOpen ? <Plus size={24} style={{ transform: 'rotate(45deg)' }} /> : (
+            <div style={{ display: 'grid', gap: 5, width: 20 }}>
+                <div style={{ height: 2, background: 'currentColor', borderRadius: 2 }} />
+                <div style={{ height: 2, background: 'currentColor', borderRadius: 2, width: '70%' }} />
+                <div style={{ height: 2, background: 'currentColor', borderRadius: 2 }} />
+            </div>
+          )}
+        </button>
+
+        {/* Mobile Dropdown */}
+        {isMenuOpen && (
+          <div className="absolute top-[64px] left-0 right-0 bg-white border-b border-gray-100 p-6 flex flex-col gap-6 lg:hidden shadow-xl reveal visible">
+            {['#how', '#features', '#preview', '#faq'].map((href) => (
+              <a 
+                key={href} href={href} 
+                onClick={() => setIsMenuOpen(false)}
+                className="text-lg font-bold text-gray-800"
+              >
+                {href === '#how' ? 'How It Works' : href === '#features' ? 'Features' : href === '#preview' ? 'Your Page' : 'FAQ'}
+              </a>
+            ))}
+            <div className="h-[1px] bg-gray-100" />
+            <Link to="/dashboard-login" className="text-lg font-bold text-blue-600">Sign In</Link>
+          </div>
+        )}
       </nav>
 
       {/* ── HERO ──────────────────────────────── */}
@@ -507,13 +581,13 @@ export default function LandingPage() {
           <h2 style={sectionTitleStyle}>Three steps to your<br/>online clinic.</h2>
           <p style={sectionSubStyle}>No developers. No design experience. No technical setup. Just your expertise, online.</p>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 56 }} className="reveal-grid">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-14">
             {[
               { num: '01', Icon: User, iconBg: C.blueLight, title: 'Sign Up Free', body: 'Create your account in 60 seconds. Tell us your name, clinic, and specialisation. That\'s it.' },
               { num: '02', Icon: Settings, iconBg: '#FFF3E0', title: 'Customise Your Page', body: 'Add your photo, services, fees, and availability from your personal admin panel. Update anytime.' },
               { num: '03', Icon: Zap, iconBg: '#E8F8EE', title: 'Share & Consult', body: <>Share <strong>yourname.onlinept.in</strong> with patients. They book, you consult via HD video call.</> },
             ].map(({ num, Icon, iconBg, title, body }) => (
-              <div key={title} style={{ ...glassCard, padding: '32px 28px', position: 'relative', overflow: 'hidden', transition: 'transform 0.25s, box-shadow 0.25s' }}
+              <div key={title} className="reveal" style={{ ...glassCard, padding: '32px 28px', position: 'relative', overflow: 'hidden', transition: 'transform 0.25s, box-shadow 0.25s' }}
                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = C.shadowMd; }}
                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = C.shadowSm; }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${C.blue}, #5AC8FA)`, borderRadius: '3px 3px 0 0' }} />
@@ -536,9 +610,9 @@ export default function LandingPage() {
           <h2 style={sectionTitleStyle}>Everything your online<br/>practice needs.</h2>
           <p style={sectionSubStyle}>One platform. Complete control. Built specifically for physiotherapists.</p>
 
-          <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 56 }}>
-            {/* Big card spanning 2 cols */}
-            <div style={{ ...glassCard, gridColumn: 'span 2', display: 'flex', gap: 28, alignItems: 'center', padding: 28, transition: 'transform 0.25s, box-shadow 0.25s' }}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-14">
+            {/* Big card spanning 2 cols on tablet/desktop */}
+            <div className="md:col-span-2 flex flex-col md:flex-row gap-7 items-center p-7 reveal" style={{ ...glassCard, transition: 'transform 0.25s, box-shadow 0.25s' }}
                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = C.shadowMd; }}
                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = C.shadowSm; }}>
               <div style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 16, background: `linear-gradient(135deg, ${C.blueLight}, rgba(90,200,250,0.2))`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -561,7 +635,7 @@ export default function LandingPage() {
               { Icon: Shield, title: 'Secure & Private', body: 'Patient data is encrypted and protected. HIPAA-aligned practices built in by default.' },
               { Icon: MapPin, title: 'Made for India', body: 'Indian pricing, multilingual support, and built by a practising physiotherapist from Surat.' },
             ].map(({ Icon, title, body }) => (
-              <div key={title} style={{ ...glassCard, padding: 28, transition: 'transform 0.25s, box-shadow 0.25s' }}
+              <div key={title} className="p-7 reveal" style={{ ...glassCard, transition: 'transform 0.25s, box-shadow 0.25s' }}
                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = C.shadowMd; }}
                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = C.shadowSm; }}>
                 <div style={{ width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${C.blueLight}, rgba(90,200,250,0.2))`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
@@ -578,7 +652,7 @@ export default function LandingPage() {
       {/* ── SUBDOMAIN PREVIEW ─────────────────── */}
       <section id="preview" style={sectionStyle}>
         <div style={sectionInner}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center', marginTop: 56 }} className="reveal-grid">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center mt-14 px-4">
             <div>
               <div style={eyebrowStyle}>Your Patient Page</div>
               <h2 style={sectionTitleStyle}>What your<br/>page looks like.</h2>
@@ -602,8 +676,8 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* Phone Mockup */}
-            <div className="phone-preview" style={{ width: 280, margin: '0 auto', background: C.ink, borderRadius: 40, padding: 12, boxShadow: C.shadowLg }}>
+            {/* Phone Mockup - Now visible on mobile */}
+            <div className="phone-preview reveal" style={{ width: 'min(280px, 85vw)', margin: '0 auto', background: C.ink, borderRadius: 40, padding: 12, boxShadow: C.shadowLg }}>
               <div style={{ background: C.white, borderRadius: 30, overflow: 'hidden' }}>
                 <div style={{ background: `linear-gradient(135deg, ${C.blue} 0%, #5AC8FA 100%)`, padding: '24px 16px 20px', color: C.white, textAlign: 'center' }}>
                   <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.25)', margin: '0 auto 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -637,20 +711,20 @@ export default function LandingPage() {
       {/* ── SIGN UP ───────────────────────────── */}
       <section id="signup" style={{ ...sectionStyle, background: 'linear-gradient(160deg, #F0F6FF 0%, #FFFFFF 100%)' }}>
         <div style={sectionInner}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }} className="reveal-grid">
+          <div className="flex flex-col lg:flex-row gap-12 lg:gap-20 items-center">
 
             {/* Perks */}
-            <div className="signup-perks">
+            <div className="w-full lg:w-1/2">
               <div style={eyebrowStyle}>Get Started</div>
               <h2 style={sectionTitleStyle}>Claim your free<br/>physio page today.</h2>
               <p style={sectionSubStyle}>Join physiotherapists across India who've already taken their practice online.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 32 }}>
+              <div className="flex flex-col gap-5 mt-8">
                 {[
                   { Icon: Zap, iconBg: C.blueLight, title: 'Live in Under 5 Minutes', body: 'Sign up, fill your details, and your page is instantly live at your subdomain.' },
                   { Icon: Wallet, iconBg: '#E8F8EE', title: 'Free to Start', body: 'No credit card. No hidden charges. Start free, upgrade when you need more.' },
                   { Icon: Wrench, iconBg: '#FFF3E0', title: 'Full Admin Control', body: 'Update your page, add services, change fees — all from your own admin panel.' },
                 ].map(({ Icon, iconBg, title, body }) => (
-                  <div key={title} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                  <div key={title} className="flex gap-4 items-start reveal">
                     <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 14, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon size={20} color={C.blue} />
                     </div>
@@ -664,81 +738,110 @@ export default function LandingPage() {
             </div>
 
             {/* Form Card */}
-            <div className="form-card" style={formCardStyle}>
+            <div className="w-full lg:w-1/2 reveal" style={{ ...formCardStyle, padding: 'min(40px, 6vw)' }}>
               <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: 24, fontWeight: 800, color: C.ink, marginBottom: 6, letterSpacing: -0.5 }}>Create Your Free Page</div>
               <div style={{ fontSize: 14, color: C.ink3, marginBottom: 28 }}>Takes less than 2 minutes — no tech skills needed.</div>
 
               <form onSubmit={handleSignup}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div style={{ marginBottom: 16 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div style={{ marginBottom: 12 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>First Name</label>
-                    <input name="firstName" value={formData.firstName} onChange={handleFormChange} placeholder="First Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
+                    <input id="landing-signup-first-name" name="firstName" value={formData.firstName} onChange={handleFormChange} placeholder="First Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
-                  <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 12 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Last Name</label>
-                    <input name="lastName" value={formData.lastName} onChange={handleFormChange} placeholder="Last Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
+                    <input id="landing-signup-last-name" name="lastName" value={formData.lastName} onChange={handleFormChange} placeholder="Last Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', appearance: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 12 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Your Subdomain</label>
-                  <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, overflow: 'hidden', transition: 'border-color 0.2s, box-shadow 0.2s' }}
+                  <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${subdomainStatus.status === 'taken' ? '#EF4444' : C.border}`, borderRadius: C.rSm, overflow: 'hidden', transition: 'border-color 0.2s, box-shadow 0.2s' }}
                        onFocusWithin={(e) => { e.currentTarget.style.borderColor = C.blue; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                        ref={(el) => el && el.addEventListener('blur', () => { el.style.borderColor = C.border; el.style.boxShadow = 'none'; }, { once: true })}>
-                    <div style={{ background: C.surface, padding: '12px 14px', fontSize: 14, color: C.ink3, whiteSpace: 'nowrap', borderRight: `1.5px solid ${C.border}` }}>
+                    <div style={{ background: C.surface, padding: '12px 10px', fontSize: 13, color: C.ink3, whiteSpace: 'nowrap', borderRight: `1.5px solid ${C.border}` }}>
                       <User size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
                     </div>
-                    <input name="subdomain" value={formData.subdomain} onChange={handleFormChange} required style={{ flex: 1, border: 'none', borderRadius: 0, boxShadow: 'none', padding: '12px 14px', fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }} />
-                    <div style={{ background: C.surface, padding: '12px 14px', fontSize: 14, color: C.ink3, whiteSpace: 'nowrap', borderLeft: `1.5px solid ${C.border}` }}>.onlinept.in</div>
+                    <input id="landing-signup-subdomain" name="subdomain" value={formData.subdomain} onChange={handleFormChange} required 
+                           className="no-titlecase"
+                           style={{ flex: 1, border: 'none', borderRadius: 0, boxShadow: 'none', padding: '12px 10px', fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none', width: '30%' }} />
+                    <div style={{ background: C.surface, padding: '12px 10px', fontSize: 13, color: C.ink3, whiteSpace: 'nowrap', borderLeft: `1.5px solid ${C.border}` }}>.onlinept.in</div>
                   </div>
+                  
+                  {formData.subdomain && (
+                    <div style={{ 
+                      marginTop: 6, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 4, 
+                      fontSize: 12,
+                      color: subdomainStatus.status === 'available' ? '#059669' 
+                           : subdomainStatus.status === 'taken' ? '#DC2626' 
+                           : '#6B7280'
+                    }}>
+                      {subdomainStatus.status === 'checking' && (
+                        <div style={{ width: 12, height: 12, border: '2px solid rgba(0,122,255,0.3)', borderTopColor: C.blue, borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      )}
+                      {subdomainStatus.status === 'available' && <CheckCircle size={14} />}
+                      {subdomainStatus.status === 'taken' && <AlertCircle size={14} />}
+                      <span>{subdomainStatus.message}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
+                <div style={{ marginBottom: 12 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Clinic / Practice Name</label>
-                  <input name="clinicName" value={formData.clinicName} onChange={handleFormChange} placeholder="Your Clinic Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                  <input id="landing-signup-clinic-name" name="clinicName" value={formData.clinicName} onChange={handleFormChange} placeholder="Your Clinic Name" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                          onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                          onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div style={{ marginBottom: 16 }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div style={{ marginBottom: 12 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>City</label>
-                    <input name="city" value={formData.city} onChange={handleFormChange} placeholder="City" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                    <input id="landing-signup-city" name="city" value={formData.city} onChange={handleFormChange} placeholder="City" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
-                  <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 12 }}>
                     <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Qualification</label>
-                    <input name="qualification" value={formData.qualification} onChange={handleFormChange} placeholder="BPT, MPT" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                    <input id="landing-signup-qualification" name="qualification" value={formData.qualification} onChange={handleFormChange} placeholder="BPT, MPT" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                            onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                            onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                   </div>
                 </div>
 
                 <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>WhatsApp Number (Active on WhatsApp)</label>
+                  <input id="landing-signup-whatsapp" name="whatsapp" value={formData.whatsapp} onChange={handleFormChange} placeholder="Example: 9228108454 (No + or spaces)" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                         onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
+                         onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
+                </div>
+
+                <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Email Address</label>
-                  <input name="email" type="email" value={formData.email} onChange={handleFormChange} placeholder="Email Address" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                  <input id="landing-signup-email" name="email" type="email" value={formData.email} onChange={handleFormChange} placeholder="Email Address" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                          onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                          onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                 </div>
 
                 <div style={{ marginBottom: 8 }}>
                   <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: C.ink2, marginBottom: 6 }}>Password</label>
-                  <input name="password" type="password" value={formData.password} onChange={handleFormChange} placeholder="Choose Password" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
+                  <input id="landing-signup-password" name="password" type="password" value={formData.password} onChange={handleFormChange} placeholder="Choose Password" required style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${C.border}`, borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: C.ink, background: C.white, outline: 'none' }}
                          onFocus={(e) => { e.target.style.borderColor = C.blue; e.target.style.boxShadow = '0 0 0 3px rgba(0,122,255,0.12)'; }}
                          onBlur={(e) => { e.target.style.borderColor = C.border; e.target.style.boxShadow = 'none'; }} />
                 </div>
 
                 {signupError && (
-                  <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#DC2626', fontSize: 13 }}>
+                  <div id="landing-signup-error" style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#DC2626', fontSize: 13 }}>
                     {signupError}
                   </div>
                 )}
-                <button type="submit" disabled={signupLoading} style={{ width: '100%', padding: 15, background: signupLoading ? C.blueDark : C.blue, color: C.white, border: 'none', borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: signupLoading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 16px rgba(0,122,255,0.30)', marginTop: 8, transition: 'background 0.15s' }}>
+                <button id="landing-signup-submit" type="submit" disabled={signupLoading} style={{ width: '100%', padding: 15, background: signupLoading ? C.blueDark : C.blue, color: C.white, border: 'none', borderRadius: C.rSm, fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: signupLoading ? 'not-allowed' : 'pointer', boxShadow: '0 4px 16px rgba(0,122,255,0.30)', marginTop: 8, transition: 'background 0.15s' }}>
                   {signupLoading ? 'Creating Account…' : 'Create My Page Free →'}
                 </button>
                 <p style={{ fontSize: 12, color: C.ink4, textAlign: 'center', marginTop: 12 }}>By signing up you agree to our Terms of Service. No credit card required.</p>
@@ -755,9 +858,9 @@ export default function LandingPage() {
             <div style={{ ...eyebrowStyle, justifyContent: 'center' }}>FAQ</div>
             <h2 style={sectionTitleStyle}>Questions from<br/>fellow physios.</h2>
           </div>
-          <div className="faq-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 48 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-12">
             {faqs.map((faq, idx) => (
-              <div key={idx} style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: C.rMd, overflow: 'hidden', boxShadow: C.shadowSm }}>
+              <div key={idx} className="reveal" style={{ background: C.white, border: `1px solid ${C.border}`, borderRadius: C.rMd, overflow: 'hidden', boxShadow: C.shadowSm }}>
                 <button onClick={() => setOpenFaq(openFaq === idx ? null : idx)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 500, color: C.ink, textAlign: 'left', gap: 12, transition: 'background 0.15s' }}
                         onMouseEnter={(e) => e.currentTarget.style.background = C.surface}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
@@ -851,37 +954,8 @@ export default function LandingPage() {
           transform: none;
         }
         @media (max-width: 768px) {
-          nav { padding: 0 20px !important; }
-          nav ul { display: none !important; }
-          .hero-mockup-inner { flex-direction: column; }
-          [style*="grid-template-columns: repeat(3, 1fr)"] {
-            grid-template-columns: 1fr !important;
-          }
-          [style*="grid-template-columns: 1fr 1fr"] {
-            grid-template-columns: 1fr !important;
-          }
-          [style*="grid-column: span 2"] {
-            grid-column: span 1 !important;
-            flex-direction: column !important;
-          }
-          .footer-top { flex-direction: column !important; }
-          .footer-cols { gap: 32px !important; }
-          section[id] { padding: 60px 16px !important; }
+          section[id] { padding: 80px 20px !important; }
           #signup > div > div { gap: 0 !important; }
-          .phone-preview { display: none !important; }
-          .trust-bar-pill { font-size: 12px !important; padding: 6px 12px !important; }
-          .faq-grid { grid-template-columns: 1fr !important; }
-          .mockup-body { flex-direction: column !important; }
-          .mockup-body > div:last-child { width: 100% !important; margin-top: 12px; }
-          .signup-perks { display: none !important; }
-          .form-card { padding: 24px !important; max-width: 100% !important; }
-          #signup > div > div { flex-direction: column !important; }
-          #signup > div > div > div:first-child { display: none !important; }
-          #signup > div > div > div:last-child { width: 100% !important; }
-          .features-grid { grid-template-columns: 1fr !important; }
-        }
-        @media (max-width: 480px) {
-          .phone-preview-hide-xs { display: none !important; }
         }
       `}</style>
     </div>

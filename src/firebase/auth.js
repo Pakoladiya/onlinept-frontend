@@ -3,6 +3,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth } from './config';
 
@@ -45,6 +46,7 @@ export async function signOut() {
  * @param {(user: import('firebase/auth').User | null) => void} callback
  * @returns {Unsubscribe}
  */
+
 export function onAuth(callback) {
   if (!auth) {
     // Demo mode: no Firebase — resolve as unauthenticated after a tick
@@ -52,4 +54,14 @@ export function onAuth(callback) {
     return () => {};
   }
   return onAuthStateChanged(auth, callback);
+}
+
+/**
+ * Send a password reset email.
+ * @param {string} email 
+ * @returns {Promise<void>}
+ */
+export async function sendResetEmail(email) {
+  if (!auth) throw new Error('Firebase configuration missing.');
+  return sendPasswordResetEmail(auth, email);
 }

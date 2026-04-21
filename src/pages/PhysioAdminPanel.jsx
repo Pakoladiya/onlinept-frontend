@@ -1,16 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { onAuth } from '@/firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import {
+  collection, query, where, getDocs, doc, getDoc, updateDoc, limit
+} from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { updateClinicConfig } from '@/config/clinicConfig';
 import { uploadFile } from '@/firebase/storage';
+import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import {
   ArrowLeft, Save, CheckCircle2, X, ChevronDown,
   Loader2, AlertCircle, Image, User, Palette, Globe, Clock,
-  Eye, EyeOff, Plus, Trash2, Check,
+  Eye, EyeOff, Plus, Trash2, Check, Tag, Link as LinkIcon, Gift,
   Facebook, Instagram, Youtube, Linkedin, Phone,
-  Video, DollarSign, MessageCircle, ChevronLeft, ExternalLink,
+  Video, DollarSign, MessageCircle, ChevronLeft, ExternalLink, Star
 } from 'lucide-react';
 
 // ─── iOS Design Tokens ──────────────────────────────────────────────────────────
@@ -37,22 +40,22 @@ const T = {
 // ─── Color Palettes ─────────────────────────────────────────────────────────────
 const PALETTES = [
   { name: 'iOS Blue',     p: '#007AFF', d: '#0055CC', l: '#E8F1FF', a: '#5AC8FA' },
-  { name: 'Deep Blue',    p: '#0066FF', d: '#0050CC', l: '#E8F1FF', a: '#3B82F6' },
-  { name: 'Ocean Blue',   p: '#0066CC', d: '#0055AA', l: '#E5F4FF', a: '#00B4D8' },
-  { name: 'Sunset',       p: '#E85D04', d: '#CC4D00', l: '#FFF0E5', a: '#FFBA08' },
+  { name: 'Forest Night', p: '#065F46', d: '#064E3B', l: '#ECFDF5', a: '#10B981' },
+  { name: 'Modern Grey',  p: '#334155', d: '#1E293B', l: '#F1F5F9', a: '#94A3B8' },
+  { name: 'Sunset Silk',  p: '#E85D04', d: '#CC4D00', l: '#FFF0E5', a: '#FFBA08' },
   { name: 'Royal Purple', p: '#7C3AED', d: '#6D28D9', l: '#EDE9FE', a: '#A78BFA' },
-  { name: 'Rose Gold',   p: '#BE185D', d: '#9D174D', l: '#FCE7F3', a: '#F9A8D4' },
-  { name: 'Teal Zen',    p: '#0D9488', d: '#0F766E', l: '#CCFBF1', a: '#5EEAD4' },
-  { name: 'Crimson',      p: '#DC2626', d: '#B91C1C', l: '#FEE2E2', a: '#F87171' },
-  { name: 'Midnight',    p: '#1E293B', d: '#0F172A', l: '#E2E8F0', a: '#38BDF8' },
-  { name: 'Emerald',     p: '#059669', d: '#047857', l: '#D1FAE5', a: '#34D399' },
-  { name: 'Amber',       p: '#D97706', d: '#B45309', l: '#FEF3C7', a: '#FCD34D' },
-  { name: 'Indigo',      p: '#4338CA', d: '#3730A3', l: '#E0E7FF', a: '#818CF8' },
+  { name: 'Rose Quartz',  p: '#DB2777', d: '#BE185D', l: '#FDF2F8', a: '#F472B6' },
+  { name: 'Teal Calm',    p: '#0D9488', d: '#0F766E', l: '#CCFBF1', a: '#5EEAD4' },
+  { name: 'Crimson Power',p: '#DC2626', d: '#B91C1C', l: '#FEE2E2', a: '#F87171' },
+  { name: 'Midnight',    p: '#0F172A', d: '#020617', l: '#F1F5F9', a: '#38BDF8' },
+  { name: 'Emerald Plus', p: '#059669', d: '#047857', l: '#D1FAE5', a: '#34D399' },
+  { name: 'Amber Glow',   p: '#D97706', d: '#B45309', l: '#FEF3C7', a: '#FCD34D' },
+  { name: 'Terracotta',   p: '#C2410C', d: '#9A3412', l: '#FFF7ED', a: '#FB923C' },
 ];
 
 // ─── Live Preview ──────────────────────────────────────────────────────────────
 function Preview({ settings }) {
-  const { primaryColor, secondaryColor, clinicName, physioName, logo, coverPhoto } = settings;
+  const { primaryColor, secondaryColor, clinicName, physioName, logo, logoWidth, logoHeight, coverPhoto } = settings;
   return (
     <div style={{
       width: 280, background: '#000', borderRadius: 40,
@@ -88,13 +91,18 @@ function Preview({ settings }) {
             )}
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, position: 'relative' }}>
               <div style={{
-                width: 52, height: 52, borderRadius: 16,
-                background: T.white, border: '3px solid white',
+                minWidth: 52, minHeight: 52, 
+                width: logoWidth || 'auto',
+                height: logoHeight || 'auto',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                overflow: 'hidden'
               }}>
                 {logo ? (
-                  <img src={logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={logo} alt="" style={{ 
+                    maxWidth: '100%', maxHeight: '100%',
+                    width: 'auto', height: 'auto',
+                    objectFit: 'contain' 
+                  }} />
                 ) : (
                   <span style={{ fontSize: 18, fontWeight: 800, color: primaryColor || T.primary }}>
                     {clinicName?.charAt(0) || 'C'}
@@ -187,10 +195,12 @@ function Toggle({ checked, onChange }) {
 }
 
 // ─── Input Field ───────────────────────────────────────────────────────────────
-function Field({ label, value, onChange, placeholder, type = 'text', multiline, rows }) {
+function Field({ label, value, onChange, placeholder, type = 'text', multiline, rows, list }) {
+  const isTitleType = label?.toLowerCase().includes('name') || label?.toLowerCase().includes('clinic') || label?.toLowerCase().includes('designation') || label?.toLowerCase().includes('category');
+  
   const style = multiline
-    ? { width: '100%', padding: '12px 16px', background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r.md, fontSize: 14, fontFamily: "'DM Sans', sans-serif", color: T.ink, outline: 'none', resize: 'vertical', minHeight: 80, lineHeight: 1.5, transition: 'border-color 0.2s, box-shadow 0.2s' }
-    : { width: '100%', height: 48, padding: '0 16px', background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r.md, fontSize: 14, fontFamily: "'DM Sans', sans-serif", color: T.ink, outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s' };
+    ? { width: '100%', padding: '12px 16px', background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r.md, fontSize: 14, fontFamily: "'DM Sans', sans-serif", color: T.ink, outline: 'none', resize: 'vertical', minHeight: 80, lineHeight: 1.5, transition: 'border-color 0.2s, box-shadow 0.2s', textTransform: isTitleType ? 'capitalize' : 'none' }
+    : { width: '100%', height: 48, padding: '0 16px', background: T.surface, border: `1.5px solid ${T.border}`, borderRadius: T.r.md, fontSize: 14, fontFamily: "'DM Sans', sans-serif", color: T.ink, outline: 'none', transition: 'border-color 0.2s, box-shadow 0.2s', textTransform: isTitleType ? 'capitalize' : 'none' };
 
   const Component = multiline ? 'textarea' : 'input';
   return (
@@ -198,6 +208,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', multiline, 
       {label && <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.ink2, marginBottom: 6, letterSpacing: '0.1px' }}>{label}</label>}
       <Component
         type={type}
+        list={list}
         value={value || ''}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
@@ -223,7 +234,7 @@ function SectionHeader({ icon, title, subtitle }) {
         {icon}
       </div>
       <div>
-        <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 16, fontWeight: 700, color: T.ink }}>{title}</h3>
+        <h3 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 16, fontWeight: 700, color: T.ink, textTransform: 'capitalize' }}>{title}</h3>
         {subtitle && <p style={{ fontSize: 12, color: T.ink4 }}>{subtitle}</p>}
       </div>
     </div>
@@ -231,23 +242,214 @@ function SectionHeader({ icon, title, subtitle }) {
 }
 
 // ─── Image Upload ──────────────────────────────────────────────────────────────
-function ImageUpload({ label, value, onChange, aspect = '16/9', clinicId }) {
+// ─── Image Crop Modal ────────────────────────────────────────────────────────
+function CropModal({ image, aspect = 1, onCrop, onCancel, width, height, onWidthChange, onHeightChange }) {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
+
+  const containerRef = useRef(null);
+  const imgRef = useRef(null);
+  
+  const isLogo = onWidthChange !== undefined;
+
+  function handleStart(e) {
+    setIsDragging(true);
+    const pos = e.touches ? e.touches[0] : e;
+    setStartPos({ x: pos.clientX - offset.x, y: pos.clientY - offset.y });
+  }
+
+  function handleMove(e) {
+    if (!isDragging) return;
+    const pos = e.touches ? e.touches[0] : e;
+    setOffset({ x: pos.clientX - startPos.x, y: pos.clientY - startPos.y });
+  }
+
+  function handleEnd() { setIsDragging(false); }
+
+  async function handleConfirm() {
+    const img = imgRef.current;
+    const container = containerRef.current;
+    if (!img || !container) return;
+
+    const canvas = document.createElement('canvas');
+    const cw = container.offsetWidth;
+    const ch = container.offsetHeight;
+    
+    // The visual size of the white crop box
+    const cropBoxW = 300;
+    const cropBoxH = 300 / aspect;
+    
+    // How much of the source image is actually inside that white box?
+    // Scale factor between natural image and its displayed size * zoom
+    const displayedImgW = img.width * zoom;
+    const displayedImgH = img.height * zoom;
+    const scale = img.naturalWidth / displayedImgW;
+    
+    // Relative coordinates of the crop box center vs the image center
+    // Image is at: (cw/2 + offset.x, ch/2 + offset.y)
+    // Crop box is at: (cw/2, ch/2)
+    const relativeX = (cw/2 - (cw/2 + offset.x)) / zoom;
+    const relativeY = (ch/2 - (ch/2 + offset.y)) / zoom;
+
+    // Output dimension (1000px high res)
+    const outputWidth = 1000;
+    const outputHeight = outputWidth / aspect;
+    canvas.width = outputWidth;
+    canvas.height = outputHeight;
+    const ctx = canvas.getContext('2d');
+
+    // The width/height of the source image we need to grab
+    const sW = (cropBoxW / zoom) * (img.naturalWidth / img.width);
+    const sH = sW / aspect;
+    
+    // The top-left corner on the source image
+    const sX = (img.naturalWidth / 2) + (relativeX * (img.naturalWidth / img.width)) - (sW / 2);
+    const sY = (img.naturalHeight / 2) + (relativeY * (img.naturalHeight / img.height)) - (sH / 2);
+
+    ctx.drawImage(img, sX, sY, sW, sH, 0, 0, outputWidth, outputHeight);
+    
+    canvas.toBlob((blob) => {
+      onCrop(blob);
+    }, 'image/webp');
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', borderRadius: 24, width: '100%', maxWidth: 500, overflow: 'hidden', animation: 'fadeUp 0.3s ease' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#111' }}>Perfect Your Shot</h3>
+            <p style={{ fontSize: 12, color: '#666' }}>Drag to position, pinch or use slider to zoom</p>
+          </div>
+          <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}><X size={20} /></button>
+        </div>
+
+        <div 
+          ref={containerRef}
+          style={{ 
+            height: 350, background: '#111', position: 'relative', overflow: 'hidden', cursor: isDragging ? 'grabbing' : 'grab',
+            touchAction: 'none'
+          }}
+          onMouseDown={handleStart} onMouseMove={handleMove} onMouseUp={handleEnd} onMouseLeave={handleEnd}
+          onTouchStart={handleStart} onTouchMove={handleMove} onTouchEnd={handleEnd}
+        >
+          {/* Crop Guide */}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            width: 300, height: 300 / aspect,
+            border: '2px solid #fff', boxShadow: '0 0 0 2000px rgba(0,0,0,0.5)',
+            zIndex: 10, pointerEvents: 'none', borderRadius: aspect === 1 ? 16 : 4
+          }}>
+             <div style={{ position: 'absolute', top: '33.33%', left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.3)' }} />
+             <div style={{ position: 'absolute', top: '66.66%', left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.3)' }} />
+             <div style={{ position: 'absolute', left: '33.33%', top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.3)' }} />
+             <div style={{ position: 'absolute', left: '66.66%', top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.3)' }} />
+          </div>
+
+          <img 
+            ref={imgRef}
+            src={image} 
+            alt="To crop" 
+            style={{ 
+              position: 'absolute', top: '50%', left: '50%',
+              transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+              maxWidth: '80%', maxHeight: '80%', userSelect: 'none', pointerEvents: 'none'
+            }} 
+          />
+        </div>
+
+        <div style={{ padding: 24 }}>
+          {/* Zoom Control */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: isLogo ? 20 : 24 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#666', width: 40 }}>Zoom</span>
+            <input 
+              type="range" min="0.5" max="3" step="0.01" value={zoom} 
+              onChange={e => setZoom(parseFloat(e.target.value))}
+              style={{ flex: 1, cursor: 'pointer', accentColor: '#007AFF' }}
+            />
+          </div>
+
+          {/* Logo Size Adjusters (Unified into modal) */}
+          {isLogo && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24, padding: 12, background: '#f8f8fa', borderRadius: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#999', textTransform: 'uppercase', marginBottom: 4 }}>Disp. Width: {width}px</label>
+                <input 
+                  type="range" min="20" max="250" value={width} 
+                  onChange={e => onWidthChange(parseInt(e.target.value))}
+                  style={{ width: '100%', cursor: 'pointer', accentColor: '#007AFF' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#999', textTransform: 'uppercase', marginBottom: 4 }}>Disp. Height: {height}px</label>
+                <input 
+                  type="range" min="20" max="250" value={height} 
+                  onChange={e => onHeightChange(parseInt(e.target.value))}
+                  style={{ width: '100%', cursor: 'pointer', accentColor: '#007AFF' }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={onCancel} style={{ flex: 1, height: 48, borderRadius: 14, background: '#f5f5f7', border: 'none', fontSize: 13, fontWeight: 700, color: '#333', cursor: 'pointer' }}>Cancel</button>
+            <button onClick={handleConfirm} style={{ flex: 2, height: 48, borderRadius: 14, background: '#007AFF', border: 'none', fontSize: 13, fontWeight: 700, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,122,255,0.3)' }}>Confirm & Update</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Image Upload ──────────────────────────────────────────────────────────────
+function ImageUpload({ label, value, onChange, aspect = '1/1', clinicId, width, height, onWidthChange, onHeightChange }) {
   const [uploading, setUploading] = useState(false);
+  const [cropTarget, setCropTarget] = useState(null); // The raw image URL to crop
+
+  const numericAspect = typeof aspect === 'string' && aspect.includes('/') 
+    ? aspect.split('/').reduce((a, b) => parseFloat(a) / parseFloat(b)) 
+    : parseFloat(aspect);
+
   async function handleFile(e) {
     const file = e.target.files?.[0];
-    if (!file || !clinicId) return;
-    if (file.size > 5 * 1024 * 1024) return;
+    if (!file) return;
+    
+    // Read file, then show cropper
+    const reader = new FileReader();
+    reader.onload = () => setCropTarget(reader.result);
+    reader.readAsDataURL(file);
+  }
+
+  async function uploadCropped(blob) {
+    setCropTarget(null);
+    if (!clinicId) return;
     setUploading(true);
     try {
-      const url = await uploadFile(file, `clinics/${clinicId}/${label.toLowerCase().replace(/ /g, '-')}`);
+      const fileName = `${label.toLowerCase().replace(/ /g, '-')}-${Date.now()}.webp`;
+      const path = `clinics/${clinicId}/${fileName}`;
+      
+      // Convert blob to File for our helper
+      const file = new File([blob], fileName, { type: 'image/webp' });
+      const url = await uploadFile(file, path);
       onChange(url);
     } catch (err) {
-      console.error('Upload failed', err);
+      alert("Upload failed. Please try again.");
     }
     setUploading(false);
   }
+
   return (
     <div>
+      {cropTarget && (
+        <CropModal 
+          image={cropTarget} 
+          aspect={numericAspect} 
+          onCrop={uploadCropped} 
+          onCancel={() => setCropTarget(null)} 
+        />
+      )}
       {label && <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>{label}</label>}
       <div style={{
         position: 'relative', borderRadius: T.r.md, overflow: 'hidden',
@@ -280,8 +482,9 @@ function ImageUpload({ label, value, onChange, aspect = '16/9', clinicId }) {
             <Loader2 size={20} className="animate-spin" style={{ color: '#fff' }} />
           </div>
         )}
-        <input type="file" accept="image/*" onChange={handleFile} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} disabled={uploading} />
+        <input type="file" accept="image/png, image/webp" onChange={handleFile} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} disabled={uploading} />
       </div>
+      <p style={{ fontSize: 10, color: T.ink4, marginTop: 6, textAlign: 'center' }}>PNG or WebP recommended for transparency</p>
     </div>
   );
 }
@@ -314,6 +517,8 @@ export default function PhysioAdminPanel() {
   const [s, setS] = useState({
     // Brand
     logo: '',
+    logoWidth: 44,
+    logoHeight: 44,
     coverPhoto: '',
     physioPhoto: '',
     primaryColor: '#007AFF',
@@ -332,29 +537,161 @@ export default function PhysioAdminPanel() {
     instagram: '',
     youtube: '',
     linkedin: '',
+    googleReviews: '',
+    justDial: '',
+    // Content
+    highlights: ['', '', ''],
+    languages: ['English', 'Hindi'],
+    showLanguages: true,
+    testimonials: [
+      { name: 'Anil Mehta', text: 'Incredibly knowledgeable. My chronic back pain is significantly better after just 4 sessions under the doctor\'s care.', rating: 5 },
+      { name: 'Sonal Verma', text: 'The clinic is clean and modern, and the online booking is so seamless. No waiting, just professional care.', rating: 5 },
+      { name: 'Kushal Shah', text: 'Highly recommend for sports injury rehab. They have state-of-the-art evidence-based treatment protocols.', rating: 5 }
+    ],
+    showTestimonials: true,
+    showHighlights: true,
+    noticeText: '',
+    showNotice: false,
+    adBanner: '',
+    showAdBanner: false,
+    // Schedule
+    workingHours: { start: '09:00', end: '19:00' },
+    blockedDates: [],
+    // Payouts
+    upiId: '',
+    accountName: '',
+    bankName: '',
+    accountNumber: '',
+    ifsc: '',
+    cancelledCheque: '',
+    // Services, Packages, Coupons
+    services: [
+      { id: 'initial', name: 'Initial Consultation', duration: 45, price: 500, description: 'First-time comprehensive assessment.' }
+    ],
+    packages: [],
+    coupons: [],
+    // Link Generation state (Not saved to DB)
+    customLinkAmount: '',
+    customLinkDesc: '',
+    generatedLink: '',
   });
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const TABS = [
     { id: 'branding',   label: 'Branding',   icon: <Palette size={14} /> },
     { id: 'clinic',     label: 'Clinic',      icon: <User size={14} /> },
+    { id: 'schedule',   label: 'Schedule',    icon: <Clock size={14} /> },
+    { id: 'content',    label: '⭐ Reviews & Notices', icon: <MessageCircle size={14} /> },
     { id: 'video',      label: 'Video',       icon: <Video size={14} /> },
-    { id: 'social',     label: 'Social',      icon: <Globe size={14} /> },
+    { id: 'payouts',    label: 'Payouts',     icon: <DollarSign size={14} /> },
+    { id: 'pricing',    label: 'Services & Promos', icon: <Tag size={14} /> },
+    { id: 'custom_link', label: 'Create Invoice Link', icon: <LinkIcon size={14} /> },
   ];
 
   // ── Auth & load data ───────────────────────────────────────────────────────────
   useEffect(() => {
     document.title = 'Edit My Page | OnlinePT';
+    
+    // Subdomain detection logic (consistent with AppRouter)
+    const hn = window.location.hostname;
+    const urlParams = new URLSearchParams(window.location.search);
+    const tenantParam = urlParams.get('tenant') || urlParams.get('dev');
+    const effectiveHn = hn.replace(/^www\./, '');
+    const isSubdomain = (effectiveHn.split('.').length >= 3 && effectiveHn.endsWith('onlinept.in')) || 
+                        ((hn === 'localhost' || hn === '127.0.0.1') && tenantParam);
+    const subdomain = isSubdomain ? (tenantParam || effectiveHn.split('.')[0]) : null;
+
     const unsub = onAuth(async (u) => {
       if (!u) { navigate('/dashboard-login'); return; }
       setUser(u);
+      setLoading(true);
+      setError('');
+
       try {
-        const { collection, query, where, getDocs } = await import('firebase/firestore');
-        const snap = await getDocs(query(collection(db, 'clinics'), where('uid', '==', u.uid)));
-        if (!snap.empty) {
-          const d = snap.docs[0].data();
-          setClinicId(snap.docs[0].id);
+        // 1. Try strategy A: Load by subdomain if present
+        let clinicDoc = null;
+        let cId = '';
+
+        if (subdomain) {
+          const sRef = doc(db, 'clinics', subdomain);
+          const sSnap = await getDoc(sRef);
+          if (sSnap.exists()) {
+            const data = sSnap.data();
+            // Verify ownership
+            if (data.uid === u.uid || isSuperAdminEmail(u.email)) {
+               clinicDoc = data;
+               cId = sSnap.id;
+            }
+          }
+        }
+
+        // 2. Strategy B: Load by UID query (if A failed or no subdomain)
+        if (!clinicDoc) {
+          try {
+            const qSnap = await getDocs(query(collection(db, 'clinics'), where('uid', '==', u.uid)));
+            if (!qSnap.empty) {
+              clinicDoc = qSnap.docs[0].data();
+              cId = qSnap.docs[0].id;
+            }
+          } catch (uidErr) {
+            // UID index may be missing
+          }
+        }
+
+        // 3. Strategy C: Fallback to Email search
+        if (!clinicDoc && u.email) {
+          try {
+            const lowerEmail = u.email.toLowerCase();
+            const qBounded = query(
+              collection(db, 'clinics'),
+              where('email', '>=', lowerEmail),
+              where('email', '<=', lowerEmail + '\uf8ff'),
+            );
+            const qSnap = await getDocs(qBounded);
+            const emailMatch = qSnap.docs.find(d => d.data().email?.toLowerCase() === lowerEmail);
+            if (emailMatch) {
+              const foundDoc = emailMatch.data();
+              cId = emailMatch.id;
+              // Self-heal: if UID mismatch (account was recreated), update the stored UID
+              if (foundDoc.uid !== u.uid) {
+                await updateDoc(doc(db, 'clinics', cId), { uid: u.uid });
+              }
+              clinicDoc = foundDoc;
+            }
+          } catch (emailErr) {
+            // Likely missing Firestore index — use client-side scan
+            if (emailErr.message?.includes('index')) {
+              try {
+                const qAll = await getDocs(query(collection(db, 'clinics'), limit(200)));
+                const lowerEmail = u.email.toLowerCase();
+                const emailMatch = qAll.docs.find(d => (d.data().email || '').toLowerCase() === lowerEmail);
+                if (emailMatch) {
+                  const foundDoc = emailMatch.data();
+                  cId = emailMatch.id;
+                  if (foundDoc.uid !== u.uid) {
+                    await updateDoc(doc(db, 'clinics', cId), { uid: u.uid });
+                  }
+                  clinicDoc = foundDoc;
+                }
+              } catch (scanErr) {
+                // Fallback scan also failed
+              }
+            } else {
+              throw emailErr;
+            }
+          }
+        }
+
+        if (clinicDoc) {
+          setClinicId(cId);
+          // Redirect if on wrong domain
+          if (!subdomain && cId && !hn.includes('localhost')) {
+             window.location.href = `https://${cId}.onlinept.in/admin`;
+             return;
+          }
+          const d = clinicDoc;
           setS(prev => ({
             ...prev,
             physioName: d.physioName || '',
@@ -362,26 +699,103 @@ export default function PhysioAdminPanel() {
             email: d.email || u.email || '',
             phone: d.phone || '',
             address: d.address || '',
-            logo: d.settings?.logo || '',
-            coverPhoto: d.settings?.coverPhoto || '',
-            physioPhoto: d.settings?.physioPhoto || '',
-            primaryColor: d.settings?.primaryColor || '#007AFF',
-            secondaryColor: d.settings?.secondaryColor || '#5AC8FA',
-            videoMode: d.settings?.videoMode || 'whatsapp',
-            zoomLink: d.settings?.zoomLink || '',
-            facebook: d.settings?.facebook || '',
-            instagram: d.settings?.instagram || '',
-            youtube: d.settings?.youtube || '',
-            linkedin: d.settings?.linkedin || '',
+            logo: d.settings?.logo || d.logo || '',
+            logoWidth: d.settings?.logoWidth || d.logoWidth || 44,
+            logoHeight: d.settings?.logoHeight || d.logoHeight || 44,
+            coverPhoto: d.settings?.coverPhoto || d.coverPhoto || '',
+            physioPhoto: d.settings?.physioPhoto || d.physioPhoto || '',
+            primaryColor: d.settings?.primaryColor || d.primaryColor || '#007AFF',
+            secondaryColor: d.settings?.secondaryColor || d.secondaryColor || '#5AC8FA',
+            videoMode: d.settings?.videoMode || d.videoMode || 'whatsapp',
+            zoomLink: d.settings?.zoomLink || d.zoomLink || '',
+            facebook: d.settings?.facebook || d.facebook || '',
+            instagram: d.settings?.instagram || d.instagram || '',
+            youtube: d.settings?.youtube || d.youtube || '',
+            linkedin: d.settings?.linkedin || d.linkedin || '',
+            googleReviews: d.settings?.googleReviews || '',
+            justDial: d.settings?.justDial || '',
+            highlights: d.settings?.highlights || d.highlights || ['', '', ''],
+            languages: d.settings?.languages || d.languages || ['English', 'Hindi'],
+            showLanguages: d.settings?.showLanguages ?? true,
+            testimonials: d.settings?.testimonials || d.testimonials || [
+              { name: 'Anil Mehta', text: 'Incredibly knowledgeable. My chronic back pain is significantly better after just 4 sessions.', rating: 5 },
+              { name: 'Sonal Verma', text: 'The clinic is clean and modern. Online booking is seamless.', rating: 5 },
+              { name: 'Kushal Shah', text: 'Highly recommend for rehab.', rating: 5 }
+            ],
+            showTestimonials: d.settings?.showTestimonials !== false && d.showTestimonials !== false,
+            showHighlights: d.settings?.showHighlights !== false && d.showHighlights !== false,
+            noticeText: d.settings?.noticeText || d.noticeText || '',
+            showNotice: d.settings?.showNotice || d.showNotice || false,
+            adBanner: d.settings?.adBanner || d.adBanner || '',
+            showAdBanner: d.settings?.showAdBanner || d.showAdBanner || false,
+            upiId: d.settings?.upiId || d.upiId || '',
+            accountName: d.settings?.accountName || d.accountName || '',
+            bankName: d.settings?.bankName || d.bankName || '',
+            accountNumber: d.settings?.accountNumber || d.accountNumber || '',
+            ifsc: d.settings?.ifsc || d.ifsc || '',
+            cancelledCheque: d.settings?.cancelledCheque || d.cancelledCheque || '',
+            services: d.settings?.services || d.services || [{ id: 'initial', name: 'Initial Consultation', duration: 45, price: 500, description: 'First-time comprehensive assessment.' }],
+            packages: d.settings?.packages || d.packages || [],
+            coupons: d.settings?.coupons || d.coupons || [],
+            workingHours: d.workingHours || { start: '09:00', end: '19:00' },
+            blockedDates: d.blockedDates || [],
           }));
+        } else {
+          // All strategies failed — try rescue scan (first 300 clinics)
+          try {
+            const rescueSnap = await getDocs(query(collection(db, 'clinics'), limit(300)));
+            const match = rescueSnap.docs.find(d => (d.data().email || '').toLowerCase() === (u.email || '').toLowerCase());
+            if (match) {
+              const rescueDoc = match.data();
+              const rescueId = match.id;
+              // Self-heal UID if mismatched
+              if (rescueDoc.uid !== u.uid) {
+                await updateDoc(doc(db, 'clinics', rescueId), { uid: u.uid });
+              }
+              // Re-run the load with the found clinic
+              setClinicId(rescueId);
+              setS(prev => ({
+                ...prev,
+                physioName: rescueDoc.physioName || '',
+                clinicName: rescueDoc.clinicName || '',
+                email: rescueDoc.email || u.email || '',
+                phone: rescueDoc.phone || '',
+                address: rescueDoc.address || '',
+                logo: rescueDoc.settings?.logo || rescueDoc.logo || '',
+                logoWidth: rescueDoc.settings?.logoWidth || rescueDoc.logoWidth || 44,
+                logoHeight: rescueDoc.settings?.logoHeight || rescueDoc.logoHeight || 44,
+                coverPhoto: rescueDoc.settings?.coverPhoto || rescueDoc.coverPhoto || '',
+                physioPhoto: rescueDoc.settings?.physioPhoto || rescueDoc.physioPhoto || '',
+                primaryColor: rescueDoc.settings?.primaryColor || rescueDoc.primaryColor || '#007AFF',
+                secondaryColor: rescueDoc.settings?.secondaryColor || rescueDoc.secondaryColor || '#5AC8FA',
+                videoMode: rescueDoc.settings?.videoMode || rescueDoc.videoMode || 'whatsapp',
+                services: rescueDoc.settings?.services || rescueDoc.services || [],
+                packages: rescueDoc.settings?.packages || rescueDoc.packages || [],
+                coupons: rescueDoc.settings?.coupons || rescueDoc.coupons || [],
+                workingHours: rescueDoc.workingHours || { start: '09:00', end: '19:00' },
+                blockedDates: rescueDoc.blockedDates || [],
+              }));
+              return;
+            }
+          } catch (rescueErr) {
+            // Rescue scan also failed
+          }
+
+          setError(
+            <div>
+              Clinic profile not found. If you have deleted your clinic and want to start fresh, 
+              please <Link to="/setup" style={{ color: T.primary, fontWeight: 700, textDecoration: 'underline' }}>Complete Setup Here</Link>.
+            </div>
+          );
         }
       } catch (e) {
-        console.error('Load error', e);
+        setError(`Failed to load clinic: ${e.message}`);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsub;
-  }, []);
+  }, [navigate]);
 
   // ── Save ──────────────────────────────────────────────────────────────────────
   async function handleSave() {
@@ -395,8 +809,12 @@ export default function PhysioAdminPanel() {
         email: s.email,
         phone: s.phone,
         address: s.address,
+        workingHours: s.workingHours,
+        blockedDates: s.blockedDates,
         settings: {
           logo: s.logo,
+          logoWidth: s.logoWidth,
+          logoHeight: s.logoHeight,
           coverPhoto: s.coverPhoto,
           physioPhoto: s.physioPhoto,
           primaryColor: s.primaryColor,
@@ -407,6 +825,27 @@ export default function PhysioAdminPanel() {
           instagram: s.instagram,
           youtube: s.youtube,
           linkedin: s.linkedin,
+          googleReviews: s.googleReviews,
+          justDial: s.justDial,
+          highlights: s.highlights,
+          languages: s.languages,
+          showLanguages: s.showLanguages,
+          testimonials: s.testimonials,
+          showTestimonials: s.showTestimonials,
+          showHighlights: s.showHighlights,
+          noticeText: s.noticeText,
+          showNotice: s.showNotice,
+          adBanner: s.adBanner,
+          showAdBanner: s.showAdBanner,
+          upiId: s.upiId,
+          accountName: s.accountName,
+          bankName: s.bankName,
+          accountNumber: s.accountNumber,
+          ifsc: s.ifsc,
+          cancelledCheque: s.cancelledCheque,
+          services: s.services,
+          packages: s.packages,
+          coupons: s.coupons,
         },
       });
       updateClinicConfig({
@@ -452,6 +891,29 @@ export default function PhysioAdminPanel() {
         textarea { box-sizing: border-box; }
         @keyframes fadeUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
         @keyframes slideIn { from { opacity:0; transform: translateX(-8px); } to { opacity:1; transform: none; } }
+
+        /* ── Mobile Responsive ── */
+        @media (max-width: 768px) {
+          .admin-header-inner { padding: 0 12px !important; }
+          .admin-tab-bar { padding: 0 12px 10px !important; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 2px !important; }
+          .admin-tab-bar::-webkit-scrollbar { display: none; }
+          .admin-tab-btn { padding: 5px 10px !important; font-size: 11px !important; white-space: nowrap; }
+          .admin-main { flex-direction: column !important; padding: 16px 12px !important; gap: 20px !important; }
+          .admin-preview-toggle { display: flex !important; }
+          .admin-preview-panel { display: none; }
+          .admin-preview-panel.open { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 200; background: white; border-radius: 20px 20px 0 0; box-shadow: 0 -4px 30px rgba(0,0,0,0.15); padding: 16px; flex-direction: column; align-items: center; }
+          .admin-preview-backdrop { display: none; position: fixed; inset: 0; z-index: 199; background: rgba(0,0,0,0.4); }
+          .admin-preview-backdrop.open { display: block; }
+          .admin-preview-panel .preview-inner { transform: scale(0.55) !important; transform-origin: top center !important; margin: -40px auto 0 !important; }
+          .admin-palette-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .admin-form-grid { grid-template-columns: 1fr !important; }
+        }
+
+        @media (max-width: 480px) {
+          .admin-header-title { font-size: 12px !important; }
+          .admin-logo-name { font-size: 13px !important; }
+          .hide-mobile { display: none !important; }
+        }
       `}</style>
 
       {/* ── Sticky Header ────────────────────────────────────────────────────── */}
@@ -460,11 +922,11 @@ export default function PhysioAdminPanel() {
         background: T.glass, backdropFilter: T.blur, WebkitBackdropFilter: T.blur,
         borderBottom: `1px solid ${T.border}`,
       }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="admin-header-inner">
           {/* Left: back */}
           <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none', color: T.ink3, fontSize: 13, fontWeight: 500 }}>
             <ChevronLeft size={18} />
-            <span style={{ display: 'none' }}>Back</span>
+            <span className="hide-mobile" style={{ display: 'none' }}>Back</span>
           </Link>
 
           {/* Center: logo + title */}
@@ -478,15 +940,31 @@ export default function PhysioAdminPanel() {
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 800, color: T.ink }}>
+            <span className="admin-logo-name" style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 800, color: T.ink }}>
               Online<span style={{ color: T.primary }}>PT</span>
             </span>
             <span style={{ color: T.border, fontSize: 16 }}>|</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>Edit My Page</span>
+            <span className="admin-header-title" style={{ fontSize: 13, fontWeight: 600, color: T.ink2 }}>Edit My Page</span>
           </div>
 
-          {/* Right: save */}
+          {/* Right: preview toggle (mobile) + save */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Mobile preview toggle */}
+            <button
+              className="admin-preview-toggle"
+              onClick={() => setPreviewOpen(o => !o)}
+              style={{
+                display: 'none', height: 36, padding: '0 14px',
+                background: previewOpen ? T.primary : T.surface,
+                color: previewOpen ? '#fff' : T.ink2,
+                border: `1.5px solid ${previewOpen ? T.primary : T.border}`,
+                borderRadius: T.r.sm, fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', alignItems: 'center', gap: 5,
+              }}
+            >
+              <Eye size={13} />
+              {previewOpen ? 'Hide Preview' : 'Preview'}
+            </button>
             {saved && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: T.blue, fontWeight: 600, animation: 'fadeUp 0.3s ease' }}>
                 <CheckCircle2 size={14} /> Saved
@@ -517,11 +995,12 @@ export default function PhysioAdminPanel() {
         </div>
 
         {/* ── Pill Tab Bar ───────────────────────────────────────────────────── */}
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px 12px', display: 'flex', gap: 4 }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px 12px', display: 'flex', gap: 4 }} className="admin-tab-bar">
           {TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); setPreviewOpen(false); }}
+              className="admin-tab-btn"
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '7px 14px', borderRadius: 20,
@@ -550,10 +1029,10 @@ export default function PhysioAdminPanel() {
       )}
 
       {/* ── Main Layout ──────────────────────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px', display: 'flex', gap: 32, alignItems: 'flex-start' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 20px', display: 'flex', gap: 32, alignItems: 'flex-start' }} className="admin-main">
 
         {/* ── Form Panel ─────────────────────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }} className="admin-form-grid">
 
           {/* ── Branding Tab ─────────────────────────────────────────────────── */}
           {activeTab === 'branding' && (
@@ -570,7 +1049,12 @@ export default function PhysioAdminPanel() {
                 />
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <ImageUpload label="Clinic Logo" value={s.logo} onChange={v => update('logo', v)} aspect="1/1" clinicId={clinicId} />
+                  <ImageUpload 
+                    label="Clinic Logo" value={s.logo} onChange={v => update('logo', v)} aspect="1/1" clinicId={clinicId}
+                    width={s.logoWidth} height={s.logoHeight} 
+                    onWidthChange={v => update('logoWidth', v)} 
+                    onHeightChange={v => update('logoHeight', v)}
+                  />
                   <ImageUpload label="Cover Photo" value={s.coverPhoto} onChange={v => update('coverPhoto', v)} aspect="16/9" clinicId={clinicId} />
                 </div>
                 <ImageUpload label="Physio Photo" value={s.physioPhoto} onChange={v => update('physioPhoto', v)} aspect="1/1" clinicId={clinicId} />
@@ -591,7 +1075,7 @@ export default function PhysioAdminPanel() {
                 {/* Quick Palettes */}
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.ink2, marginBottom: 8 }}>Quick Palettes</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }} className="admin-palette-grid">
                     {PALETTES.map(pal => (
                       <button
                         key={pal.name}
@@ -669,6 +1153,62 @@ export default function PhysioAdminPanel() {
             </div>
           )}
 
+          {/* ── Schedule Tab ─────────────────────────────────────────────────── */}
+          {activeTab === 'schedule' && (
+            <div style={{ animation: 'slideIn 0.25s ease', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <SectionHeader
+                  icon={<Clock size={16} style={{ color: T.primary }} />}
+                  title="Working Hours"
+                  subtitle="Set your daily consultation availability"
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <Field label="Starts at" type="time" value={s.workingHours.start} onChange={v => update('workingHours', { ...s.workingHours, start: v })} />
+                  </div>
+                  <div style={{ paddingTop: 20, fontWeight: 800, color: T.ink4 }}>TO</div>
+                  <div style={{ flex: 1 }}>
+                    <Field label="Ends at" type="time" value={s.workingHours.end} onChange={v => update('workingHours', { ...s.workingHours, end: v })} />
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <SectionHeader
+                  icon={<X size={16} style={{ color: '#DC2626' }} />}
+                  title="Closed Dates"
+                  subtitle="Block entire days for holidays or unavailability"
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {s.blockedDates.map(date => (
+                      <div key={date} style={{ padding: '6px 12px', background: T.surface, borderRadius: 10, fontSize: 13, fontWeight: 700, color: T.ink2, display: 'flex', alignItems: 'center', gap: 8, border: `1px solid ${T.border}` }}>
+                        {date}
+                        <X size={14} style={{ cursor: 'pointer' }} onClick={() => update('blockedDates', s.blockedDates.filter(d => d !== date))} />
+                      </div>
+                    ))}
+                    {s.blockedDates.length === 0 && <p style={{ fontSize: 13, color: T.ink4, fontStyle: 'italic' }}>No dates blocked yet.</p>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+                    <input type="date" id="block-date-input" style={{ flex: 1, padding: '0 16px', height: 44, borderRadius: 10, border: `1.5px solid ${T.border}`, outline: 'none' }} />
+                    <button 
+                      onClick={() => {
+                        const el = document.getElementById('block-date-input');
+                        if (el.value && !s.blockedDates.includes(el.value)) {
+                          update('blockedDates', [...s.blockedDates, el.value]);
+                          el.value = '';
+                        }
+                      }}
+                      style={{ padding: '0 20px', background: T.primary, color: '#fff', border: 'none', borderRadius: 10, fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      Block Date
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Clinic Tab ────────────────────────────────────────────────────── */}
           {activeTab === 'clinic' && (
             <div style={{ animation: 'slideIn 0.25s ease' }}>
@@ -691,6 +1231,203 @@ export default function PhysioAdminPanel() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ── Content Tab ──────────────────────────────────────────────────── */}
+          {activeTab === 'content' && (
+            <div style={{ animation: 'slideIn 0.25s ease', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Notice Board */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <SectionHeader
+                    icon={<AlertCircle size={16} style={{ color: T.orange }} />}
+                    title="Notice Board"
+                    subtitle="Display an urgent message to patients"
+                  />
+                  <Toggle checked={s.showNotice} onChange={v => update('showNotice', v)} />
+                </div>
+                <Field label="Announcement Text" value={s.noticeText} onChange={v => update('noticeText', v)} placeholder="e.g. Clinic closed this Monday for Diwali." multiline rows={2} />
+              </div>
+
+              {/* Advertisement Banner */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <SectionHeader
+                    icon={<Image size={16} style={{ color: T.accent }} />}
+                    title="Advertisement Banner"
+                    subtitle="Promote a camp, offer, or new service"
+                  />
+                  <Toggle checked={s.showAdBanner} onChange={v => update('showAdBanner', v)} />
+                </div>
+                <ImageUpload label="Ad Image (e.g. 16:9 banner)" value={s.adBanner} onChange={v => update('adBanner', v)} aspect="16/9" clinicId={clinicId} />
+              </div>
+
+              {/* Highlights */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <SectionHeader
+                    icon={<CheckCircle2 size={16} style={{ color: T.primary }} />}
+                    title="Clinic Highlights"
+                    subtitle="3 key reasons patients should choose you"
+                  />
+                  <Toggle checked={s.showHighlights} onChange={v => update('showHighlights', v)} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {s.highlights.map((h, i) => (
+                    <Field 
+                      key={i} 
+                      label={`Highlight #${i+1}`} 
+                      value={h} 
+                      onChange={v => {
+                        const newH = [...s.highlights];
+                        newH[i] = v;
+                        update('highlights', newH);
+                      }} 
+                      placeholder={['Fast Recovery', 'Expert Sports Care', 'Certified MPT'][i]} 
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Testimonials */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <SectionHeader
+                    icon={<MessageCircle size={16} style={{ color: T.primary }} />}
+                    title="Patient Reviews"
+                    subtitle="Showcase your best patient feedback"
+                  />
+                  <Toggle checked={s.showTestimonials} onChange={v => update('showTestimonials', v)} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {s.testimonials.map((t, i) => (
+                    <div key={i} style={{ padding: 16, background: T.surface, borderRadius: T.r.md, position: 'relative' }}>
+                      <button 
+                        onClick={() => {
+                          const newT = s.testimonials.filter((_, idx) => idx !== i);
+                          update('testimonials', newT);
+                        }}
+                        style={{ position: 'absolute', top: 12, right: 12, border: 'none', background: 'none', cursor: 'pointer', color: T.ink4 }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <Field label="Patient Name" value={t.name} onChange={v => {
+                          const newT = [...s.testimonials];
+                          newT[i].name = v;
+                          update('testimonials', newT);
+                        }} placeholder="Rahul S." />
+                        <Field label="Review Text" value={t.text} onChange={v => {
+                          const newT = [...s.testimonials];
+                          newT[i].text = v;
+                          update('testimonials', newT);
+                        }} placeholder="Amazing experience, felt better in 2 session!" multiline rows={2} />
+                      </div>
+                    </div>
+                  ))}
+                  {s.testimonials.length < 5 && (
+                    <button 
+                      onClick={() => update('testimonials', [...s.testimonials, { name: '', text: '', rating: 5 }])}
+                      style={{ padding: '10px', border: `1.5px dashed ${T.border}`, borderRadius: T.r.md, background: 'none', color: T.primary, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                    >
+                      <Plus size={14} /> Add Testimonial
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Languages */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <SectionHeader
+                    icon={<Globe size={16} style={{ color: T.primary }} />}
+                    title="Languages"
+                    subtitle="Help local patients feel comfortable"
+                  />
+                  <Toggle checked={s.showLanguages} onChange={v => update('showLanguages', v)} />
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {['English', 'Hindi', 'Marathi', 'Gujarati', 'Tamil', 'Telugu', 'Bengali', 'Kannada'].map(lang => {
+                    const active = s.languages.includes(lang);
+                    return (
+                      <button
+                        key={lang}
+                        onClick={() => {
+                          const newL = active 
+                            ? s.languages.filter(l => l !== lang)
+                            : [...s.languages, lang];
+                          update('languages', newL);
+                        }}
+                        style={{
+                          padding: '6px 14px', borderRadius: 20, border: `1px solid ${active ? T.primary : T.border}`,
+                          background: active ? T.primaryLight : T.white,
+                          color: active ? T.primary : T.ink3,
+                          fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {lang}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Social Identity (Integrated) ── */}
+          {activeTab === 'content' && (
+             <div style={{ marginTop: 24, background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <SectionHeader
+                  icon={<Globe size={16} style={{ color: T.primary }} />}
+                  title="Social Media Presence"
+                  subtitle="Connect patients to your professional social profiles"
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Facebook size={14} style={{ color: '#1877F2' }} />
+                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>Facebook</label>
+                    </div>
+                    <Field value={s.facebook} onChange={v => update('facebook', v)} placeholder="https://facebook.com/yourpage" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Instagram size={14} style={{ color: '#E1306C' }} />
+                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>Instagram</label>
+                    </div>
+                    <Field value={s.instagram} onChange={v => update('instagram', v)} placeholder="https://instagram.com/yourprofile" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Youtube size={14} style={{ color: '#FF0000' }} />
+                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>YouTube</label>
+                    </div>
+                    <Field value={s.youtube} onChange={v => update('youtube', v)} placeholder="https://youtube.com/@yourchannel" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Linkedin size={14} style={{ color: '#0A66C2' }} />
+                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>LinkedIn</label>
+                    </div>
+                    <Field value={s.linkedin} onChange={v => update('linkedin', v)} placeholder="https://linkedin.com/in/yourprofile" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Star size={14} style={{ color: '#FABB05' }} />
+                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>Google Reviews</label>
+                    </div>
+                    <Field value={s.googleReviews} onChange={v => update('googleReviews', v)} placeholder="Google Maps Review Link" />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Globe size={14} style={{ color: '#4B3BC2' }} />
+                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>Just Dial Reviews</label>
+                    </div>
+                    <Field value={s.justDial} onChange={v => update('justDial', v)} placeholder="Just Dial Profile Link" />
+                  </div>
+                </div>
+             </div>
           )}
 
           {/* ── Video Tab ─────────────────────────────────────────────────────── */}
@@ -795,8 +1532,9 @@ export default function PhysioAdminPanel() {
             </div>
           )}
 
-          {/* ── Social Tab ───────────────────────────────────────────────────── */}
-          {activeTab === 'social' && (
+
+          {/* ── Payouts Tab ──────────────────────────────────────────────────── */}
+          {activeTab === 'payouts' && (
             <div style={{ animation: 'slideIn 0.25s ease' }}>
               <div style={{
                 background: T.white, borderRadius: T.r.lg,
@@ -804,57 +1542,186 @@ export default function PhysioAdminPanel() {
                 padding: 24,
               }}>
                 <SectionHeader
-                  icon={<Globe size={16} style={{ color: T.primary }} />}
-                  title="Social Links"
-                  subtitle="Connect your social media profiles"
+                  icon={<DollarSign size={16} style={{ color: '#10B981' }} />}
+                  title="Payouts & Banking"
+                  subtitle="How we send you money for completed bookings"
                 />
+                
+                <div style={{ padding: '12px 16px', background: '#FEF9C3', borderRadius: T.r.md, marginBottom: 20, border: '1px solid #FEF08A' }}>
+                  <p style={{ fontSize: 13, color: '#854D0E', lineHeight: 1.5 }}>
+                    <strong>Note:</strong> We transfer your consultation fees (minus platform charges) directly to this account within T+2 days of the appointment.
+                  </p>
+                </div>
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <Facebook size={14} style={{ color: '#1877F2' }} />
-                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>Facebook</label>
-                    </div>
-                    <Field value={s.facebook} onChange={v => update('facebook', v)} placeholder="https://facebook.com/yourpage" />
+                  <Field label="Unified Payments Interface (UPI ID) - Preferred" value={s.upiId} onChange={v => update('upiId', v)} placeholder="dr.aruna@okaxis" />
+                  
+                  <div style={{ height: 1, background: T.border, margin: '8px 0' }} />
+                  
+                  <p style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>Alternative: Bank Transfer (NEFT / IMPS)</p>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 8 }}>
+                    <ImageUpload label="Fastest Method: Upload Cancelled Cheque Photo" value={s.cancelledCheque} onChange={v => update('cancelledCheque', v)} aspect="21/9" clinicId={clinicId} />
                   </div>
+
+                  <div style={{ textAlign: 'center', color: T.ink4, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px' }}>OR FILL MANUALLY</div>
+
+                  <Field label="Account Holder Name" value={s.accountName} onChange={v => update('accountName', v)} placeholder="Aruna Kapoor" />
+                  
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <Instagram size={14} style={{ color: '#E1306C' }} />
-                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>Instagram</label>
-                    </div>
-                    <Field value={s.instagram} onChange={v => update('instagram', v)} placeholder="https://instagram.com/yourprofile" />
+                    <datalist id="bank-list">
+                      <option value="State Bank of India (SBI)" />
+                      <option value="HDFC Bank" />
+                      <option value="ICICI Bank" />
+                      <option value="Axis Bank" />
+                      <option value="Punjab National Bank (PNB)" />
+                      <option value="Bank of Baroda" />
+                      <option value="Kotak Mahindra Bank" />
+                      <option value="IndusInd Bank" />
+                      <option value="Union Bank of India" />
+                      <option value="Canara Bank" />
+                    </datalist>
+                    <Field label="Bank Name" value={s.bankName} onChange={v => update('bankName', v)} placeholder="HDFC Bank" list="bank-list" />
                   </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <Youtube size={14} style={{ color: '#FF0000' }} />
-                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>YouTube</label>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <Field label="Account Number" value={s.accountNumber} onChange={v => update('accountNumber', v)} placeholder="50100XXXXXXX" />
+                    <div>
+                      <Field label="IFSC Code" value={s.ifsc} onChange={v => update('ifsc', v.toUpperCase())} placeholder="HDFC0001234" />
+                      {s.ifsc && s.ifsc.length !== 11 && (
+                        <span style={{ fontSize: 10, color: '#DC2626', fontWeight: 600, marginTop: 4, display: 'block' }}>⚠️ IFSC must be exactly 11 characters. Current: {s.ifsc.length}</span>
+                      )}
+                      {s.ifsc && s.ifsc.length === 11 && (
+                        <span style={{ fontSize: 10, color: '#166534', fontWeight: 600, marginTop: 4, display: 'block' }}>✅ Valid length</span>
+                      )}
                     </div>
-                    <Field value={s.youtube} onChange={v => update('youtube', v)} placeholder="https://youtube.com/@yourchannel" />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                      <Linkedin size={14} style={{ color: '#0A66C2' }} />
-                      <label style={{ fontSize: 12, fontWeight: 600, color: T.ink2 }}>LinkedIn</label>
-                    </div>
-                    <Field value={s.linkedin} onChange={v => update('linkedin', v)} placeholder="https://linkedin.com/in/yourprofile" />
                   </div>
                 </div>
               </div>
             </div>
           )}
+
+          {/* ── Branding & Social Tab ───────────────────────────────────────── */}
+
+          {/* ── Custom Link Form ──────────────────────────────────────────────── */}
+          {activeTab === 'custom_link' && (
+             <div style={{ animation: 'slideIn 0.25s ease' }}>
+                <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                  <SectionHeader
+                    icon={<LinkIcon size={16} style={{ color: T.orange }} />}
+                    title="Generate Custom Invoice Link"
+                    subtitle="Instantly create a secure Razorpay checkout link for a custom amount to WhatsApp to a patient."
+                  />
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <Field 
+                      label="Patient Name (Optional)" 
+                      value={s.customLinkName || ''} 
+                      onChange={v => update('customLinkName', v)} 
+                      placeholder="e.g. Ramesh Patel" 
+                    />
+                    <Field 
+                      label="Description of Service" 
+                      value={s.customLinkDesc} 
+                      onChange={v => update('customLinkDesc', v)} 
+                      placeholder="e.g. Custom Knee Mobility Bundle - 7 Sessions" 
+                    />
+                    <Field 
+                      label="Total Amount to Collect (₹)" 
+                      value={s.customLinkAmount} 
+                      onChange={v => update('customLinkAmount', v)} 
+                      placeholder="e.g. 5000" 
+                      type="number" 
+                    />
+                    
+                    <button
+                      onClick={() => {
+                        if (!s.customLinkAmount || !s.customLinkDesc) return alert('Enter amount and description');
+                        const url = `${window.location.origin}/pay?clinicId=${clinicId}&amount=${s.customLinkAmount}&desc=${encodeURIComponent(s.customLinkDesc)}&name=${encodeURIComponent(s.customLinkName || '')}`;
+                        update('generatedLink', url);
+                      }}
+                      style={{
+                        height: 48, borderRadius: T.r.md, background: T.ink, color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer', marginTop: 10
+                      }}
+                    >
+                      Generate Secure Payment Link
+                    </button>
+
+                    {s.generatedLink && (
+                      <div style={{ marginTop: 20, padding: 20, background: '#F0FDF4', border: '2px dashed #4ADE80', borderRadius: T.r.md, textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                          <CheckCircle2 color="#16A34A" size={40} />
+                        </div>
+                        <p style={{ fontSize: 14, fontWeight: 800, color: '#166534', marginBottom: 8 }}>Link Generated Successfully!</p>
+                        <p style={{ fontSize: 11, color: '#15803D', marginBottom: 16 }}>Patients can click this link on any device to open the Razorpay Secure Checkout popup instantly.</p>
+                        
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <input 
+                            readOnly 
+                            value={s.generatedLink} 
+                            style={{ flex: 1, height: 44, padding: '0 12px', background: '#fff', border: '1px solid #BBF7D0', borderRadius: T.r.sm, fontSize: 11, color: T.ink2, outline: 'none' }} 
+                            onClick={e => e.target.select()}
+                          />
+                          <button 
+                            onClick={() => { navigator.clipboard.writeText(s.generatedLink); alert('Copied to clipboard!'); }}
+                            style={{ padding: '0 20px', background: '#16A34A', color: '#fff', fontSize: 12, fontWeight: 700, borderRadius: T.r.sm, border: 'none', cursor: 'pointer' }}
+                          >
+                            Copy Link
+                          </button>
+                        </div>
+                        <a 
+                          href={`https://wa.me/?text=${encodeURIComponent(`Hi ${s.customLinkName || ''}, here is your secure checkout link for: ${s.customLinkDesc}. Amount: ₹${s.customLinkAmount}. Click to pay securely via Razorpay: ${s.generatedLink}`)}`}
+                          target="_blank" rel="noreferrer"
+                          style={{ marginTop: 12, display: 'inline-block', color: '#16A34A', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}
+                        >
+                          Share instantly on WhatsApp &rarr;
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+             </div>
+          )}
         </div>
 
+        {/* ── Mobile Preview Backdrop ─────────────────────────────────────────── */}
+        <div
+          className={`admin-preview-backdrop${previewOpen ? ' open' : ''}`}
+          onClick={() => setPreviewOpen(false)}
+        />
+
         {/* ── Live Preview Panel ─────────────────────────────────────────────── */}
-        <div style={{
-          width: 300, flexShrink: 0, position: 'sticky', top: 120,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-        }}>
+        <div
+          className={`admin-preview-panel${previewOpen ? ' open' : ''}`}
+          style={{
+            width: 300, flexShrink: 0, position: 'sticky', top: 120,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+          }}
+        >
+          {/* Mobile close bar */}
+          <div style={{ display: 'none', width: 36, height: 4, background: T.surface2, borderRadius: 4, marginBottom: 8 }} className="admin-preview-toggle" />
           <div style={{ fontSize: 11, fontWeight: 600, color: T.ink4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Live Preview
           </div>
-          <Preview settings={s} />
+          <div className="preview-inner">
+            <Preview settings={s} />
+          </div>
           <p style={{ fontSize: 10, color: T.ink4, textAlign: 'center', maxWidth: 200, lineHeight: 1.4 }}>
             Changes appear instantly in your patient page preview
           </p>
+          {/* Mobile close button */}
+          <button
+            className="admin-preview-toggle"
+            onClick={() => setPreviewOpen(false)}
+            style={{
+              display: 'none', marginTop: 8, padding: '8px 24px',
+              background: T.primary, color: '#fff',
+              border: 'none', borderRadius: T.r.sm,
+              fontSize: 13, fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            Done
+          </button>
         </div>
 
       </div>

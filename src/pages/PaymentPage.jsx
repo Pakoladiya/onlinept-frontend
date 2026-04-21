@@ -1,269 +1,253 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import PageWrapper from '@/components/layout/PageWrapper';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import clinicConfig from '@/config/clinicConfig';
-import { updateBookingStatus } from '@/firebase/db';
-import {
-  CreditCard,
-  ShieldCheck,
-  Lock,
-  Tag,
-  X,
-  Loader2,
-  Receipt,
-  Sparkles,
-  Zap,
-  ArrowRight
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { PageTransition, Reveal } from '../components/layout/LuxeMotion';
+import { 
+  CreditCard, Shield, Lock, CheckCircle2, 
+  ArrowLeft, ArrowRight, Loader2, Info, Activity,
+  Stethoscope, Zap, Sparkles, AlertCircle
 } from 'lucide-react';
+import { db } from '../firebase/config';
+import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
-/**
- * Luxe PaymentPage — Designed as a "Bank-Grade Medical Terminal".
- * Focus: Security, Trust, and Frictionless conversion.
- */
-
-const PROMO_CODES = {
-  FIRST10: { discount: 0.10, label: '10% off — Premier Initial Assessment' },
-  MAKwana: { discount: 0.15, label: '15% off — Special Referral' },
+const T = {
+  bg: '#0F172A',
+  ink: '#F8FAFC',
+  ink2: '#94A3B8',
+  glass: 'rgba(30, 41, 59, 0.4)',
+  border: 'rgba(255, 255, 255, 0.08)',
 };
+
+const Metric = ({ label, value, color }) => (
+  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '16px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+    <span style={{ fontSize: 13, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px' }}>{label}</span>
+    <span style={{ fontSize: 15, fontWeight: 800, color: color || '#F8FAFC' }}>{value}</span>
+  </div>
+);
 
 export default function PaymentPage() {
   const { bookingId } = useParams();
-  const navigate = useNavigate();
   const location = useLocation();
+  const navigate = useNavigate();
+  const bookingData = location.state || {};
 
-  const {
-    date,
-    slot,
-    name,
-    phone,
-    serviceName,
-    servicePrice,
-    serviceDuration,
-  } = location.state || {};
+  if (Object.keys(bookingData).length === 0 && !bookingId) {
+    navigate('/');
+    return null;
+  }
 
-  const [promoInput, setPromoInput] = useState('');
-  const [promoApplied, setPromoApplied] = useState(null);
-  const [promoError, setPromoError] = useState('');
-  const [promoLoading, setPromoLoading] = useState(false);
+  const { intakeData } = bookingData;
+  
+  const [loading, setLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState('');
+  const [paymentError, setPaymentError] = useState(null);
+  const [clinicData, setClinicData] = useState(null);
+  const [razorpayKey, setRazorpayKey] = useState('');
 
-  const basePrice = typeof servicePrice === 'number' ? servicePrice : parseFloat(servicePrice) || clinicConfig.consultationFee;
-  const discount = promoApplied ? Math.round(basePrice * promoApplied.discount) : 0;
-  const totalPrice = basePrice - discount;
-
-  const applyPromo = async () => {
-    if (!promoInput.trim()) return;
-    setPromoLoading(true);
-    setPromoError('');
-    await new Promise((r) => setTimeout(r, 600));
-    const code = promoInput.trim().toUpperCase();
-    if (PROMO_CODES[code]) {
-      setPromoApplied({ ...PROMO_CODES[code], code });
-    } else {
-      setPromoError('Invalid promo code. Try FIRST10');
+  useEffect(() => {
+    async function loadConfig() {
+      // 1. Fetch Clinic Details
+      if (bookingData.clinicId) {
+        const cSnap = await getDoc(doc(db, 'clinics', bookingData.clinicId));
+        if (cSnap.exists()) setClinicData({ id: cSnap.id, ...cSnap.data() });
+      }
+      // 2. Fetch Razorpay Public Key from SuperAdmin
+      const bSnap = await getDoc(doc(db, 'platform_config', 'billing'));
+      if (bSnap.exists()) {
+        setRazorpayKey(bSnap.data().razorpayKeyId);
+      }
     }
-    setPromoLoading(false);
-  };
+    loadConfig();
+  }, [bookingData.clinicId]);
 
-  const fmt = (n) => `₹${n.toLocaleString('en-IN')}`;
-  const taxRate = 0.18;
-  const taxable = +(totalPrice / (1 + taxRate)).toFixed(2);
-  const tax = +(totalPrice - taxable).toFixed(2);
+  const pColor = clinicData?.primaryColor || '#007AFF';
+  const totalPrice = bookingData.servicePrice || 0;
 
   const handlePayment = async () => {
-    setPaymentLoading(true);
-    setPaymentError('');
-    try {
-      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || clinicConfig.razorpayKeyId;
-
-      if (!keyId || typeof window.Razorpay === 'undefined') {
-        // Fallback: mark booking paid and proceed
-        await updateBookingStatus(bookingId, 'confirmed', {
-          paymentStatus: 'paid',
-          amount: totalPrice,
-          promoCode: promoApplied?.code || null,
-        });
-        navigate(`/confirmation/${bookingId}`, {
-          state: { name, phone, date, slot, serviceName, totalPrice, success: true }
-        });
-        return;
-      }
-
-      const taxRate = 0.18;
-      const taxable = Math.round((totalPrice / (1 + taxRate)) * 100);
-      const tax = Math.round(totalPrice * 100) - taxable;
-
-      const options = {
-        key: keyId,
-        amount: Math.round(totalPrice * 100),
-        currency: 'INR',
-        name: clinicConfig.clinicName,
-        description: serviceName || 'Physiotherapy Consultation',
-        image: clinicConfig.logo,
-        handler: async (response) => {
-          await updateBookingStatus(bookingId, 'confirmed', {
-            paymentId: response.razorpay_payment_id,
-            paymentStatus: 'paid',
-            amount: totalPrice,
-            promoCode: promoApplied?.code || null,
-          });
-          navigate(`/confirmation/${bookingId}`, {
-            state: { name, phone, date, slot, serviceName, totalPrice, paymentId: response.razorpay_payment_id, success: true }
-          });
-        },
-        prefill: {
-          name: name || '',
-          contact: phone || '',
-        },
-        notes: {
-          bookingId,
-          service: serviceName || '',
-        },
-        theme: {
-          color: clinicConfig.primaryColor,
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (response) => {
-        setPaymentError(`Payment failed: ${response.error.description}`);
-        setPaymentLoading(false);
-      });
-      rzp.open();
-    } catch (e) {
-      setPaymentError('Payment Gateway timeout. Please check your connection.');
-    } finally {
-      setPaymentLoading(false);
+    if (!razorpayKey) {
+      alert('Payment processing is currently unavailable. Please try again later.');
+      return;
     }
+
+    setPaymentLoading(true);
+    setPaymentError(null);
+
+    const options = {
+      key: razorpayKey,
+      amount: totalPrice * 100,
+      currency: 'INR',
+      name: clinicData?.clinicName || 'OnlinePT',
+      description: `Consultation: ${bookingData.serviceName}`,
+      image: clinicData?.logoUrl || '/logo.png',
+      handler: async function (response) {
+        try {
+          // ── The physioId is the clinic owner's Firebase UID — required by the dashboard query
+          const physioId = clinicData?.uid || clinicData?.ownerId || '';
+          const patientPhone = intakeData?.personalInfo?.whatsapp || bookingData?.patientPhone || '';
+          const patientName  = intakeData?.personalInfo?.fullName  || bookingData?.patientName  || '';
+
+          // 1. Save booking with physioId so dashboard can find it
+          const bookingRef = doc(db, 'bookings', bookingId);
+          await setDoc(bookingRef, {
+            ...bookingData,
+            physioId,                                       // ← KEY FIX: lets dashboard query work
+            patientPhone,                                   // ← for follow-up search
+            patientName,
+            clinicId: bookingData.clinicId,
+            paymentId: response.razorpay_payment_id,
+            status: 'confirmed',
+            paymentStatus: 'paid',
+            createdAt: serverTimestamp(),
+          });
+
+          // 2. Upsert patient record so Patients tab count goes up
+          if (physioId && patientPhone) {
+            try {
+              const patsRef = collection(db, 'patients');
+              await addDoc(patsRef, {
+                name: patientName,
+                phone: patientPhone,
+                whatsapp: patientPhone,
+                physioId,
+                clinicId: bookingData.clinicId,
+                age: intakeData?.personalInfo?.age || '',
+                gender: intakeData?.personalInfo?.gender || '',
+                createdAt: serverTimestamp(),
+              });
+            } catch (pErr) { console.warn('Patient upsert skipped:', pErr); }
+          }
+
+          // ── Dispatch Notifications ───────────────────────────
+          try {
+            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+            const bSnap = await getDoc(doc(db, 'platform_config', 'billing'));
+            const config = bSnap.exists() ? bSnap.data() : {};
+
+            await fetch(`${API_BASE}/appointments/notify-success`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                 patientData: {
+                    name: intakeData.personalInfo.fullName,
+                    phone: intakeData.personalInfo.whatsapp,
+                    clinicName: clinicData?.clinicName || 'OnlinePT',
+                    dateDisplay: bookingData.dateDisplay || bookingData.date,
+                    slotLabel: bookingData.slotLabel || (bookingData.slot?.time),
+                    meetingLink: `https://onlinept.in/join/${bookingId}`,
+                    intakeSummary: `
+*Patient:* ${intakeData.personalInfo.fullName}
+*Age/Gen:* ${intakeData.personalInfo.age} / ${intakeData.personalInfo.gender}
+*Occupation:* ${intakeData.personalInfo.occupation || 'N/A'}
+*Chief Complaint / Paining Area:* ${intakeData.clinicalInfo.primaryComplaint}
+*Duration:* ${intakeData.clinicalInfo.duration}
+*History:* ${intakeData.clinicalInfo.medicalHistory || 'None'}
+`.trim()
+                 },
+                 therapistPhone: clinicData?.whatsappNumber || '',
+                 whatsappToken: config.whatsappToken,
+                 whatsappPhoneId: config.whatsappPhoneId
+              })
+            });
+          } catch (err) { console.warn('Notification non-critical failure:', err); }
+
+          navigate(`/confirmation/${bookingId}`, { 
+            state: { ...bookingData, paymentId: response.razorpay_payment_id } 
+          });
+        } catch (dbErr) {
+          console.error('Booking save failed:', dbErr);
+          setPaymentError('Appointment confirmed, but failed to save record. Contact support.');
+        }
+      },
+      prefill: {
+        name: intakeData.personalInfo.fullName,
+        email: intakeData.personalInfo.email,
+        contact: intakeData.personalInfo.whatsapp
+      },
+      theme: { color: pColor }
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function (resp) {
+      setPaymentError(`Payment failed: ${resp.error.description}`);
+      setPaymentLoading(false);
+    });
+    rzp.open();
   };
 
   return (
-    <PageWrapper className="bg-gray-50/50 min-h-screen">
-      <div className="max-w-xl mx-auto py-10 px-6 animate-in fade-in slide-in-from-bottom-10 duration-700">
+    <PageTransition>
+      <div style={{ background: '#09090B', color: '#F8FAFC', minHeight: '100vh', fontFamily: "'Manrope', sans-serif" }}>
         
-        {/* Step Indicator */}
-        <div className="flex items-center justify-between mb-8">
-           <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
-              <ShieldCheck size={12} className="text-primary" /> Step 3: Secure Checkout
-           </div>
-           <div className="flex items-center gap-1.5 bg-green-50 px-3 py-1 rounded-full border border-green-100">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[9px] font-black text-green-600 uppercase">Live Secure Link</span>
-           </div>
+        {/* Background Gradient */}
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: `radial-gradient(circle at bottom right, ${pColor}15 0%, transparent 60%)`, pointerEvents: 'none' }}></div>
+
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: 650, margin: '0 auto', padding: '80px 24px 120px' }}>
+          
+          <Reveal>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 40, cursor: 'pointer', color: '#94A3B8' }} onClick={() => navigate(-1)}>
+                <ArrowLeft size={18} /> <span style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Back</span>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <div style={{ textAlign: 'center', marginBottom: 60 }}>
+                <div style={{ width: 64, height: 64, borderRadius: 20, background: `${pColor}20`, color: pColor, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}><CreditCard size={32} /></div>
+                <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: '-0.04em' }}>Review & <span style={{ color: pColor }}>Checkout</span></h1>
+                <p style={{ color: '#94A3B8', marginTop: 12, fontWeight: 500 }}>Confirm your appointment details to proceed with the secure payment.</p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.2}>
+            <div className="glass-card" style={{ padding: '40px', marginBottom: 24 }}>
+                <Metric label="Consultation" value={bookingData.serviceName} />
+                <Metric label="Date & Time" value={`${bookingData.dateDisplay || bookingData.date} • ${bookingData.slotLabel || bookingData.slot?.time}`} />
+                <Metric label="Patient" value={intakeData?.personalInfo?.fullName || 'Patient'} />
+                <Metric label="Total Payable" value={`₹${totalPrice}`} color={pColor} />
+                
+                <div style={{ marginTop: 40, padding: '24px', background: 'rgba(255,255,255,0.02)', borderRadius: 20, border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <h4 style={{ fontSize: 14, fontWeight: 800, color: '#94A3B8', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Zap size={16} style={{ color: pColor }} /> Fast Checkout Features
+                  </h4>
+                  <ul style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 10, color: '#64748B', fontSize: 13, fontWeight: 600 }}>
+                      <li>Instant appointment confirmation via WhatsApp</li>
+                      <li>Receipt will be sent to {intakeData?.personalInfo?.email}</li>
+                      <li>HIPAA compliant end-to-end encrypted record</li>
+                  </ul>
+                </div>
+            </div>
+          </Reveal>
+
+          {paymentError && (
+            <div style={{ padding: '16px 24px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 18, color: '#EF4444', marginBottom: 24, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <AlertCircle size={20} /> {paymentError}
+            </div>
+          )}
+
+          <Reveal delay={0.3}>
+            <div style={{ display: 'grid', gap: 20 }}>
+                <button 
+                  onClick={handlePayment} disabled={paymentLoading}
+                  style={{ 
+                    height: 72, background: pColor, color: '#FFF', border: 'none', borderRadius: 24, 
+                    fontSize: 18, fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                    boxShadow: `0 20px 50px ${pColor}40`
+                  }}
+                  className="glow-button"
+                >
+                  {paymentLoading ? <Loader2 className="animate-spin" /> : <>Pay & Confirm Appointment <ArrowRight size={20} /></>}
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#64748B' }}>
+                  <Shield size={14} /> <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Secure 256-bit Payment</span>
+                </div>
+            </div>
+          </Reveal>
         </div>
 
-        <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">Final Review</h1>
-        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-10">Confirm details & complete clinical payment</p>
-
-        {/* Luxe Receipt Header */}
-        <Card className="p-0 rounded-[3rem] border-none shadow-2xl shadow-gray-200 bg-white overflow-hidden mb-8 group">
-           <div className="p-10 text-left">
-               <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-xl font-black text-gray-900 tracking-tighter">Clinical Summary</h3>
-                  <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all"><Receipt size={20} /></div>
-               </div>
-
-               <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                     <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Patient Details</p>
-                        <p className="text-sm font-black text-gray-900 tracking-tight">{name || 'Guest User'}</p>
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Service Fee</p>
-                        <p className="text-sm font-black text-gray-900 tracking-tight">{fmt(basePrice)}</p>
-                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                     <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Consultation Date</p>
-                        <p className="text-sm font-black text-gray-900 tracking-tight">{date?.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · {slot?.label}</p>
-                     </div>
-                     <div className="space-y-1">
-                        <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Duration</p>
-                        <p className="text-sm font-black text-gray-900 tracking-tight">{serviceDuration || 45} Mins</p>
-                     </div>
-                  </div>
-               </div>
-           </div>
-           
-           {/* Final Total Section */}
-           <div className="p-10 bg-gray-900 relative overflow-hidden">
-               <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform duration-1000"><Tag size={120} className="text-white" /></div>
-               
-               <div className="relative z-10 flex flex-col md:flex-row justify-between items-end gap-6 text-left">
-                  <div className="space-y-2">
-                     <p className="text-[10px] font-black uppercase text-primary tracking-[.3em]">Total Fee Due</p>
-                     <p className="text-5xl font-black text-white tracking-tighter">{fmt(totalPrice)}</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-6">
-                     <div className="text-right">
-                        <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest">GST (18% Incl)</p>
-                        <p className="text-xs font-bold text-gray-300">{fmt(tax)}</p>
-                     </div>
-                     <div className="w-px h-8 bg-white/10" />
-                     {promoApplied && (
-                        <div className="text-right">
-                           <p className="text-[9px] font-black uppercase text-primary tracking-widest">Saved</p>
-                           <p className="text-xs font-bold text-primary">-{fmt(discount)}</p>
-                        </div>
-                     )}
-                  </div>
-               </div>
-           </div>
-        </Card>
-
-        {/* Promo Access */}
-        <div className="mb-8">
-           {promoApplied ? (
-              <div className="p-6 bg-primary/5 border-2 border-primary/20 rounded-[2rem] flex items-center justify-between">
-                 <div className="flex items-center gap-3">
-                    <Sparkles className="text-primary animate-bounce" size={20} />
-                    <p className="text-xs font-black uppercase text-primary tracking-widest leading-none mt-1">{promoApplied.code} APPLIED</p>
-                 </div>
-                 <button onClick={() => setPromoApplied(null)} className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-gray-400 hover:text-red-500 transition-all"><X size={14} /></button>
-              </div>
-           ) : (
-              <div className="flex gap-2">
-                 <div className="flex-1 h-14 bg-white rounded-2xl border border-gray-100 px-5 flex items-center shadow-sm">
-                    <Tag size={16} className="text-gray-300 mr-3" />
-                    <input 
-                      value={promoInput}
-                      onChange={e => setPromoInput(e.target.value.toUpperCase())}
-                      placeholder="ENTER PROMO CODE"
-                      className="flex-1 bg-transparent font-black uppercase tracking-widest text-[11px] outline-none text-gray-900 placeholder:text-gray-200"
-                    />
-                 </div>
-                 <Button onClick={applyPromo} variant="outline" className="h-14 px-8 rounded-2xl font-black text-[10px] border-gray-100">
-                    Apply <ArrowRight size={12} className="ml-1" />
-                 </Button>
-              </div>
-           )}
-           {promoError && <p className="text-[10px] font-black uppercase text-red-500 tracking-widest mt-3 ml-2">{promoError}</p>}
-        </div>
-
-        {/* Main CTA */}
-        <div className="space-y-6">
-           <Button 
-                onClick={handlePayment} 
-                className="h-24 w-full rounded-[2.5rem] bg-primary text-white shadow-2xl shadow-primary/30 font-black uppercase tracking-[.3em] text-[11px] transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-4"
-                style={{ backgroundColor: clinicConfig.primaryColor }}
-            >
-              Initialize Razorpay Secure <Zap size={20} />
-           </Button>
-           
-           <div className="flex items-center justify-center gap-8 py-4 opacity-40">
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest"><Lock size={12} /> 256-Bit SSL</div>
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest"><ShieldCheck size={12} /> Razorpay Shield</div>
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest"><CreditCard size={12} /> PCI-DSS</div>
-           </div>
-        </div>
-
+        <footer style={{ padding: '60px 24px', textAlign: 'center', color: '#475569' }}>
+           <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '2px' }}>Authorized for {clinicData?.clinicName}</p>
+        </footer>
       </div>
-    </PageWrapper>
+    </PageTransition>
   );
 }

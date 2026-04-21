@@ -1,881 +1,664 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { auth, db } from '@/firebase/config';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useNavigate, Link } from 'react-router-dom';
 import {
-  Check, ChevronRight, ArrowRight, Plus,
-  Video, Settings, Smartphone, Shield, Globe,
-  Sparkles,
+  CheckCircle2, ArrowRight, ShieldCheck, Zap,
+  Globe, Users, Smartphone, MessageSquare,
+  BarChart3, Layout, Clock, Menu, X,
+  ChevronDown, Star, Play, Activity, Stethoscope,
+  Heart, CreditCard, Mail, Phone, MapPin, Search,
+  Video, FileText
 } from 'lucide-react';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
 const T = {
-  blue: '#007AFF',
-  blueDark: '#0055CC',
-  blueLight: '#E8F1FF',
-  surface: '#F5F5F7',
+  primary: 'var(--color-primary)',
+  primaryDark: 'var(--color-primary-hover)',
+  primaryLight: 'var(--color-primary-light)',
+  accent: 'var(--color-secondary)',
   white: '#FFFFFF',
   ink: '#1D1D1F',
   ink2: '#3A3A3C',
   ink3: '#636366',
   ink4: '#AEAEB2',
-  border: 'rgba(0,0,0,0.08)',
-  glass: 'rgba(255,255,255,0.82)',
-  glassBg: 'rgba(255,255,255,0.72)',
-  blur: 'blur(20px)',
-  r: { sm: 12, md: 20, lg: 28, xl: 40 },
-  shadowSm: '0 2px 8px rgba(0,0,0,0.06)',
-  shadowMd: '0 8px 30px rgba(0,0,0,0.10)',
-  shadowLg: '0 20px 60px rgba(0,0,0,0.14)',
+  border: 'var(--color-border)',
+  glass: 'var(--glass-bg)',
+  blur: 'var(--glass-blur)',
 };
 
-// ─── FAQ Data ────────────────────────────────────────────────────────────────
-const faqs = [
-  { q: 'How quickly will my page go live?', a: 'The moment you complete sign-up, your subdomain is live. You can start sharing your page URL with patients immediately — no waiting period.' },
-  { q: 'Do I need any technical knowledge?', a: 'Zero. If you can use WhatsApp, you can manage your OnlinePT page. The admin panel is designed to be intuitive for busy clinicians.' },
-  { q: 'Can I change my services and fees anytime?', a: 'Yes, fully. Log into your admin panel at any time and update your services, fees, availability, and profile details. Changes reflect instantly on your public page.' },
-  { q: 'What does the subdomain look like?', a: 'Your page will be at yourname.onlinept.in. For example: aruna.onlinept.in — clean, professional, and easy to share anywhere.' },
-  { q: 'Is OnlinePT free forever?', a: 'The basic page is free. We\'ll introduce optional premium features in the future — but early sign-ups get extended free access.' },
-  { q: 'Who created OnlinePT?', a: 'OnlinePT was founded by Dr. Aruna Koladiya — physiotherapist and Autophagy Consultant. Built from real clinical experience, for real clinicians.' },
-];
-
-// ─── Feature Card ─────────────────────────────────────────────────────────────
-function FeatCard({ icon, title, body, tag, big, delay }) {
-  const [vis, setVis] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVis(true); observer.unobserve(e.target); } },
-      { threshold: 0.12 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      className="feat-card"
-      style={{
-        opacity: vis ? 1 : 0,
-        transform: vis ? 'none' : 'translateY(28px)',
-        transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
-        background: T.white,
-        borderRadius: T.r.md,
-        padding: 28,
-        boxShadow: T.shadowSm,
-        border: `1px solid ${T.border}`,
-        ...(big ? { gridColumn: 'span 2', display: 'flex', gap: 28, alignItems: 'center' } : {}),
-      }}
-    >
-      <div style={{
-        width: 52, height: 52, flexShrink: 0,
-        borderRadius: 16,
-        background: `linear-gradient(135deg, ${T.blueLight}, rgba(90,200,250,0.2))`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: big ? 28 : 24, marginBottom: big ? 0 : 16,
-      }}>
-        {icon}
-      </div>
-      <div>
-        <h3 style={{
-          fontFamily: "'Manrope', sans-serif",
-          fontSize: 18, fontWeight: 700, color: T.ink,
-          marginBottom: 8, letterSpacing: '-0.2px',
-        }}>{title}</h3>
-        <p style={{ fontSize: 14, color: T.ink3, lineHeight: 1.6 }}>{body}</p>
-        {tag && (
-          <span style={{
-            display: 'inline-block', fontSize: 11, fontWeight: 600,
-            background: T.blueLight, color: T.blue,
-            padding: '3px 10px', borderRadius: 100, marginTop: 12,
-          }}>{tag}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── How Card ─────────────────────────────────────────────────────────────────
-function HowCard({ n, icon, title, body, delay }) {
-  const [vis, setVis] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setVis(true); observer.unobserve(e.target); } },
-      { threshold: 0.12 }
-    );
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        opacity: vis ? 1 : 0,
-        transform: vis ? 'none' : 'translateY(28px)',
-        transition: `opacity 0.7s ease ${delay}ms, transform 0.7s ease ${delay}ms`,
-        background: T.white,
-        border: `1px solid ${T.border}`,
-        borderRadius: T.r.md,
-        padding: '32px 28px',
-        position: 'relative',
-        overflow: 'hidden',
-        boxShadow: T.shadowSm,
-      }}
-    >
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-        background: `linear-gradient(90deg, ${T.blue}, #5AC8FA)`,
-        borderRadius: '3px 3px 0 0',
-      }} />
-      <div style={{
-        fontFamily: "'Manrope', sans-serif",
-        fontSize: 52, fontWeight: 800,
-        color: T.blueLight, lineHeight: 1, marginBottom: 16,
-      }}>{n}</div>
-      <div style={{
-        width: 48, height: 48, borderRadius: 14,
-        background: T.blueLight,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 22, marginBottom: 20,
-      }}>{icon}</div>
-      <h3 style={{
-        fontFamily: "'Manrope', sans-serif",
-        fontSize: 20, fontWeight: 700, color: T.ink,
-        marginBottom: 10, letterSpacing: '-0.3px',
-      }}>{title}</h3>
-      <p style={{ fontSize: 15, color: T.ink3, lineHeight: 1.65 }}>{body}</p>
-    </div>
-  );
-}
-
-// ─── Preview Phone ────────────────────────────────────────────────────────────
-function PreviewPhone() {
-  return (
-    <div style={{
-      width: 280, margin: '0 auto',
-      background: T.ink, borderRadius: 40,
-      padding: 12, boxShadow: T.shadowLg,
-    }}>
-      <div style={{
-        background: T.white, borderRadius: 30, overflow: 'hidden',
-      }}>
-        {/* Header */}
-        <div style={{
-          background: `linear-gradient(135deg, ${T.blue} 0%, #5AC8FA 100%)`,
-          padding: '24px 16px 20px', color: T.white, textAlign: 'center',
-        }}>
-          <div style={{
-            width: 60, height: 60, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.25)',
-            margin: '0 auto 8px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 24,
-          }}>
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
-              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-            </svg>
-          </div>
-          <div style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 700, fontSize: 16 }}>Dr. Aruna Koladiya</div>
-          <div style={{ fontSize: 12, opacity: 0.8, marginTop: 2 }}>BPT · MIAP · Autophagy Consultant</div>
-        </div>
-        {/* Body */}
-        <div style={{ padding: 16 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.ink4, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 8 }}>Services</div>
-          {[
-            { name: 'Initial Consultation', price: '₹499' },
-            { name: 'Follow-up Session', price: '₹299' },
-            { name: 'Yoga Assessment', price: '₹699' },
-          ].map((s, i) => (
-            <div key={i} style={{
-              background: T.surface, borderRadius: 10, padding: '10px 12px',
-              marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 500, color: T.ink }}>{s.name}</span>
-              <span style={{ fontSize: 13, fontWeight: 700, color: T.blue }}>{s.price}</span>
-            </div>
-          ))}
-          <button style={{
-            display: 'block', width: '100%', background: T.blue, color: T.white,
-            border: 'none', borderRadius: 10, padding: 12,
-            fontSize: 14, fontWeight: 600, textAlign: 'center', marginTop: 12,
-            cursor: 'pointer', fontFamily: "'DM Sans', sans-serif",
-          }}>
-            Book a Consultation →
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── FAQ Item ─────────────────────────────────────────────────────────────────
-function FaqItem({ q, a, delay }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{
-      background: T.white, border: `1px solid ${T.border}`,
-      borderRadius: T.r.md, overflow: 'hidden', boxShadow: T.shadowSm,
-      ...(open ? {} : {}),
-    }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{
-          width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          padding: '20px 24px', background: 'none', border: 'none', cursor: 'pointer',
-          fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 500,
-          color: T.ink, textAlign: 'left', gap: 12,
-          transition: 'background 0.15s',
-        }}
-      >
-        {q}
-        <svg
-          width="20" height="20"
-          viewBox="0 0 24 24" fill="none"
-          stroke={T.blue} strokeWidth="2.5"
-          style={{
-            flexShrink: 0,
-            transform: open ? 'rotate(45deg)' : 'none',
-            transition: 'transform 0.25s',
-          }}
-        >
-          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-      </button>
-      <div style={{
-        maxHeight: open ? 200 : 0,
-        overflow: 'hidden',
-        transition: 'max-height 0.3s ease, padding 0.3s ease',
-        fontSize: 14, color: T.ink3, lineHeight: 1.65,
-        padding: open ? '0 24px 20px' : '0 24px',
-      }}>
-        {a}
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function SaaSLandingPage() {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
-  const [subdomain, setSubdomain] = useState('');
-  const [form, setForm] = useState({ firstName: '', lastName: '', clinic: '', city: '', qualification: '', email: '', password: '' });
-  const [signupDone, setSignupDone] = useState(false);
-  const [signupLoading, setSignupLoading] = useState(false);
-  const [signupError, setSignupError] = useState('');
-  const navRef = useRef(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    physioName: '',
+    email: '',
+    phone: '',
+    password: '',
+    subdomain: ''
+  });
 
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
-
-  const handleSubdomain = (v) => {
-    setSubdomain(v.toLowerCase().replace(/[^a-z0-9-]/g, ''));
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: name === 'subdomain' ? value.toLowerCase().replace(/[^a-z0-9-]/g, '') : value 
+    }));
   };
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
-    setSignupLoading(true);
-    setSignupError('');
-    try {
-      if (!auth) {
-        // Dev mode: skip Firebase, go straight to onboarding
-        sessionStorage.setItem('pendingOnboarding', JSON.stringify({
-          physioName: `${form.firstName} ${form.lastName}`,
-          email: form.email,
-          clinicName: form.clinic,
-          subdomain,
-        }));
-        navigate('/saas/onboarding');
-        return;
-      }
-      const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
-      const uid = cred.user.uid;
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const revealRefs = useRef([]);
+  revealRefs.current = [];
 
-      // Create the clinic record with 'pending_approval' status
-      const clinicId = subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
-      if (db && clinicId) {
-        await setDoc(doc(collection(db, 'clinics'), clinicId), {
-          uid,
-          clinicId,
-          clinicName: form.clinic,
-          physioName: `${form.firstName} ${form.lastName}`.trim(),
-          email: form.email,
-          domain: `${clinicId}.onlinept.in`,
-          subdomain: clinicId,
-          city: form.city || '',
-          qualification: form.qualification || '',
-          subscriptionStatus: 'pending_approval',
-          createdAt: serverTimestamp(),
-          createdBy: 'saas_signup',
-        });
-      }
-
-      sessionStorage.removeItem('pendingOnboarding');
-      navigate('/saas/pending');
-    } catch (err) {
-      if (err.code === 'auth/email-already-in-use') {
-        setSignupError('An account with this email already exists. Try signing in instead.');
-      } else if (err.code === 'auth/weak-password') {
-        setSignupError('Password should be at least 6 characters.');
-      } else {
-        setSignupError(err.message || 'Sign up failed. Please try again.');
-      }
-      setSignupLoading(false);
+  const addToRefs = (el) => {
+    if (el && !revealRefs.current.includes(el)) {
+      revealRefs.current.push(el);
     }
   };
 
-  const section = (pad = '100px 24px') => ({
-    padding: pad, position: 'relative',
-  });
-  const inner = () => ({ maxWidth: 1080, margin: '0 auto' });
-  const eyebrow = () => ({
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    fontSize: 13, fontWeight: 600, color: T.blue,
-    letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 16,
-  });
-  const sectionTitle = () => ({
-    fontFamily: "'Manrope', sans-serif",
-    fontSize: 'clamp(32px, 4.5vw, 52px)',
-    fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1.1,
-    color: T.ink, marginBottom: 16,
-  });
-  const sectionSub = () => ({
-    fontSize: 18, color: T.ink3, fontWeight: 400,
-    maxWidth: 520, lineHeight: 1.6,
-  });
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', handleScroll);
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('active');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    revealRefs.current.forEach(ref => observer.observe(ref));
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      revealRefs.current.forEach(ref => observer.unobserve(ref));
+    };
+  }, []);
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    // Store all data in sessionStorage for the onboarding flow to pick up
+    try {
+      sessionStorage.setItem('pendingOnboarding', JSON.stringify(formData));
+    } catch (err) {
+      console.error('Failed to save onboarding data:', err);
+    }
+
+    await new Promise(r => setTimeout(r, 1500));
+    navigate('/saas/onboarding'); // Redirect straight to onboarding step 1
+  };
+
+  const navLinks = [
+    { label: 'Features', href: '#features' },
+    { label: 'Solution', href: '#solution' },
+    { label: 'Testimonials', href: '#testimonials' },
+    { label: 'Pricing', href: '#pricing' },
+  ];
 
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", background: T.white, color: T.ink }}>
+    <div style={{ background: T.white, color: T.ink, overflowX: 'hidden' }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
+        .hero-gradient { background: radial-gradient(circle at 80% 20%, ${T.primary}08 0%, transparent 40%), radial-gradient(circle at 10% 80%, ${T.accent}08 0%, transparent 40%); }
+        .mobile-menu-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: ${T.white}; z-index: 200; transform: translateX(${isMenuOpen ? '0' : '100%'}); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); padding: 80px 16px; }
+        .nav-link { font-size: var(--font-subhead, 15px); font-weight: 600; color: ${T.ink3}; text-decoration: none; transition: color 0.2s; cursor: pointer; }
+        .nav-link:hover { color: ${T.primary}; }
         html { scroll-behavior: smooth; }
-        a { text-decoration: none; }
+
+        /* ── Physio background pattern overlay ─── */
+        .physio-bg { position: relative; }
+        .physio-bg::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: url('/assets/physio-bg-pattern.png');
+          background-repeat: repeat;
+          background-size: 400px 400px;
+          opacity: 0.07;
+          pointer-events: none;
+          z-index: 0;
+        }
+        .physio-bg > * { position: relative; z-index: 1; }
+
+        /* ── iOS-style button active state ─── */
+        .ios-btn { min-height: 44px; transition: opacity 0.15s, transform 0.15s; -webkit-tap-highlight-color: transparent; }
+        .ios-btn:active { opacity: 0.7; transform: scale(0.97); }
+
+        /* ── Desktop/Mobile visibility ─── */
         @media (max-width: 768px) {
-          .how-grid, .features-grid, .preview-wrap, .signup-wrap, .faq-grid { grid-template-columns: 1fr !important; }
-          .feat-card.big { flex-direction: column !important; grid-column: span 1 !important; }
-          .preview-phone { display: none !important; }
-          .footer-top { flex-direction: column !important; }
-          .footer-cols { gap: 32px !important; }
-          .nav-links { display: none !important; }
-          .form-row { grid-template-columns: 1fr !important; }
-          .signup-wrap { gap: 40px !important; }
-          .how-grid { gap: 16px !important; }
+          .desktop-only { display: none !important; }
+        }
+        @media (min-width: 769px) {
+          .mobile-only { display: none !important; }
+        }
+
+        /* ── Mobile-first HIG adjustments ─── */
+        @media (max-width: 768px) {
+          /* Feature grid: 2 columns on tablet */
+          .feature-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; }
+          /* Pricing grid: single column, remove scale */
+          .pricing-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .pricing-grid > div { transform: none !important; }
+          /* Signup form: mobile padding */
+          .signup-form-card { padding: 24px 20px !important; border-radius: 20px !important; }
+          .signup-form-grid { grid-template-columns: 1fr !important; }
+          /* Footer grid */
+          .footer-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+          .footer-grid > div:first-child { grid-column: span 1 !important; }
+        }
+        @media (max-width: 540px) {
+          /* Feature grid: single column on phone */
+          .feature-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
-      {/* ── Navbar ───────────────────────────────────────────────────── */}
-      <nav ref={navRef} style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 40px', height: 64,
-        background: T.glass, backdropFilter: T.blur, WebkitBackdropFilter: T.blur,
-        borderBottom: `1px solid ${T.border}`,
-        boxShadow: scrolled ? T.shadowSm : 'none',
-        transition: 'box-shadow 0.3s',
+      {/* ── Navbar ─────────────────────────────────────────────────────── */}
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 150,
+        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0 var(--section-px)', transition: 'all 0.3s',
+        background: scrolled ? T.glass : 'transparent',
+        backdropFilter: scrolled ? T.blur : 'none',
+        WebkitBackdropFilter: scrolled ? T.blur : 'none',
+        borderBottom: scrolled ? `1px solid ${T.border}` : 'none',
       }}>
-        <a href="#" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 10,
-            background: `linear-gradient(135deg, ${T.blue} 0%, #5AC8FA 100%)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,122,255,0.35)',
-          }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-              <rect x="11" y="5" width="2" height="14" rx="1"/>
-              <rect x="7" y="9" width="2" height="10" rx="1"/>
-              <rect x="15" y="9" width="2" height="10" rx="1"/>
-            </svg>
+        <div style={{ maxWidth: 1200, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => navigate('/')}>
+             <img src="/logo.png" alt="OnlinePT" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: '50%' }} />
+             <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: 20, letterSpacing: '-0.5px' }}>OnlinePT</span>
           </div>
-          <span style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 18, color: T.ink, letterSpacing: '-0.5px' }}>
-            Online<span style={{ color: T.blue }}>PT</span>
-          </span>
-        </a>
 
-        <ul className="nav-links" style={{ display: 'flex', gap: 32, listStyle: 'none' }}>
-          {[['#how', 'How It Works'], ['#features', 'Features'], ['#preview', 'Your Page'], ['#faq', 'FAQ']].map(([href, label]) => (
-            <li key={href}>
-              <a href={href} style={{ fontSize: 14, fontWeight: 500, color: T.ink2, textDecoration: 'none', transition: 'color 0.2s' }}>
-                {label}
-              </a>
-            </li>
-          ))}
-        </ul>
+          <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
+             {navLinks.map(link => (
+               <a key={link.label} href={link.href} className="nav-link">{link.label}</a>
+             ))}
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <a href="#" style={{
-            fontSize: 14, fontWeight: 500, color: T.ink2,
-            textDecoration: 'none', padding: '8px 16px', borderRadius: 20,
-            transition: 'background 0.2s, color 0.2s',
-          }}>
-            Sign In
-          </a>
-          <a href="#signup" style={{
-            fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 600, color: T.white,
-            textDecoration: 'none', padding: '9px 20px',
-            background: T.blue, borderRadius: 20, border: 'none', cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,122,255,0.30)',
-            transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s',
-            display: 'inline-flex', alignItems: 'center',
-          }}>
-            Get Started Free
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <Link to="/dashboard-login" className="desktop-only" style={{ textDecoration: 'none', fontSize: 14, fontWeight: 700, color: T.ink }}>Sign In</Link>
+            <button onClick={() => setIsMenuOpen(true)} className="mobile-only" style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.ink }}>
+              <Menu size={24} />
+            </button>
+            <button className="ios-btn" onClick={() => document.getElementById('signup').scrollIntoView({ behavior: 'smooth' })} style={{
+              background: T.primary, color: T.white, border: 'none',
+              padding: '10px 20px', borderRadius: 100, fontSize: 15, fontWeight: 600,
+              boxShadow: `0 4px 12px ${T.primary}20`, cursor: 'pointer',
+              minHeight: 44,
+            }}>
+              Join Network
+            </button>
+          </div>
         </div>
       </nav>
 
-      {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section style={{
-        minHeight: '100vh', display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', textAlign: 'center',
-        padding: '120px 24px 80px', position: 'relative',
-        background: `radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,122,255,0.10) 0%, transparent 70%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(90,200,250,0.08) 0%, transparent 60%), ${T.white}`,
-      }}>
-        {/* Badge */}
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: T.glassBg, backdropFilter: T.blur, WebkitBackdropFilter: T.blur,
-          border: `1px solid ${T.border}`, padding: '6px 16px 6px 6px',
-          borderRadius: 100, fontSize: 13, fontWeight: 500, color: T.ink2,
-          marginBottom: 28, animation: 'fadeUp 0.6s ease both',
-        }}>
-          <div style={{
-            width: 22, height: 22, borderRadius: '50%',
-            background: `linear-gradient(135deg, ${T.blue}, #5AC8FA)`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, color: T.white, fontWeight: 700,
-          }}>✦</div>
-          Built by Physiotherapists, for Physiotherapists
-        </div>
-
-        {/* Heading */}
-        <h1 style={{
-          fontFamily: "'Manrope', sans-serif",
-          fontSize: 'clamp(42px, 7vw, 80px)', fontWeight: 800,
-          lineHeight: 1.08, letterSpacing: '-2.5px', color: T.ink,
-          maxWidth: 820, margin: '0 auto',
-          animation: 'fadeUp 0.6s 0.1s ease both',
-        }}>
-          Your Clinic.<br />
-          <span style={{
-            background: `linear-gradient(135deg, ${T.blue} 0%, #5AC8FA 100%)`,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-          }}>Online.</span> In Minutes.
-        </h1>
-
-        <p style={{
-          fontSize: 'clamp(16px, 2vw, 20px)', fontWeight: 400, color: T.ink3,
-          maxWidth: 540, margin: '20px auto 36px', lineHeight: 1.6,
-          animation: 'fadeUp 0.6s 0.2s ease both',
-        }}>
-          Get your own professional page at <strong>yourname.onlinept.in</strong> — take online consultations, showcase your services, and grow your practice.
-        </p>
-
-        {/* CTAs */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'center',
-          animation: 'fadeUp 0.6s 0.3s ease both',
-        }}>
-          <a href="#signup" style={{
-            fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, color: T.white,
-            background: T.blue, padding: '14px 28px', borderRadius: 100, border: 'none',
-            textDecoration: 'none',
-            boxShadow: '0 4px 20px rgba(0,122,255,0.35)',
-            transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s',
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-          }}>
-            Create My Free Page
-          </a>
-          <a href="#how" style={{
-            fontSize: 16, fontWeight: 500, color: T.ink2,
-            background: T.glassBg, backdropFilter: T.blur,
-            border: `1px solid ${T.border}`, padding: '14px 28px', borderRadius: 100,
-            textDecoration: 'none',
-            transition: 'background 0.2s, transform 0.15s',
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-          }}>
-            See How It Works ↓
-          </a>
-        </div>
-
-        {/* Browser Mockup */}
-        <div style={{
-          width: 'min(780px, 90vw)', margin: '64px auto 0',
-          borderRadius: T.r.lg, boxShadow: T.shadowLg,
-          overflow: 'hidden', border: `1px solid ${T.border}`,
-          background: T.white, animation: 'fadeUp 0.8s 0.4s ease both',
-        }}>
-          {/* Mockup Bar */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px',
-            background: '#F2F2F2', borderBottom: `1px solid ${T.border}`,
-          }}>
-            {[['#FF5F57', 'r'], ['#FEBC2E', 'y'], ['#28C840', 'g']].map(([c, cls]) => (
-              <div key={cls} style={{ width: 12, height: 12, borderRadius: '50%', background: c }} />
+      {/* ── Mobile Menu ────────────────────────────────────────────────── */}
+      <div className="mobile-menu-overlay">
+         <button onClick={() => setIsMenuOpen(false)} style={{ position: 'absolute', top: 24, right: 24, background: 'none', border: 'none', cursor: 'pointer', color: T.ink }}>
+            <X size={28} />
+         </button>
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            {navLinks.map(link => (
+              <a key={link.label} href={link.href} onClick={() => setIsMenuOpen(false)} style={{ fontSize: 28, fontWeight: 800, color: T.ink, textDecoration: 'none', fontFamily: 'Manrope, sans-serif' }}>{link.label}</a>
             ))}
-            <div style={{
-              flex: 1, background: T.white, borderRadius: 6,
-              padding: '4px 12px', margin: '0 12px',
-              fontSize: 12, color: T.ink3, fontFamily: "'DM Sans', sans-serif",
-              border: `1px solid ${T.border}`,
-            }}>aruna.onlinept.in</div>
-          </div>
-          {/* Mockup Body */}
-          <div style={{
-            padding: '28px 28px 20px',
-            background: 'linear-gradient(160deg, #F8FBFF 0%, #FFFFFF 100%)',
-            display: 'flex', gap: 20, alignItems: 'flex-start',
-          }}>
-            <div style={{ flex: 1 }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 16,
-                background: `linear-gradient(135deg, ${T.blue}, #5AC8FA)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: T.white, fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 20,
-                marginBottom: 12,
-              }}>A</div>
-              <div style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 700, fontSize: 18, color: T.ink }}>Dr. Aruna Koladiya</div>
-              <div style={{ fontSize: 12, color: T.ink3, margin: '2px 0 12px' }}>Physiotherapist · Surat, Gujarat</div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {['Spine Care', 'Sports Rehab', 'Yoga Therapy', 'Trigger Point'].map(t => (
-                  <span key={t} style={{
-                    fontSize: 11, fontWeight: 500,
-                    background: T.blueLight, color: T.blue,
-                    padding: '3px 10px', borderRadius: 100,
-                  }}>{t}</span>
-                ))}
-              </div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 14 }}>
-                {[['500+', 'Patients'], ['15+', 'Years Exp.'], ['4.9★', 'Rating']].map(([n, l]) => (
-                  <div key={l} style={{
-                    flex: 1, background: T.glassBg, border: `1px solid ${T.border}`,
-                    borderRadius: 10, padding: 8, textAlign: 'center',
-                  }}>
-                    <div style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 16, color: T.ink }}>{n}</div>
-                    <div style={{ fontSize: 10, color: T.ink4 }}>{l}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div style={{ width: 140, flexShrink: 0 }}>
-              <div style={{
-                background: T.blue, color: T.white,
-                borderRadius: T.r.sm, padding: 14, textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8, marginBottom: 4 }}>CONSULTATION</div>
-                <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: 22, fontWeight: 800 }}>₹499</div>
-                <div style={{ fontSize: 10, opacity: 0.7, margin: '2px 0 10px' }}>45 min · HD Video</div>
-                <button style={{
-                  width: '100%', background: T.white, color: T.blue,
-                  border: 'none', borderRadius: 8, padding: 8,
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                }}>Book Now</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Trust Bar ──────────────────────────────────────────────────── */}
-      <div style={{ background: T.surface, padding: '28px 24px', textAlign: 'center' }}>
-        <p style={{ fontSize: 13, fontWeight: 500, color: T.ink4, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 20 }}>
-          Trusted by physiotherapists across India
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {['Free to set up', 'No tech skills needed', 'Live in under 5 minutes', 'Your own subdomain'].map(item => (
-            <div key={item} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              background: T.white, border: `1px solid ${T.border}`,
-              borderRadius: 100, padding: '8px 18px',
-              fontSize: 14, fontWeight: 500, color: T.ink2, boxShadow: T.shadowSm,
-            }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.blue }} />
-              {item}
-            </div>
-          ))}
-        </div>
+            <hr style={{ border: 'none', borderTop: `1px solid ${T.border}`, margin: '8px 0' }} />
+            <Link to="/dashboard-login" onClick={() => setIsMenuOpen(false)} style={{ fontSize: 24, fontWeight: 700, color: T.primary, textDecoration: 'none' }}>Physio Login</Link>
+         </div>
       </div>
 
-      {/* ── How It Works ────────────────────────────────────────────────── */}
-      <section id="how" style={section()}>
-        <div style={inner()}>
-          <div style={eyebrow()}>How It Works</div>
-          <h2 style={sectionTitle()}>Three steps to your<br />online clinic.</h2>
-          <p style={sectionSub()}>No developers. No design experience. No technical setup. Just your expertise, online.</p>
-          <div className="how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 56 }}>
-            <HowCard n="01" icon="📝" title="Sign Up Free" body="Create your account in 60 seconds. Tell us your name, clinic, and specialisation. That's it." delay={0} />
-            <HowCard n="02" icon="🎨" title="Customise Your Page" body="Add your photo, services, fees, and availability from your personal admin panel. Update anytime." delay={80} />
-            <HowCard n="03" icon="🚀" title="Share & Consult" body={<span>Share <strong>yourname.onlinept.in</strong> with patients. They book, you consult via HD video call.</span>} delay={160} />
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
+      <section className="hero-gradient physio-bg" style={{ padding: 'clamp(120px, 20vw, 160px) var(--section-px) clamp(48px, 10vw, 80px)', textAlign: 'center' }}>
+        <div className="reveal active" style={{ maxWidth: 900, margin: '0 auto' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: T.primaryLight, padding: '8px 16px', borderRadius: 100, color: T.primary, fontSize: 12, fontWeight: 800, textTransform: 'uppercase', marginBottom: 24 }}>
+            <Zap size={14} /> The Future of Physical Therapy is Here
+          </div>
+          <h1 style={{ fontFamily: 'Manrope, sans-serif', fontSize: 'clamp(32px, 7vw, 72px)', fontWeight: 800, letterSpacing: '-1.5px', lineHeight: 1.05, marginBottom: 24 }}>
+            Build Your Digital <br className="desktop-only" /> <span style={{ color: T.primary }}>Clinic in 60 Seconds.</span>
+          </h1>
+          <p style={{ fontSize: 'clamp(17px, 2.5vw, 21px)', color: T.ink3, lineHeight: 1.6, maxWidth: 640, margin: '0 auto 48px', fontWeight: 500 }}>
+            The all-in-one platform for physiotherapists to manage bookings, assessments, and patient growth with a clinical-grade digital presence.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+             <button className="ios-btn" onClick={() => document.getElementById('signup').scrollIntoView({ behavior: 'smooth' })} style={{
+               padding: '14px 32px', borderRadius: 100, background: T.primary, color: T.white,
+               border: 'none', fontSize: 16, fontWeight: 600, boxShadow: `0 8px 24px ${T.primary}25`,
+               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+               minHeight: 48,
+             }}>
+               Start Your Clinic <ArrowRight size={18} />
+             </button>
+             <button className="ios-btn" onClick={() => document.getElementById('testimonials').scrollIntoView({ behavior: 'smooth' })} style={{
+               padding: '14px 32px', borderRadius: 100, background: T.white, color: T.ink,
+               border: 'none', fontSize: 16, fontWeight: 600,
+               boxShadow: 'var(--shadow-md)',
+               cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+               minHeight: 48,
+             }}>
+               <Star size={18} fill={T.ink} /> See Success Stories
+             </button>
           </div>
         </div>
       </section>
 
       {/* ── Features ───────────────────────────────────────────────────── */}
-      <section id="features" style={{ ...section(), background: T.surface }}>
-        <div style={inner()}>
-          <div style={eyebrow()}>Features</div>
-          <h2 style={sectionTitle()}>Everything your online<br />practice needs.</h2>
-          <p style={sectionSub()}>One platform. Complete control. Built specifically for physiotherapists.</p>
-          <div className="features-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 56 }}>
-            <FeatCard
-              big icon="🌐" title="Your Own Subdomain"
-              body={<>Get a professional, memorable URL like <strong>abc.onlinept.in</strong> — looks great on your card, WhatsApp bio, and Instagram. Patients trust a dedicated page over a generic booking link.</>}
-              tag="yourname.onlinept.in"
-              delay={0}
-            />
-            <FeatCard icon="📹" title="HD Video Consultations" body="Conduct professional assessments via integrated HD video. No third-party apps needed." delay={80} />
-            <FeatCard icon="⚙️" title="Personal Admin Panel" body="Full control over your profile, services, fees, and schedule. Update in real-time." delay={160} />
-            <FeatCard icon="📱" title="Mobile-First Design" body="Your patient page looks stunning on every device — phone, tablet, or desktop." delay={240} />
-            <FeatCard icon="🔒" title="Secure & Private" body="Patient data is encrypted and protected. HIPAA-aligned practices built in by default." delay={320} />
-            <FeatCard icon="🇮🇳" title="Made for India" body="Indian pricing, multilingual support, and built by a practising physiotherapist from Surat." delay={400} />
+      <section id="features" className="physio-bg" style={{ padding: 'var(--section-py) var(--section-px)', background: T.white }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div className="reveal" ref={addToRefs} style={{ textAlign: 'center', marginBottom: 80 }}>
+            <h2 style={{ fontFamily: 'Manrope, sans-serif', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-1.5px', color: T.ink }}>
+              Everything You Need <br className="desktop-only" /> to <span style={{ color: T.primary }}>Scale Your Practice.</span>
+            </h2>
           </div>
-        </div>
-      </section>
 
-      {/* ── Preview ─────────────────────────────────────────────────────── */}
-      <section id="preview" style={section()}>
-        <div style={inner()}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 60, alignItems: 'center' }} className="preview-wrap">
-            <div>
-              <div style={eyebrow()}>Your Patient Page</div>
-              <h2 style={sectionTitle()}>What your<br />page looks like.</h2>
-              <p style={sectionSub()}>A clean, professional one-page website your patients will love — fully managed by you.</p>
-              <ul style={{ listStyle: 'none', marginTop: 28, display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {[
-                  'Doctor profile with photo & qualifications',
-                  'Services list with fees',
-                  'Online booking button',
-                  'Patient reviews & ratings',
-                  'WhatsApp & contact links',
-                  'Languages spoken & clinic address',
-                ].map((item, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, fontSize: 15, color: T.ink2, lineHeight: 1.5 }}>
-                    <div style={{
-                      width: 22, height: 22, borderRadius: '50%',
-                      background: `linear-gradient(135deg, ${T.blue}, #5AC8FA)`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0, marginTop: 1, color: T.white, fontSize: 12, fontWeight: 700,
-                    }}>✓</div>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <PreviewPhone />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Signup ─────────────────────────────────────────────────────── */}
-      <section id="signup" style={{ ...section(), background: 'linear-gradient(160deg, #F0F6FF 0%, #FFFFFF 100%)' }}>
-        <div style={inner()}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }} className="signup-wrap">
-            {/* Perks */}
-            <div>
-              <div style={eyebrow()}>Get Started</div>
-              <h2 style={sectionTitle()}>Claim your free<br />physio page today.</h2>
-              <p style={sectionSub()}>Join physiotherapists across India who've already taken their practice online.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 32 }}>
-                {[
-                  { icon: '⚡', h: 'Live in Under 5 Minutes', p: 'Sign up, fill your details, and your page is instantly live at your subdomain.' },
-                  { icon: '💸', h: 'Free to Start', p: 'No credit card. No hidden charges. Start free, upgrade when you need more.' },
-                  { icon: '🛠️', h: 'Full Admin Control', p: 'Update your page, add services, change fees — all from your own admin panel.' },
-                ].map(({ icon, h, p }) => (
-                  <div key={h} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                    <div style={{
-                      width: 44, height: 44, flexShrink: 0,
-                      borderRadius: 14, background: T.blueLight,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
-                    }}>{icon}</div>
-                    <div>
-                      <h4 style={{ fontFamily: "'Manrope', sans-serif", fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 3 }}>{h}</h4>
-                      <p style={{ fontSize: 14, color: T.ink3, lineHeight: 1.5 }}>{p}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Form */}
-            <div style={{
-              background: T.white, border: `1px solid ${T.border}`,
-              borderRadius: T.r.lg, padding: 40, boxShadow: T.shadowLg,
-            }}>
-              <div style={{ fontFamily: "'Manrope', sans-serif", fontSize: 24, fontWeight: 800, color: T.ink, marginBottom: 6, letterSpacing: '-0.5px' }}>
-                Create Your Free Page
-              </div>
-              <div style={{ fontSize: 14, color: T.ink3, marginBottom: 28 }}>Takes less than 2 minutes — no tech skills needed.</div>
-
-              <form onSubmit={handleSignup}>
-                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>First Name</label>
-                    <input type="text" placeholder="First Name" required value={form.firstName}
-                      onChange={e => setForm({ ...form, firstName: e.target.value })}
-                      style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
-                  </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Last Name</label>
-                    <input type="text" placeholder="Last Name" required value={form.lastName}
-                      onChange={e => setForm({ ...form, lastName: e.target.value })}
-                      style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Your Subdomain</label>
-                  <div style={{ display: 'flex', alignItems: 'center', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, overflow: 'hidden' }}>
-                    <div style={{ background: T.surface, padding: '12px 14px', fontSize: 14, color: T.ink3, whiteSpace: 'nowrap', borderRight: `1.5px solid ${T.border}` }}>
-                      <input type="text" placeholder="yourname" required value={subdomain}
-                        onChange={e => handleSubdomain(e.target.value)}
-                        style={{ border: 'none', borderRadius: 0, boxShadow: 'none', outline: 'none', width: 100, fontFamily: "'DM Sans', sans-serif", fontSize: 14, padding: 0, background: 'transparent' }} />
-                    </div>
-                    <span style={{ background: T.surface, padding: '12px 14px', fontSize: 14, color: T.ink3, whiteSpace: 'nowrap', borderLeft: `1.5px solid ${T.border}` }}>.onlinept.in</span>
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Clinic / Practice Name</label>
-                  <input type="text" placeholder="Your Clinic Name" required value={form.clinic}
-                    onChange={e => setForm({ ...form, clinic: e.target.value })}
-                    style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
-                </div>
-
-                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>City</label>
-                    <input type="text" placeholder="City" required value={form.city}
-                      onChange={e => setForm({ ...form, city: e.target.value })}
-                      style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
-                  </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Qualification</label>
-                    <input type="text" placeholder="BPT, MPT" required value={form.qualification}
-                      onChange={e => setForm({ ...form, qualification: e.target.value })}
-                      style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
-                  </div>
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Email Address</label>
-                  <input type="email" placeholder="Email Address" required value={form.email}
-                    onChange={e => setForm({ ...form, email: e.target.value })}
-                    style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
-                </div>
-
-                <div style={{ marginBottom: 8 }}>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Password</label>
-                  <input type="password" placeholder="Choose Password" required value={form.password}
-                    onChange={e => setForm({ ...form, password: e.target.value })}
-                    style={{ width: '100%', padding: '12px 16px', border: `1.5px solid ${T.border}`, borderRadius: T.r.sm, fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: T.ink, background: T.white, outline: 'none', appearance: 'none' }} />
-                </div>
-
-                {signupError && (
-                  <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 12, color: '#DC2626', fontSize: 13 }}>
-                    {signupError}
-                  </div>
-                )}
-                <button type="submit" disabled={signupLoading} style={{
-                  width: '100%', padding: 15, background: signupLoading ? T.blueDark : T.blue, color: T.white,
-                  border: 'none', borderRadius: T.r.sm,
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 600, cursor: signupLoading ? 'not-allowed' : 'pointer',
-                  boxShadow: '0 4px 16px rgba(0,122,255,0.30)',
-                  transition: 'background 0.15s',
-                  marginTop: 8,
-                }}>
-                  {signupLoading ? 'Creating Account…' : 'Create My Page Free'}
-                </button>
-                <p style={{ fontSize: 12, color: T.ink4, textAlign: 'center', marginTop: 12 }}>
-                  By signing up you agree to our Terms of Service. No credit card required.
-                </p>
-              </form>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── FAQ ─────────────────────────────────────────────────────────── */}
-      <section id="faq" style={{ ...section(), background: T.surface }}>
-        <div style={inner()}>
-          <div style={{ textAlign: 'center', marginBottom: 48 }}>
-            <div style={{ ...eyebrow(), justifyContent: 'center' }}>FAQ</div>
-            <h2 style={sectionTitle()}>Questions from<br />fellow physios.</h2>
-          </div>
-          <div className="faq-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {faqs.map((f, i) => <FaqItem key={i} {...f} delay={i * 80} />)}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <footer style={{
-        background: T.ink, color: T.white, padding: '60px 24px 36px',
-      }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 48, gap: 40, flexWrap: 'wrap' }} className="footer-top">
-            <div style={{ maxWidth: 300 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <div className="feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+            {[
+              /* ── Upper Row (4): Core Clinical Capabilities ── */
+              { icon: Layout, title: 'Branded Booking Portal', desc: 'A premium, white-labeled booking site with ₹ pricing, slot calendar & WhatsApp integration — built for Indian clinics.', img: '/assets/features/booking-portal.png' },
+              { icon: ShieldCheck, title: 'Super Admin Controls', desc: 'Manage clinics across Surat, Mumbai, Delhi from one dashboard. Approve, suspend, and track revenue in ₹.', img: '/assets/features/admin-controls.png' },
+              { icon: Activity, title: 'Patient Recovery Tracking', desc: 'Visualize recovery with pain calendars and VAS scores. Track patients like Amit Patel through their rehab journey.', img: '/assets/features/recovery-tracking.png' },
+              { icon: Globe, title: 'Custom Subdomains', desc: 'Every clinic gets a unique address — nijanand.onlinept.in, grace.onlinept.in — each with its own brand theme.', img: '/assets/features/custom-subdomains.png' },
+              /* ── Lower Row (4): Operational & Engagement ── */
+              { icon: Smartphone, title: 'Mobile-First Design', desc: 'Patients book in seconds from their phone. WhatsApp confirmation, ₹500 payment, and appointment reminders built in.', img: '/assets/features/mobile-first.png' },
+              { icon: BarChart3, title: 'Growth Analytics', desc: 'Deep insights in ₹ — monthly revenue, patient city breakdowns (Surat, Mumbai, Ahmedabad), and retention trends.', img: '/assets/features/growth-analytics.png' },
+              { icon: Video, title: 'Secure Video Consultations', desc: 'Conduct live tele-rehab sessions via WhatsApp or built-in video. Perfect for follow-ups and remote patient check-ins.', img: '/assets/features/video-consult.png' },
+              { icon: FileText, title: 'SOAP Notes & HEP Builder', desc: 'Clinical-grade documentation with structured SOAP notes and Home Exercise Programs — share PDFs directly with patients.', img: '/assets/features/soap-notes.png' },
+            ].map((f, i) => (
+              <div key={i} className="reveal" ref={addToRefs} style={{
+                borderRadius: 16, overflow: 'hidden',
+                background: T.white, transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                boxShadow: 'var(--shadow-card)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'var(--shadow-card)'; }}
+              >
+                {/* Feature Image */}
                 <div style={{
-                  width: 32, height: 32, borderRadius: 10,
-                  background: `linear-gradient(135deg, ${T.blue} 0%, #5AC8FA 100%)`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: '100%', aspectRatio: '4/3', overflow: 'hidden', position: 'relative',
+                  background: `linear-gradient(135deg, ${T.primaryLight}, #F0F4FF)`,
                 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                    <rect x="11" y="5" width="2" height="14" rx="1"/>
-                    <rect x="7" y="9" width="2" height="10" rx="1"/>
-                    <rect x="15" y="9" width="2" height="10" rx="1"/>
-                  </svg>
+                  <img src={f.img} alt={f.title} loading="lazy" style={{
+                    width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top',
+                    transition: 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.03)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                  />
                 </div>
-                <span style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 17, color: T.white }}>
-                  Online<span style={{ color: '#5AC8FA' }}>PT</span>
-                </span>
+                {/* Content */}
+                <div style={{ padding: '20px 20px 24px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10, background: T.primaryLight,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: T.primary, flexShrink: 0,
+                    }}>
+                      <f.icon size={20} />
+                    </div>
+                    <h3 style={{ fontSize: 17, fontWeight: 700, color: T.ink, letterSpacing: '-0.2px' }}>{f.title}</h3>
+                  </div>
+                  <p style={{ color: T.ink3, lineHeight: 1.6, fontSize: 15 }}>{f.desc}</p>
+                </div>
               </div>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
-                Professional online physiotherapy pages for clinicians across India. Built by a physio, for physios.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 60, flexWrap: 'wrap' }} className="footer-cols">
-              {[
-                { h: 'Platform', links: ['How It Works', 'Features', 'Your Page', 'Sign Up Free'] },
-                { h: 'Support', links: ['FAQ', 'Contact Us', 'WhatsApp Support'] },
-                { h: 'Legal', links: ['Privacy Policy', 'Terms of Service'] },
-              ].map(({ h, links }) => (
-                <div key={h}>
-                  <h5 style={{
-                    fontFamily: "'Manrope', sans-serif", fontSize: 13, fontWeight: 700,
-                    color: 'rgba(255,255,255,0.5)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 16,
-                  }}>{h}</h5>
-                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {links.map(l => (
-                      <li key={l}>
-                        <a href="#" style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', textDecoration: 'none', transition: 'color 0.2s' }}>{l}</a>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-          <div style={{
-            borderTop: '1px solid rgba(255,255,255,0.10)', paddingTop: 28,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
-          }}>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-              © 2025 OnlinePT · Your Online Physiotherapy Platform
+        </div>
+      </section>
+
+      {/* ── Mockup / Visual ──────────────────────────────────────────────── */}
+      <section id="solution" style={{ padding: 'var(--section-py) var(--section-px)', background: T.ink, color: T.white, textAlign: 'center' }}>
+         <div className="reveal" ref={addToRefs} style={{ maxWidth: 1200, margin: '0 auto' }}>
+            <h2 style={{ fontFamily: 'Manrope, sans-serif', fontSize: 'clamp(32px, 4vw, 56px)', fontWeight: 800, letterSpacing: '-2px', marginBottom: 24 }}>
+              The Premium Dashboard <br /> Your Practice <span style={{ color: T.primary }}>Deserves.</span>
+            </h2>
+            <p style={{ color: T.ink4, fontSize: 18, maxWidth: 600, margin: '0 auto 48px' }}>
+              Ditch the spreadsheets. Manage your clinic with the elegance of a Silicon Valley tech company.
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: T.blue }} />
-              All systems operational
+            
+            <div style={{
+              background: '#2C2C2E', borderRadius: 16, padding: '12px 16px 16px',
+              boxShadow: '0 40px 100px rgba(0,0,0,0.6)', border: '1px solid #3A3A3C',
+              position: 'relative', overflow: 'hidden'
+            }}>
+               <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF453A' }} />
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FFD60A' }} />
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#32D74B' }} />
+               </div>
+               <div style={{ background: '#1C1C1E', borderRadius: 8, padding: 4 }}>
+                  <img 
+                    src="/assets/features/dashboard-preview.png" 
+                    alt="OnlinePT Physio Dashboard Preview" 
+                    style={{ 
+                      width: '100%', 
+                      height: 'auto',
+                      borderRadius: 6,
+                      display: 'block',
+                      transition: 'transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+                    }} 
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                  />
+               </div>
+            </div>
+         </div>
+      </section>
+
+      {/* ── Pricing ──────────────────────────────────────────────────── */}
+      <section id="pricing" className="physio-bg" style={{ padding: 'var(--section-py) var(--section-px)', background: T.white }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div className="reveal" ref={addToRefs} style={{ textAlign: 'center', marginBottom: 64 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: T.primaryLight, padding: '8px 16px', borderRadius: 100, color: T.primary, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', marginBottom: 20 }}>
+              💎 Transparent Pricing
+            </div>
+            <h2 style={{ fontFamily: 'Manrope, sans-serif', fontSize: 'clamp(32px, 4vw, 48px)', fontWeight: 800, letterSpacing: '-1.5px', color: T.ink }}>
+              Simple, Honest <span style={{ color: T.primary }}>Pricing.</span>
+            </h2>
+            <p style={{ color: T.ink3, fontSize: 16, maxWidth: 500, margin: '16px auto 0', lineHeight: 1.6 }}>
+              No hidden fees. Start free and scale as your practice grows across India.
+            </p>
+          </div>
+
+          <div className="pricing-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20, alignItems: 'start' }}>
+            {/* Starter Plan */}
+            <div className="reveal" ref={addToRefs} style={{
+              borderRadius: 16, border: 'none', padding: 'clamp(24px, 5vw, 40px) clamp(20px, 4vw, 36px)',
+              background: T.white, transition: 'all 0.3s', boxShadow: 'var(--shadow-sm)',
+            }}>
+              <p style={{ fontSize: 12, fontWeight: 800, color: T.ink4, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 12 }}>Starter</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
+                <span style={{ fontSize: 48, fontWeight: 800, color: T.ink, letterSpacing: '-2px' }}>Free</span>
+              </div>
+              <p style={{ color: T.ink3, fontSize: 14, marginBottom: 32, lineHeight: 1.5 }}>Perfect for solo practitioners just getting started with online consultations.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 36 }}>
+                {['Branded booking portal', 'Up to 30 bookings/month', 'WhatsApp video integration', 'Basic patient records', '1 service type'].map(f => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: T.ink2 }}>
+                    <CheckCircle2 size={16} color={T.primary} style={{ flexShrink: 0 }} /> {f}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => document.getElementById('signup').scrollIntoView({ behavior: 'smooth' })} style={{
+                width: '100%', height: 56, borderRadius: 16, background: T.white, color: T.ink,
+                border: `2px solid ${T.border}`, fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}>
+                Get Started Free
+              </button>
+            </div>
+
+            {/* Growth Plan — Popular */}
+            <div className="reveal" ref={addToRefs} style={{
+              borderRadius: 16, border: `2px solid ${T.primary}`, padding: 'clamp(24px, 5vw, 40px) clamp(20px, 4vw, 36px)',
+              background: T.white, position: 'relative', boxShadow: `0 12px 40px ${T.primary}15`,
+              transform: 'scale(1.02)',
+            }}>
+              <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: T.primary, color: T.white, padding: '5px 16px', borderRadius: 100, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Most Popular
+              </div>
+              <p style={{ fontSize: 12, fontWeight: 800, color: T.primary, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 12 }}>Growth</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
+                <span style={{ fontSize: 48, fontWeight: 800, color: T.ink, letterSpacing: '-2px' }}>₹999</span>
+                <span style={{ fontSize: 14, color: T.ink4, fontWeight: 600 }}>/month</span>
+              </div>
+              <p style={{ color: T.ink3, fontSize: 14, marginBottom: 32, lineHeight: 1.5 }}>For growing clinics with multiple service types and serious about patient management.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 36 }}>
+                {['Everything in Starter', 'Unlimited bookings', 'Custom subdomain (clinic.onlinept.in)', '3 service types (Consult, Follow-up, Treatment)', 'Razorpay payment gateway', 'Recovery tracking & VAS scores', 'Growth analytics dashboard', 'Priority WhatsApp support'].map(f => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: T.ink2 }}>
+                    <CheckCircle2 size={16} color={T.primary} style={{ flexShrink: 0 }} /> {f}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => document.getElementById('signup').scrollIntoView({ behavior: 'smooth' })} style={{
+                width: '100%', height: 56, borderRadius: 16, background: T.primary, color: T.white,
+                border: 'none', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                boxShadow: `0 8px 24px ${T.primary}40`, transition: 'all 0.2s',
+              }}>
+                Start 14-Day Free Trial
+              </button>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="reveal" ref={addToRefs} style={{
+              borderRadius: 16, border: 'none', padding: 'clamp(24px, 5vw, 40px) clamp(20px, 4vw, 36px)',
+              background: T.white, transition: 'all 0.3s', boxShadow: 'var(--shadow-sm)',
+            }}>
+              <p style={{ fontSize: 12, fontWeight: 800, color: T.ink4, textTransform: 'uppercase', letterSpacing: '2px', marginBottom: 12 }}>Enterprise</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 8 }}>
+                <span style={{ fontSize: 48, fontWeight: 800, color: T.ink, letterSpacing: '-2px' }}>₹2,499</span>
+                <span style={{ fontSize: 14, color: T.ink4, fontWeight: 600 }}>/month</span>
+              </div>
+              <p style={{ color: T.ink3, fontSize: 14, marginBottom: 32, lineHeight: 1.5 }}>For multi-branch clinics and hospital chains needing full platform control.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 36 }}>
+                {['Everything in Growth', 'Multi-branch management', 'Unlimited service types & custom pricing', 'Multi-physio team support', 'SOAP notes & HEP builder', 'Invoicing & GST billing', 'Custom branding & logo', 'Dedicated account manager'].map(f => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: T.ink2 }}>
+                    <CheckCircle2 size={16} color={T.primary} style={{ flexShrink: 0 }} /> {f}
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => document.getElementById('signup').scrollIntoView({ behavior: 'smooth' })} style={{
+                width: '100%', height: 56, borderRadius: 16, background: T.ink, color: T.white,
+                border: 'none', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}>
+                Contact Sales
+              </button>
             </div>
           </div>
+
+          {/* Fee Customization Note */}
+          <div className="reveal" ref={addToRefs} style={{ textAlign: 'center', marginTop: 40, padding: '16px 20px', background: T.primaryLight, borderRadius: 12, maxWidth: 700, margin: '40px auto 0' }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: T.primary }}>
+              💡 Every clinician can set their own Consultation, Follow-up & Treatment charges from their Settings panel. Super Admins can define default templates.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Testimonials ─────────────────────────────────────────────── */}
+      <section id="testimonials" className="physio-bg" style={{ padding: 'var(--section-py) var(--section-px)', background: T.white }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <div className="reveal" ref={addToRefs} style={{ textAlign: 'center', marginBottom: 48 }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: T.primary, textTransform: 'uppercase', letterSpacing: '3px', marginBottom: 12 }}>Testimonials</p>
+            <h2 style={{ fontFamily: 'Manrope, sans-serif', fontSize: 'clamp(28px, 5vw, 42px)', fontWeight: 800, letterSpacing: '-1px', color: T.ink, marginBottom: 12 }}>
+              Trusted by <span style={{ color: T.primary }}>Clinicians</span> Across India
+            </h2>
+            <p style={{ color: T.ink3, fontSize: 16, maxWidth: 520, margin: '0 auto' }}>
+              Hear from physiotherapists who have transformed their practices with OnlinePT.
+            </p>
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: 20,
+          }}>
+            {[
+              {
+                name: 'Dr. Puja Panda',
+                title: 'Chief Physio, Vyom Advanced Pain & Sports Clinic',
+                location: 'Bhubaneswar',
+                image: '/assets/testimonials/dr-puja-panda.png',
+                quote: 'OnlinePT completely transformed how I manage my sports rehab patients. The video consultation feature alone saved me hours every week. My patients love the branded booking portal!',
+                rating: 5,
+              },
+              {
+                name: 'Dr. Aruna Koladiya',
+                title: 'Senior Physio and Yoga Trainer',
+                location: 'Nijanand Fitness Centre',
+                image: '/assets/testimonials/dr-aruna-koladiya.png',
+                quote: 'Setting up my clinic portal took less than 10 minutes. The SOAP notes and recovery tracking features are exactly what I needed. It feels like the platform was built by a physiotherapist!',
+                rating: 5,
+              },
+              {
+                name: 'Dr. Bhupat Sakariya',
+                title: 'Senior Ortho Physiotherapist At Sakariya Physiotherapy Clinic',
+                location: 'Ahmedabad',
+                image: '/assets/testimonials/dr-bhupat-sakariya.png',
+                quote: 'The analytics dashboard gives me insights I never had before — patient trends, revenue growth, appointment patterns. It\'s helped me make better decisions for my clinic\'s expansion.',
+                rating: 5,
+              },
+              {
+                name: 'Dr. Paresh Karad',
+                title: 'Senior Physiotherapist',
+                location: 'Pune',
+                image: '/assets/testimonials/dr-paresh-karad.png',
+                quote: 'My patients are impressed with the professional booking experience. The WhatsApp reminders reduced no-shows by 40%. I wish I found OnlinePT sooner — it\'s a game changer.',
+                rating: 5,
+              },
+            ].map((t, i) => (
+              <div className="reveal" ref={addToRefs} key={i} style={{
+                background: T.white,
+                borderRadius: 20,
+                padding: 28,
+                border: `1px solid ${T.border}`,
+                transition: 'all 0.3s',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 16,
+                boxShadow: 'var(--shadow-sm)',
+                height: '100%',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.08)'; e.currentTarget.style.transform = 'translateY(-4px)'; }}
+              onMouseLeave={e => { e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+              >
+                {/* Stars */}
+                <div style={{ display: 'flex', gap: 2 }}>
+                  {Array.from({ length: t.rating }).map((_, s) => (
+                    <Star key={s} size={16} fill="#FF9500" color="#FF9500" />
+                  ))}
+                </div>
+
+                {/* Quote */}
+                <p style={{
+                  fontSize: 14, lineHeight: 1.7, color: T.ink3, flex: 1,
+                  fontStyle: 'italic',
+                }}>
+                  "{t.quote}"
+                </p>
+
+                {/* Author */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderTop: `1px solid ${T.border}`, paddingTop: 16, marginTop: 'auto' }}>
+                  <img
+                    src={t.image}
+                    alt={t.name}
+                    style={{
+                      width: 48, height: 48, borderRadius: '50%',
+                      objectFit: 'cover', border: `2px solid ${T.primaryLight}`,
+                    }}
+                  />
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: 14, color: T.ink, marginBottom: 2 }}>{t.name}</p>
+                    <p style={{ fontSize: 12, color: T.ink4 }}>{t.title}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Signup Form ─────────────────────────────────────────────────── */}
+      <section id="signup" className="physio-bg" style={{ padding: 'var(--section-py) var(--section-px)', background: `linear-gradient(135deg, ${T.primaryLight} 0%, ${T.white} 100%)` }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
+          <div className="reveal" ref={addToRefs}>
+             <h2 style={{ fontFamily: 'Manrope, sans-serif', fontSize: 36, fontWeight: 800, marginBottom: 16 }}>Ready to transform?</h2>
+             <p style={{ color: T.ink3, marginBottom: 40, fontSize: 16 }}>Join 100+ clinicians building the future of physiotherapy in India.</p>
+             
+             <div className="signup-form-card" style={{ background: T.white, padding: 'clamp(24px, 5vw, 48px)', borderRadius: 24, boxShadow: 'var(--shadow-xl)', border: 'none' }}>
+                <form onSubmit={handleSignup} autoComplete="off" style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  
+                  {/* Grid fields */}
+                  <div className="signup-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, textAlign: 'left' }}>
+                    <div>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'block', paddingLeft: 4 }}>Full Name</label>
+                      <input required name="physioName" autoComplete="off" value={formData.physioName} onChange={handleChange} placeholder="Dr. Rajesh Kumar" style={{ width: '100%', height: 56, borderRadius: 16, border: `2px solid ${T.border}`, padding: '0 20px', fontSize: 16, outline: 'none' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'block', paddingLeft: 4 }}>Work Email</label>
+                      <input required type="email" name="email" autoComplete="off" value={formData.email} onChange={handleChange} placeholder="rajesh@physio.in" style={{ width: '100%', height: 56, borderRadius: 16, border: `2px solid ${T.border}`, padding: '0 20px', fontSize: 16, outline: 'none' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'block', paddingLeft: 4 }}>Mobile Number</label>
+                      <input required name="phone" autoComplete="off" value={formData.phone} onChange={handleChange} placeholder="+91 98765 43210" style={{ width: '100%', height: 56, borderRadius: 16, border: `2px solid ${T.border}`, padding: '0 20px', fontSize: 16, outline: 'none' }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'block', paddingLeft: 4 }}>Security Password</label>
+                      <input required type="password" name="password" autoComplete="new-password" value={formData.password} onChange={handleChange} placeholder="••••••••" style={{ width: '100%', height: 56, borderRadius: 16, border: `2px solid ${T.border}`, padding: '0 20px', fontSize: 16, outline: 'none' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'left' }}>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'block', paddingLeft: 4 }}>Your Unique Subdomain</label>
+                    <div style={{ display: 'flex', alignItems: 'center', background: '#F2F2F7', borderRadius: 16, border: `2px solid ${T.border}`, overflow: 'hidden' }}>
+                      <input
+                        required
+                        name="subdomain"
+                        value={formData.subdomain}
+                        onChange={handleChange}
+                        className="no-titlecase"
+                        placeholder="my-clinic"
+                        style={{ flex: 1, height: 56, border: 'none', background: 'transparent', padding: '0 20px', fontSize: 16, outline: 'none' }}
+                      />
+                      <span style={{ padding: '0 20px', fontWeight: 700, color: T.ink3, fontSize: 14 }}>.onlinept.in</span>
+                    </div>
+                  </div>
+                  
+                  <button disabled={isLoading} style={{
+                    height: 64, borderRadius: 100, background: T.primary, color: T.white,
+                    border: 'none', fontSize: 18, fontWeight: 800, marginTop: 12, cursor: 'pointer',
+                    boxShadow: `0 10px 30px ${T.primary}40`, transition: 'all 0.2s',
+                  }}>
+                    {isLoading ? 'Creating Your Portal...' : 'Get Early Access'}
+                  </button>
+                </form>
+             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ────────────────────────────────────────────────────── */}
+      <footer style={{ padding: '80px var(--section-px) 40px', background: T.white, borderTop: `1px solid ${T.border}` }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 60, marginBottom: 60 }}>
+              <div style={{ gridColumn: 'span 2' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+                    <img src="/logo.png" alt="OnlinePT" style={{ width: 40, height: 40, objectFit: 'contain' }} />
+                    <span style={{ fontWeight: 800, fontSize: 20 }}>OnlinePT</span>
+                 </div>
+                 <p style={{ color: T.ink3, lineHeight: 1.6, maxWidth: 300 }}>
+                    Modern clinical management for the next generation of physical therapists. Build your brand, manage your patients, and grow your practice.
+                 </p>
+              </div>
+              <div>
+                 <h4 style={{ fontWeight: 700, marginBottom: 20 }}>Network</h4>
+                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, color: T.ink3, fontSize: 14 }}>
+                    <li><a href="#" className="nav-link">Features</a></li>
+                    <li><a href="#" className="nav-link">Medical Partners</a></li>
+                    <li><Link to="/physio-signup" className="nav-link" style={{ color: T.primary }}>Join as Therapist</Link></li>
+                 </ul>
+              </div>
+              <div>
+                 <h4 style={{ fontWeight: 700, marginBottom: 20 }}>Support</h4>
+                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, color: T.ink3, fontSize: 14 }}>
+                    <li><Link to="/help" className="nav-link">Help Center</Link></li>
+                    <li><Link to="/privacy" className="nav-link">Privacy Policy</Link></li>
+                    <li><Link to="/contact" className="nav-link">Contact Us</Link></li>
+                 </ul>
+              </div>
+           </div>
+           
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20, paddingTop: 40, borderTop: `1px solid ${T.border}` }}>
+              <p style={{ fontSize: 12, color: T.ink4 }}>© 2026 OnlinePT Media. All rights reserved.</p>
+              <div style={{ display: 'flex', gap: 20 }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.ink4, fontSize: 12 }}>
+                    <ShieldCheck size={14} /> HIPAA Compliant
+                 </div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.ink4, fontSize: 12 }}>
+                    <Activity size={14} /> 99.9% Uptime
+                 </div>
+              </div>
+           </div>
         </div>
       </footer>
     </div>

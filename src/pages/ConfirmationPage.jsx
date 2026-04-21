@@ -1,265 +1,198 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import PageWrapper from '@/components/layout/PageWrapper';
-import Card from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import clinicConfig, { derivedConfig } from '@/config/clinicConfig';
-import {
-  CheckCircle2,
-  Video,
-  MessageCircle,
-  Calendar,
-  Clock,
-  Download,
-  Home,
-  Copy,
-  Check,
-  ArrowRight,
-  ShieldCheck,
-  Sparkles,
-  Zap,
-  Smartphone,
-  Info,
-  Shirt,
-  SunMedium,
-  Wifi,
-  FileText
-} from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { useLocation, useParams, useNavigate, Link } from 'react-router-dom';
+import { 
+   CheckCircle2, Calendar, Clock, MapPin, 
+   ChevronRight, ArrowRight, Download, Share2, 
+   Stethoscope, Activity, Sparkles, Wand2, Printer, X, FileText
+ } from 'lucide-react';
+import { db } from '../firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
 
-/**
- * Luxe ConfirmationPage — Designed as a "Premium Digital Ticket".
- * Optimized for celebration, clarity, and conversion.
- */
+const T = {
+  bg: '#0F172A',
+  ink: '#F8FAFC',
+  ink2: '#94A3B8',
+  glass: 'rgba(30, 41, 59, 0.4)',
+  border: 'rgba(255, 255, 255, 0.08)',
+};
+
 export default function ConfirmationPage() {
-  const { id: bookingId } = useParams();
-  const navigate = useNavigate();
+  const { id } = useParams();
   const location = useLocation();
-  const { demo } = location.state || {};
+  const navigate = useNavigate();
+  const summary = location.state || {};
+  
+  const [clinicData, setClinicData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showReceipt, setShowReceipt] = useState(false);
 
-  const booking = {
-    id: bookingId,
-    date: new Date(Date.now() + 86400000), // tomorrow
-    time: '10:00',
-    serviceName: location.state?.serviceName || 'Initial Consultation',
-    serviceDuration: location.state?.serviceDuration || clinicConfig.slotDurationMinutes,
-    videoMode: clinicConfig.videoMode,
-    status: demo ? 'demo' : 'confirmed',
-  };
+  const revealRefs = useRef([]);
+  const addToRefs = (el) => { if (el && !revealRefs.current.includes(el)) revealRefs.current.push(el); };
 
-  const meetingUrl = `/join/${bookingId}`;
-  const [copied, setCopied] = useState(false);
-
-  // SEO Meta Update
   useEffect(() => {
-    document.title = `Booking Confirmed | Physio On Web`;
-  }, []);
+    async function fetchClinic() {
+      if (summary.clinicId) {
+        const snap = await getDoc(doc(db, 'clinics', summary.clinicId));
+        if (snap.exists()) setClinicData(snap.data());
+      }
+      setLoading(false);
+    }
+    if (Object.keys(summary).length === 0 && !id) {
+      navigate('/');
+      return;
+    }
+    fetchClinic();
 
-  const generateICS = () => {
-    const start = new Date(`${booking.date.toISOString().split('T')[0]}T${booking.time}:00`);
-    const end = new Date(start.getTime() + booking.serviceDuration * 60000);
-    const pad = (n) => String(n).padStart(2, '0');
-    const fmt = (d) =>
-      `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
-    const ics = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//PhysioOnWeb//EN',
-      'BEGIN:VEVENT',
-      `UID:${bookingId}@physioonweb`,
-      `DTSTART:${fmt(start)}`,
-      `DTEND:${fmt(end)}`,
-      `SUMMARY:Physio On Web - ${booking.serviceName}`,
-      `DESCRIPTION:Physiotherapy consultation with ${clinicConfig.physioName}. Join: ${window.location.origin}${meetingUrl}`,
-      `LOCATION:${clinicConfig.videoMode === 'zoom' ? 'Zoom' : clinicConfig.videoMode === 'meet' ? 'Google Meet' : 'WhatsApp'}`,
-      'END:VEVENT',
-      'END:VCALENDAR',
-    ].join('\r\n');
-    const blob = new Blob([ics], { type: 'text/calendar' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `physio-consultation-${bookingId}.ics`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('active'); });
+    }, { threshold: 0.1 });
+    const timer = setTimeout(() => { revealRefs.current.forEach(el => el && obs.observe(el)); }, 100);
+    return () => { obs.disconnect(); clearTimeout(timer); };
+  }, [summary.clinicId]);
 
-  const copyBookingId = () => {
-    navigator.clipboard.writeText(bookingId).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
+  const pColor = clinicData?.primaryColor || '#10B981';
 
-  const whatsappText = encodeURIComponent(
-    `Hi! I just booked a physiotherapy consultation with ${clinicConfig.clinicName} for ${booking.date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })} at ${booking.time}. Booking ID: ${bookingId}. Looking forward to it!`
-  );
-
-  const videoLabel =
-    clinicConfig.videoMode === 'zoom' ? 'Zoom Meeting' :
-    clinicConfig.videoMode === 'meet' ? 'Google Meet' : 'WhatsApp Video';
+  if (loading) return null;
 
   return (
-    <PageWrapper className="bg-gray-50/50 min-h-screen">
-      <div className="max-w-4xl mx-auto py-12 px-6">
-        
-        {/* Success Header (Elite Animation) */}
-        <div className="text-center mb-16 animate-in zoom-in-95 duration-500">
-          <div className="relative inline-block mb-8">
-             <div className="absolute inset-0 bg-primary/20 blur-[60px] rounded-full scale-150 animate-pulse" />
-             <div 
-               className="relative w-24 h-24 rounded-[2.5rem] mx-auto flex items-center justify-center shadow-2xl shadow-primary/30"
-               style={{ backgroundColor: clinicConfig.primaryColor }}
-             >
-                <CheckCircle2 size={48} className="text-white" />
-             </div>
-             <div className="absolute -top-2 -right-2 w-10 h-10 bg-white rounded-2xl shadow-xl flex items-center justify-center text-primary animate-bounce">
-                <Sparkles size={20} />
-             </div>
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-black text-gray-900 tracking-tight mb-3">
-             {demo ? 'Launch Activated!' : 'You\'re All Set!'}
-          </h1>
-          <p className="text-lg text-gray-500 font-bold max-w-lg mx-auto leading-relaxed">
-             {demo 
-               ? 'This is a demo booking. In production, your session would be live now.' 
-               : 'Your expert physiotherapy session is confirmed. Let\'s start your journey to recovery.'}
-          </p>
-          <button 
-            onClick={copyBookingId} 
-            className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-100 rounded-2xl text-xs font-black uppercase tracking-widest text-gray-400 hover:text-primary hover:border-primary transition-all shadow-sm"
-          >
-            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-            {copied ? 'Link Copied!' : `Booking ID: ${bookingId}`}
-          </button>
-        </div>
+    <div style={{ background: '#09090B', color: '#F8FAFC', minHeight: '100vh', fontFamily: "'Manrope', sans-serif" }}>
+       <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&display=swap');
+          .reveal { opacity: 0; transform: translateY(20px); transition: all 1s cubic-bezier(0.16, 1, 0.3, 1); }
+          .reveal.active { opacity: 1; transform: translateY(0); }
+          .glass-card { background: rgba(30, 41, 59, 0.4); backdrop-filter: blur(40px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 40px; }
+          .glow-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 40px ${pColor}40; filter: brightness(1.2); }
+       `}</style>
+       
+       <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: `radial-gradient(circle at 10% 10%, ${pColor}10 0%, transparent 40%), radial-gradient(circle at 90% 90%, ${pColor}05 0%, transparent 40%)`, pointerEvents: 'none' }}></div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+       <div style={{ position: 'relative', zIndex: 1, maxWidth: 800, margin: '0 auto', padding: '100px 24px 120px' }}>
           
-          {/* Laterial Ticket Area */}
-          <div className="md:col-span-12 lg:col-span-8 space-y-10">
-            
-            {/* The Digital Ticket (Perforated Style) */}
-            <div className="relative group">
-               {/* Left and Right Perforations (Visual Design) */}
-               <div className="absolute top-1/2 -left-4 w-8 h-8 rounded-full bg-gray-50 z-10 -translate-y-1/2 border-r border-[#eee]" />
-               <div className="absolute top-1/2 -right-4 w-8 h-8 rounded-full bg-gray-50 z-10 -translate-y-1/2 border-l border-[#eee]" />
-               
-               <Card className="p-0 border-none rounded-[3.5rem] overflow-hidden shadow-2xl shadow-gray-200/50 bg-white">
-                  <div className="p-10 border-b-2 border-dashed border-gray-100 relative">
-                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-6 flex items-center gap-2">
-                        <Zap size={12} className="text-primary" /> Session Entry Pass
-                     </p>
-                     <div className="flex justify-between items-start gap-10">
-                        <div className="space-y-1 text-left">
-                           <h2 className="text-3xl font-black text-gray-900 leading-tight">{booking.serviceName}</h2>
-                           <p className="text-sm font-bold text-gray-400">{clinicConfig.physioName} · {booking.serviceDuration} Min</p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                           <p className="text-xs font-black uppercase text-gray-400 mb-1">Status</p>
-                           <Badge variant={demo ? 'warning' : 'success'} size="lg" className="rounded-xl px-4 py-2 text-[10px] font-black uppercase">Confirmed</Badge>
-                        </div>
-                     </div>
-                  </div>
-                  
-                  <div className="p-10 grid grid-cols-1 sm:grid-cols-2 gap-10 bg-gray-50/10">
-                     <div className="flex items-center gap-4 text-left">
-                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-primary"><Calendar size={20} /></div>
-                        <div>
-                           <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Appointment Date</p>
-                           <p className="text-sm font-black text-gray-900">{booking.date.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-4 text-left">
-                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-primary"><Clock size={20} /></div>
-                        <div>
-                           <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Consultation Time</p>
-                           <p className="text-sm font-black text-gray-900">{booking.time} AM (India Time)</p>
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-4 text-left">
-                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-primary"><Video size={20} /></div>
-                        <div>
-                           <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Live Platform</p>
-                           <p className="text-sm font-black text-gray-900">{videoLabel}</p>
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-4 text-left">
-                        <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-primary"><Smartphone size={20} /></div>
-                        <div>
-                           <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Mobile Support</p>
-                           <p className="text-sm font-black text-gray-900">Push Notifications ON</p>
-                        </div>
-                     </div>
-                  </div>
-               </Card>
-            </div>
+          <div ref={addToRefs} className="reveal" style={{ textAlign: 'center', marginBottom: 60 }}>
+             <div style={{ width: 96, height: 96, borderRadius: 32, background: `linear-gradient(135deg, ${pColor}, #FFF0)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 32px', boxShadow: `0 30px 60px ${pColor}30` }}>
+                <CheckCircle2 size={48} color="#FFF" />
+             </div>
+             <h1 style={{ fontSize: 'clamp(32px, 8vw, 56px)', fontWeight: 800, letterSpacing: '-0.05em', lineHeight: 1 }}>Appointment <span style={{ color: pColor }}>Confirmed</span></h1>
+             <p style={{ fontSize: 18, color: '#94A3B8', marginTop: 20, maxWidth: 500, margin: '20px auto 0', lineHeight: 1.6 }}>Your clinical consultation has been secured and a confirmation is on its way to your WhatsApp.</p>
+          </div>
 
-            {/* Preparation Checklist */}
-            <div className="space-y-6 text-left">
-               <p className="text-xs font-black uppercase tracking-widest text-gray-400 pl-4 border-l-2 border-primary">Preparation Checklist</p>
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { text: 'Wear comfortable exercise clothing', icon: Shirt },
-                    { text: 'Find a well-lit, quiet room', icon: SunMedium },
-                    { text: 'Ensure high-speed stable internet', icon: Wifi },
-                    { text: 'Keep medical reports handy', icon: FileText },
-                  ].map((tip, i) => (
-                    <div key={i} className="flex items-center gap-4 p-5 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                       <div className="w-10 h-10 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shrink-0"><tip.icon size={18} /></div>
-                       <p className="text-xs font-bold text-gray-600 leading-snug">{tip.text}</p>
-                    </div>
-                  ))}
+          <div ref={addToRefs} className="reveal glass-card" style={{ padding: 48, marginBottom: 40, border: `2px solid ${pColor}30` }}>
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32 }}>
+                <div>
+                   <label style={{ fontSize: 11, fontWeight: 800, color: pColor, textTransform: 'uppercase', letterSpacing: '2px', display: 'block', marginBottom: 12 }}>Consultation For</label>
+                   <p style={{ fontSize: 20, fontWeight: 700 }}>{summary.serviceName || 'Physical Therapy Session'}</p>
+                   <p style={{ fontSize: 14, color: '#64748B', marginTop: 8 }}>Booking ID: {id.slice(-8)}</p>
+                </div>
+                <div>
+                   <label style={{ fontSize: 11, fontWeight: 800, color: pColor, textTransform: 'uppercase', letterSpacing: '2px', display: 'block', marginBottom: 12 }}>Time & Date</label>
+                   <p style={{ fontSize: 20, fontWeight: 700 }}>{summary.dateDisplay || summary.date}</p>
+                   <p style={{ fontSize: 14, color: '#64748B', marginTop: 8 }}>{summary.slotLabel || summary.slot?.time}</p>
+                </div>
+             </div>
+
+             <div style={{ marginTop: 48, paddingTop: 32, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                   <div style={{ width: 52, height: 52, borderRadius: 16, background: '#1E293B', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Activity size={24} color={pColor} /></div>
+                   <div>
+                      <p style={{ fontSize: 15, fontWeight: 800 }}>{clinicData?.clinicName || 'Clinic'}</p>
+                      <p style={{ fontSize: 13, color: '#64748B' }}>Physiotherapy Excellence</p>
+                   </div>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 700, background: 'rgba(16,185,129,0.1)', color: '#10B981', padding: '8px 16px', borderRadius: 100 }}>Payment Received</div>
+             </div>
+          </div>
+
+          <div ref={addToRefs} className="reveal glass-card" style={{ padding: 40, background: `linear-gradient(225deg, rgba(30,41,59,0.6) 0%, rgba(15,23,42,0.9) 100%)`, border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+             <div style={{ display: 'flex', alignItems: 'start', gap: 16 }}>
+                <div style={{ minWidth: 28, height: 28, borderRadius: 8, background: `${pColor}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pColor }}><Sparkles size={16} /></div>
+                <div>
+                   <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Check your WhatsApp</p>
+                   <p style={{ fontSize: 13, color: '#94A3B8' }}>A detailed preparation guide and session link have been sent to you.</p>
+                </div>
+             </div>
+             <div style={{ display: 'flex', alignItems: 'start', gap: 16 }}>
+                <div style={{ minWidth: 28, height: 28, borderRadius: 8, background: `${pColor}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: pColor }}><CheckCircle2 size={16} /></div>
+                <div>
+                   <p style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Receipt Sent</p>
+                   <p style={{ fontSize: 13, color: '#94A3B8' }}>Your digital invoice has been dispatched to your email address.</p>
+                </div>
+             </div>
+          </div>
+
+          <div ref={addToRefs} className="reveal" style={{ marginTop: 60, display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
+             <button onClick={() => navigate('/')} className="glow-btn" style={{ height: 64, padding: '0 40px', borderRadius: 20, background: 'rgba(255,255,255,0.05)', color: '#FFF', border: `1px solid ${pColor}40`, fontSize: 16, fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s' }}>
+                Done, Return Home
+             </button>
+             <button onClick={() => setShowReceipt(true)} className="glow-btn" style={{ height: 64, padding: '0 40px', borderRadius: 20, background: pColor, color: '#FFF', border: 'none', fontSize: 16, fontWeight: 800, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <FileText size={20} /> Generate Receipt
+             </button>
+          </div>
+
+          {/* 🧾 Digital Receipt Modal */}
+          {showReceipt && (
+            <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+               <div style={{ background: '#FFF', color: '#1E293B', width: '100%', maxWidth: 500, borderRadius: 32, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,0.5)', animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                  <div style={{ padding: '32px 40px', background: '#F8FAFC', borderBottom: '1px dashed #CBD5E1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <div>
+                        <h2 style={{ fontSize: 18, fontWeight: 900, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '1px' }}>Payment Receipt</h2>
+                        <p style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>TXN ID: #{id.slice(-8).toUpperCase()}</p>
+                     </div>
+                     <button onClick={() => setShowReceipt(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={24} /></button>
+                  </div>
+                  <div style={{ padding: 40 }}>
+                     <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                        {clinicData?.logo ? (
+                           <img src={clinicData.logo} style={{ height: 40, marginBottom: 16, objectFit: 'contain' }} alt="Logo" />
+                        ) : (
+                           <div style={{ width: 44, height: 44, background: pColor, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: 20, fontWeight: 900, color: '#FFF' }}>{clinicData?.clinicName?.charAt(0) || 'C'}</div>
+                        )}
+                        <h3 style={{ fontSize: 16, fontWeight: 800 }}>{clinicData?.clinicName}</h3>
+                        <p style={{ fontSize: 13, color: '#64748B' }}>{clinicData?.address?.split(',')[0]} • {clinicData?.phone}</p>
+                     </div>
+
+                     <div style={{ display: 'grid', gap: 16, padding: '24px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                           <span style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>Patient Name</span>
+                           <span style={{ fontSize: 13, fontWeight: 700 }}>{summary.patientName || 'Patient'}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                           <span style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>Consultation</span>
+                           <span style={{ fontSize: 13, fontWeight: 700 }}>{summary.serviceName}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                           <span style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>Date & Time</span>
+                           <span style={{ fontSize: 13, fontWeight: 700 }}>{summary.dateDisplay} • {summary.slotLabel}</span>
+                        </div>
+                     </div>
+
+                     <div style={{ marginTop: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                           <p style={{ fontSize: 11, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase' }}>Amount Paid</p>
+                           <h2 style={{ fontSize: 32, fontWeight: 900, color: '#0F172A' }}>₹{summary.servicePrice || '500'}</h2>
+                        </div>
+                        <div style={{ border: `2px solid ${pColor}`, color: pColor, padding: '6px 16px', borderRadius: 8, fontSize: 14, fontWeight: 900, transform: 'rotate(-5deg)', opacity: 0.8 }}>PAID</div>
+                     </div>
+
+                     <div style={{ marginTop: 40, display: 'flex', gap: 12 }}>
+                        <button onClick={() => window.print()} style={{ flex: 1, height: 48, borderRadius: 12, background: '#F1F5F9', border: 'none', color: '#1E293B', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                           <Printer size={16} /> Print
+                        </button>
+                        <button style={{ flex: 1, height: 48, borderRadius: 12, background: pColor, border: 'none', color: '#FFF', fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                           <Download size={16} /> Download
+                        </button>
+                     </div>
+                  </div>
                </div>
+               <style>{`
+                  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+               `}</style>
             </div>
-          </div>
+          )}
+       </div>
 
-          {/* Sticky Actions Sidebar */}
-          <div className="md:col-span-12 lg:col-span-4 space-y-6">
-             <Card className="p-8 rounded-[3rem] bg-gray-900 text-white border-none shadow-2xl shadow-gray-900/40">
-                <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center mb-6" style={{ backgroundColor: clinicConfig.primaryColor }}>
-                   <Video size={28} className="text-white" />
-                </div>
-                <h3 className="text-xl font-black mb-2 tracking-tight">Access Virtual Room</h3>
-                <p className="text-gray-400 text-sm font-bold mb-8 leading-relaxed">Your secure room opens 5 minutes before scheduled time.</p>
-                <Link to={meetingUrl}>
-                   <Button fullWidth className="h-16 rounded-[1.8rem] shadow-2xl shadow-primary/20 bg-white text-gray-900 hover:bg-white/90">
-                      Join Live Session <ArrowRight size={18} className="ml-2" />
-                   </Button>
-                </Link>
-             </Card>
-
-             <div className="space-y-4">
-                <Button variant="outline" fullWidth onClick={generateICS} className="h-14 rounded-2xl border-gray-200">
-                   <Calendar size={18} className="mr-2" /> Google Calendar
-                </Button>
-                <a
-                  href={`https://wa.me/${derivedConfig.whatsappClean}?text=${whatsappText}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block"
-                >
-                  <Button variant="outline" fullWidth className="h-14 rounded-2xl border-gray-200">
-                    <MessageCircle size={18} className="mr-2" /> Share via WhatsApp
-                  </Button>
-                </a>
-                <Button variant="ghost" fullWidth onClick={() => navigate('/')} className="h-14 rounded-2xl text-gray-400 font-bold uppercase tracking-widest text-[10px]">
-                   <Home size={18} className="mr-2" /> Go to Home
-                </Button>
-             </div>
-
-             <div className="p-6 bg-yellow-50/50 rounded-3xl border border-yellow-100">
-                <div className="flex items-center gap-3 text-yellow-700 font-black uppercase text-[10px] tracking-widest mb-2">
-                   <Info size={14} /> Need Help?
-                </div>
-                <p className="text-[11px] text-yellow-800/80 font-medium leading-relaxed">
-                   If you need to reschedule or cancel, please contact the clinic at least 4 hours in advance at <b className="text-yellow-900">{clinicConfig.phone}</b>.
-                </p>
-             </div>
-          </div>
-
-        </div>
-      </div>
-    </PageWrapper>
+       <footer style={{ padding: '60px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.03)', background: '#09090B' }}>
+          <p style={{ fontSize: 12, fontWeight: 800, color: '#475569', letterSpacing: '4px', textTransform: 'uppercase' }}>Workflow Secured by OnlinePT</p>
+       </footer>
+    </div>
   );
 }

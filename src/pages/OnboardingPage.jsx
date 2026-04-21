@@ -61,7 +61,17 @@ export default function OnboardingPage() {
     secondaryColor: B.accent,
     features: { payments: true, hepBuilder: true, soapNotes: true, invoicing: true, analytics: true },
     videoMode: 'whatsapp',
-    workingHours: { days: [1, 2, 3, 4, 5], start: '09:00', end: '18:00' },
+    workingHours: {
+      schedule: {
+        0: { isOpen: false, shifts: [] }, 
+        1: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+        2: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+        3: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+        4: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+        5: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
+        6: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }] },
+      }
+    },
   });
 
   const update = (key, val) => setData((d) => ({ ...d, [key]: val }));
@@ -85,12 +95,68 @@ export default function OnboardingPage() {
     setData((d) => ({ ...d, services: d.services.filter((_, i) => i !== idx) }));
   };
 
-  const toggleDay = (val) => {
-    setData((d) => {
-      const days = d.workingHours.days.includes(val)
-        ? d.workingHours.days.filter((x) => x !== val)
-        : [...d.workingHours.days, val];
-      return { ...d, workingHours: { ...d.workingHours, days } };
+  const handleDayToggle = (dayId, isOpen) => {
+    setData(p => ({
+      ...p,
+      workingHours: {
+        ...p.workingHours,
+        schedule: {
+          ...p.workingHours.schedule,
+          [dayId]: { 
+            isOpen, 
+            shifts: isOpen ? [{ start: '09:00', end: '13:00' }] : [] 
+          }
+        }
+      }
+    }));
+  };
+
+  const handleShiftChange = (dayId, shiftIdx, field, val) => {
+    setData(p => {
+      const shifts = [...p.workingHours.schedule[dayId].shifts];
+      shifts[shiftIdx] = { ...shifts[shiftIdx], [field]: val };
+      return {
+        ...p,
+        workingHours: {
+          ...p.workingHours,
+          schedule: {
+            ...p.workingHours.schedule,
+            [dayId]: { ...p.workingHours.schedule[dayId], shifts }
+          }
+        }
+      };
+    });
+  };
+
+  const addShift = (dayId) => {
+    setData(p => {
+      const shifts = [...p.workingHours.schedule[dayId].shifts, { start: '16:00', end: '20:00' }];
+      return {
+        ...p,
+        workingHours: {
+          ...p.workingHours,
+          schedule: {
+            ...p.workingHours.schedule,
+            [dayId]: { ...p.workingHours.schedule[dayId], shifts }
+          }
+        }
+      };
+    });
+  };
+
+  const removeShift = (dayId, shiftIdx) => {
+    setData(p => {
+      const shifts = p.workingHours.schedule[dayId].shifts.filter((_, i) => i !== shiftIdx);
+      return {
+        ...p,
+        workingHours: {
+          ...p.workingHours,
+          schedule: {
+            ...p.workingHours.schedule,
+            [dayId]: { ...p.workingHours.schedule[dayId], shifts }
+          }
+        }
+      };
     });
   };
 
@@ -341,49 +407,48 @@ export default function OnboardingPage() {
           )}
 
           {step === 5 && (
-            <div className="space-y-5">
-              <h2 className="font-semibold text-text-primary">Working Hours</h2>
-              <div>
-                <label className="text-xs text-text-secondary uppercase tracking-wide mb-2 block">Active Days</label>
-                <div className="flex flex-wrap gap-2">
-                  {DAYS.map(({ value, label }) => (
-                    <button
-                      key={value}
-                      onClick={() => toggleDay(value)}
-                      className="w-10 h-10 rounded-full text-xs font-medium border transition-colors"
-                      style={data.workingHours.days.includes(value) ? { backgroundColor: data.primaryColor, borderColor: data.primaryColor, color: 'white' } : { borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">Start Time</label>
-                  <input
-                    type="time"
-                    value={data.workingHours.start}
-                    onChange={(e) => update('workingHours', { ...data.workingHours, start: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">End Time</label>
-                  <input
-                    type="time"
-                    value={data.workingHours.end}
-                    onChange={(e) => update('workingHours', { ...data.workingHours, end: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-              <div className="p-4 rounded-xl bg-surface border border-border">
-                <p className="text-xs text-text-secondary uppercase tracking-wide mb-1">Clinic Schedule</p>
-                <p className="text-sm text-text-primary font-medium">
-                  {data.workingHours.days.length === 0 ? 'No days selected' :
-                    `${data.workingHours.start} – ${data.workingHours.end} on ${data.workingHours.days.map((d) => DAYS.find((x) => x.value === d)?.label).join(', ')}`}
-                </p>
+            <div className="space-y-4">
+              <h2 className="font-semibold text-text-primary">Clinic Hours</h2>
+              <p className="text-sm text-text-secondary">Setup your shifts. Supports split timings.</p>
+              <div className="space-y-3 mt-2">
+                {[
+                  {id: 1, name: 'Monday'}, {id: 2, name: 'Tuesday'}, {id: 3, name: 'Wednesday'},
+                  {id: 4, name: 'Thursday'}, {id: 5, name: 'Friday'}, {id: 6, name: 'Saturday'},
+                  {id: 0, name: 'Sunday'}
+                ].map(day => {
+                   const conf = data.workingHours.schedule[day.id];
+                   return (
+                     <div key={day.id} className="flex flex-col sm:flex-row sm:items-start gap-2 p-3 bg-surface border border-border rounded-lg">
+                       <div className="flex items-center gap-2 w-28 mt-1.5">
+                         <input type="checkbox" checked={conf.isOpen} onChange={e => handleDayToggle(day.id, e.target.checked)} className="rounded border-border text-primary" />
+                         <span className="text-sm font-semibold text-text-primary">{day.name}</span>
+                       </div>
+                       
+                       {conf.isOpen ? (
+                         <div className="flex flex-col gap-2 flex-1">
+                           {conf.shifts.map((shift, idx) => (
+                              <div key={idx} className="flex items-center gap-2 flex-wrap">
+                                 <span className="text-xs text-text-secondary w-12">{idx === 0 ? 'Shift 1' : 'Shift 2'}</span>
+                                 <input type="time" value={shift.start} onChange={e => handleShiftChange(day.id, idx, 'start', e.target.value)} className="text-xs p-1 px-2 border rounded border-border" />
+                                 <span className="text-text-secondary text-xs">to</span>
+                                 <input type="time" value={shift.end} onChange={e => handleShiftChange(day.id, idx, 'end', e.target.value)} className="text-xs p-1 px-2 border rounded border-border" />
+                                 {idx === 1 && (
+                                   <button type="button" onClick={() => removeShift(day.id, idx)} className="text-error hover:opacity-80 p-1 rounded">
+                                      <Trash2 size={12} />
+                                   </button>
+                                 )}
+                                 {idx === 0 && conf.shifts.length === 1 && (
+                                   <button type="button" onClick={() => addShift(day.id)} className="text-primary hover:opacity-80 p-1 rounded text-xs font-semibold">+ Add Noon Break</button>
+                                 )}
+                              </div>
+                           ))}
+                         </div>
+                       ) : (
+                         <span className="text-sm text-text-secondary italic mt-1.5">Closed</span>
+                       )}
+                     </div>
+                   )
+                })}
               </div>
             </div>
           )}

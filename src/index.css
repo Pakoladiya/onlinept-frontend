@@ -136,4 +136,9 @@
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
+
+  /* iOS safe-area padding for mobile nav */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
