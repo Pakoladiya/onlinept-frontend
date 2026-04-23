@@ -37,3 +37,20 @@ Thumbs.db
 dev-dist/
 
 .vercel
+.gemini/
+.antigravity/
+.claude/
+.playwright-mcp/
+playwright-report/
+test-results/
+*.db
+*.db-shm
+*.db-wal
+scratch/
+id_ed25519*
+temp_error.txt
+check_vps_ports.ps1
+setup_ssl.py
+mcp_vps_bridge.py
+mcp_test.json
+

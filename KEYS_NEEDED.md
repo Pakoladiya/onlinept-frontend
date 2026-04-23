@@ -36,6 +36,8 @@
 | `FIREBASE_PROJECT_ID` | Firebase Console → Project Settings | Token verification |
 | `FIREBASE_CLIENT_EMAIL` | Firebase Console → Project Settings → Service Accounts | Token verification |
 | `FIREBASE_PRIVATE_KEY` | Firebase Console → Project Settings → Service Accounts → Generate new private key | Token verification |
+| `WHATSAPP_PHONE_ID` | Meta for Developers → WhatsApp → API Setup | WhatsApp notifications |
+| `WHATSAPP_ADMIN_TOKEN` | (Configured ✅) | WhatsApp notifications |
 
 ### Firebase Admin Setup
 

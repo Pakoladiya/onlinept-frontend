@@ -19,7 +19,20 @@ const PORT = process.env.PORT || 5001;
 
 // ── Middleware ────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow if no origin (like mobile apps or curl) or if it's our domain/localhost
+    const allowed = !origin || 
+                   origin.endsWith('onlinept.in') || 
+                   origin.includes('localhost') ||
+                   origin.includes('127.0.0.1');
+    
+    if (allowed) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Blocked request from origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 

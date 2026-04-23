@@ -104,10 +104,37 @@ export default function IntakeFormPage() {
 
   const handleUpdate = (section, field, value) => {
     setIntakeData(p => ({ ...p, [section]: { ...p[section], [field]: value } }));
+    if (errors[field]) setErrors(prev => {
+      const n = { ...prev };
+      delete n[field];
+      return n;
+    });
+  };
+
+  const [errors, setErrors] = useState({});
+
+  const validate = () => {
+    const newErrors = {};
+    const { personalInfo, clinicalInfo } = intakeData;
+    
+    if (!personalInfo.fullName) newErrors.fullName = 'Full name is required';
+    if (!personalInfo.age) newErrors.age = 'Age is required';
+    if (!personalInfo.gender) newErrors.gender = 'Gender is required';
+    if (!personalInfo.whatsapp) newErrors.whatsapp = 'WhatsApp number is required';
+    if (!personalInfo.email) newErrors.email = 'Email is required';
+    if (!clinicalInfo.primaryComplaint) newErrors.primaryComplaint = 'Please describe your complaint';
+    if (!clinicalInfo.duration) newErrors.duration = 'Please specify duration';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleNext = async (e) => {
     e.preventDefault();
+    if (!validate()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setLoading(true);
     await new Promise(r => setTimeout(r, 800));
     navigate(`/payment/${bookingId}`, { 
@@ -117,6 +144,15 @@ export default function IntakeFormPage() {
         clinicName: clinicData?.clinicName || initialData.clinicName
       } 
     });
+  };
+
+  const VAS_COLORS = ['#22c55e','#4ade80','#84cc16','#eab308','#f97316','#ef4444','#dc2626'];
+  const getVasColor = (val) => {
+    if (val <= 2) return VAS_COLORS[0];
+    if (val <= 4) return VAS_COLORS[2];
+    if (val <= 6) return VAS_COLORS[3];
+    if (val <= 8) return VAS_COLORS[4];
+    return VAS_COLORS[6];
   };
 
   return (
@@ -159,6 +195,36 @@ export default function IntakeFormPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 16 }}>
                       <LuxeInput label="WhatsApp Number" value={intakeData.personalInfo.whatsapp} onChange={v => handleUpdate('personalInfo', 'whatsapp', v)} color={pColor} icon={Phone} required />
                       <LuxeInput label="Email Address" value={intakeData.personalInfo.email} onChange={v => handleUpdate('personalInfo', 'email', v)} color={pColor} icon={Mail} required />
+                  </div>
+                  {Object.keys(errors).length > 0 && <p style={{ color: '#EF4444', fontSize: 13, fontWeight: 700, marginTop: 16 }}>Please fill all required fields marked with *</p>}
+                </div>
+              </Reveal>
+
+              <Reveal delay={0.25}>
+                <div className="glass-card" style={{ padding: 40, marginBottom: 32, textAlign: 'center' }}>
+                  <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                      <Activity size={20} style={{ color: pColor }} /> Pain Assessment
+                  </h3>
+                  <p style={{ color: '#94A3B8', fontSize: 14, marginBottom: 32 }}>On a scale of 0-10, how would you rate your pain right now?</p>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
+                    <div style={{ fontSize: 64, fontWeight: 900, color: getVasColor(intakeData.clinicalInfo.vasScore || 0), textShadow: `0 0 30px ${getVasColor(intakeData.clinicalInfo.vasScore || 0)}40` }}>
+                      {intakeData.clinicalInfo.vasScore || 0}
+                    </div>
+                    <input 
+                      type="range" min="0" max="10" 
+                      value={intakeData.clinicalInfo.vasScore || 0}
+                      onChange={e => handleUpdate('clinicalInfo', 'vasScore', parseInt(e.target.value))}
+                      style={{ 
+                        width: '100%', maxWidth: 400, height: 8, borderRadius: 10, appearance: 'none', 
+                        background: `linear-gradient(to right, #22C55E, #EAB308, #EF4444)`, cursor: 'pointer'
+                      }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', maxWidth: 400, fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      <span>No Pain</span>
+                      <span>Moderate</span>
+                      <span>Worst</span>
+                    </div>
                   </div>
                 </div>
               </Reveal>

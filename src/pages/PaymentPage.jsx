@@ -61,7 +61,13 @@ export default function PaymentPage() {
   }, [bookingData.clinicId]);
 
   const pColor = clinicData?.primaryColor || '#007AFF';
-  const totalPrice = bookingData.servicePrice || 0;
+  
+  const fmt = (val) => {
+    if (val === undefined || val === null || isNaN(val)) return '0';
+    return Number(val).toLocaleString('en-IN');
+  };
+
+  const totalPrice = bookingData.servicePrice || clinicData?.consultationFee || 0;
 
   const handlePayment = async () => {
     if (!razorpayKey) {
@@ -202,7 +208,7 @@ export default function PaymentPage() {
                 <Metric label="Consultation" value={bookingData.serviceName} />
                 <Metric label="Date & Time" value={`${bookingData.dateDisplay || bookingData.date} • ${bookingData.slotLabel || bookingData.slot?.time}`} />
                 <Metric label="Patient" value={intakeData?.personalInfo?.fullName || 'Patient'} />
-                <Metric label="Total Payable" value={`₹${totalPrice}`} color={pColor} />
+                <Metric label="Total Payable" value={`₹${fmt(totalPrice)}`} color={pColor} />
                 
                 <div style={{ marginTop: 40, padding: '24px', background: 'rgba(255,255,255,0.02)', borderRadius: 20, border: '1px solid rgba(255,255,255,0.05)' }}>
                   <h4 style={{ fontSize: 14, fontWeight: 800, color: '#94A3B8', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>

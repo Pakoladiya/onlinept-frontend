@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -7,18 +7,38 @@ import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/fires
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   CheckCircle2, ChevronRight, Stethoscope, Paintbrush,
-  ShieldCheck, Rocket, LayoutTemplate, AlertCircle,
+  ShieldCheck, Rocket, LayoutTemplate, AlertCircle, Loader2,
 } from 'lucide-react';
+
 // Brand name — hardcoded for the SaaS onboarding engine
 const BRAND_NAME = 'OnlinePT';
+
+const T = {
+  primary: '#14A3A8',
+  primaryDark: '#0E8084',
+  primaryLight: 'rgba(20, 163, 168, 0.15)',
+  accent: '#5AC8FA',
+  bg: '#09090B',
+  surface: 'rgba(255, 255, 255, 0.03)',
+  border: 'rgba(255, 255, 255, 0.08)',
+  ink: '#F8FAFC',
+  ink2: '#CBD5E1',
+  ink3: '#94A3B8',
+  ink4: '#475569',
+  glass: 'rgba(9, 9, 11, 0.85)',
+  bgCard: 'rgba(255, 255, 255, 0.03)',
+  white: '#FFFFFF',
+  blur: 'blur(20px)',
+  r: { sm: 12, md: 20, lg: 32, xl: 40 },
+};
 
 // ── simple controlled input ───────────────────────────────────────────────────
 function Field({ label, hint, children }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-sm font-semibold text-gray-700 block">{label}</label>
+    <div className="space-y-2">
+      <label style={{ color: T.ink2, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }} className="block ml-1">{label}</label>
       {children}
-      {hint && <p className="text-xs text-gray-400">{hint}</p>}
+      {hint && <p style={{ color: T.ink4, fontSize: 11 }} className="ml-1">{hint}</p>}
     </div>
   );
 }
@@ -26,9 +46,14 @@ function Field({ label, hint, children }) {
 function TextInput({ className = '', ...props }) {
   return (
     <input
-      className={`w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm
-        focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
-        transition-shadow placeholder-gray-400 ${className}`}
+      style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: `1.5px solid ${T.border}`,
+        borderRadius: 12,
+        color: T.ink,
+        transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
+      }}
+      className={`w-full px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 placeholder:text-ink4 ${className}`}
       {...props}
     />
   );
@@ -47,22 +72,22 @@ export default function ClinicOnboardingFlow() {
       const saved = sessionStorage.getItem('pendingOnboarding');
       if (saved) {
         const data = JSON.parse(saved);
-        sessionStorage.removeItem('pendingOnboarding');
+        // We don't remove it yet in case of refresh
         return {
           physioName: data.physioName || '',
           email: data.email || '',
           clinicName: data.clinicName || '',
           subdomain: data.subdomain || '',
-          phone: '',
-          primaryColor: '#007AFF',
-          secondaryColor: '#0055CC',
+          phone: data.phone || '',
+          primaryColor: '#14A3A8',
+          secondaryColor: '#5AC8FA',
           plan: '',
         };
       }
     } catch {}
     return {
       physioName: '', email: '', clinicName: '', subdomain: '',
-      phone: '', primaryColor: '#007AFF', secondaryColor: '#0055CC', plan: '',
+      phone: '', primaryColor: '#14A3A8', secondaryColor: '#5AC8FA', plan: '',
     };
   };
 
@@ -76,27 +101,33 @@ export default function ClinicOnboardingFlow() {
       return;
     }
     if (clean.length < 3) {
-      setSubdomainStatus({ status: 'idle', message: 'At least 3 characters required' });
+      setSubdomainStatus({ status: 'idle', message: 'At least 3 characters' });
       return;
     }
-    setSubdomainStatus({ status: 'checking', message: 'Checking...' });
+    setSubdomainStatus({ status: 'checking', message: 'Verifying...' });
     try {
       if (db) {
         const snap = await getDoc(doc(db, 'clinics', clean));
         setSubdomainStatus(snap.exists()
-          ? { status: 'taken', message: 'Already taken — try another' }
-          : { status: 'available', message: 'Available!' });
+          ? { status: 'taken', message: 'Sorry, this address is not available' }
+          : { status: 'available', message: 'Congrats! This address is available' });
       } else {
-        setSubdomainStatus({ status: 'available', message: 'Available!' });
+        setSubdomainStatus({ status: 'available', message: 'Congrats! This address is available' });
       }
     } catch {
       setSubdomainStatus({ status: 'idle', message: '' });
     }
   };
 
+  // Check availability automatically on load if subdomain is pre-filled
+  useEffect(() => {
+    if (formData.subdomain) {
+      checkSubdomain(formData.subdomain);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Auto-lowercase + sanitise subdomain as the user types
     if (name === 'subdomain') {
       const clean = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
       setFormData((prev) => ({ ...prev, subdomain: clean }));
@@ -115,26 +146,15 @@ export default function ClinicOnboardingFlow() {
     setError('');
 
     try {
-      const clinicId = formData.subdomain; // Use subdomain as unique Firestore doc ID
-
+      const clinicId = formData.subdomain;
       if (!db) {
-        // Firebase not configured — simulate for dev
-        await new Promise((r) => setTimeout(r, 1500));
+        await new Promise((r) => setTimeout(r, 2000));
         setStep(5);
         setLoading(false);
         return;
       }
 
-      // Get authenticated user's uid (required by Firestore rules)
-      // Prefer sessionStorage (set by landing page signup) over auth state
       const getUid = () => {
-        try {
-          const saved = sessionStorage.getItem('pendingOnboarding');
-          if (saved) {
-            const data = JSON.parse(saved);
-            if (data.uid) return Promise.resolve(data.uid);
-          }
-        } catch {}
         return new Promise((resolve) => {
           if (auth?.currentUser?.uid) return resolve(auth.currentUser.uid);
           const unsub = onAuthStateChanged(auth, (user) => {
@@ -147,8 +167,7 @@ export default function ClinicOnboardingFlow() {
 
       const uid = await getUid();
 
-      // 5s timeout for setDoc
-      const savePromise = setDoc(doc(collection(db, 'clinics'), clinicId), {
+      await setDoc(doc(collection(db, 'clinics'), clinicId), {
         uid,
         clinicId,
         clinicName: formData.clinicName,
@@ -172,53 +191,50 @@ export default function ClinicOnboardingFlow() {
         createdBy: 'master_admin',
       });
 
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Provisioning timed out. The clinic may still be creating in the background.')), 8000)
-      );
-
-      await Promise.race([savePromise, timeoutPromise]);
       setStep(5);
     } catch (err) {
       console.error('Clinic provisioning failed:', err);
-      // Even if it fails, let's try to proceed to success in "simulation mode" if we are local
       if (window.location.hostname === 'localhost') {
-        console.warn('Simulation mode fallback activated.');
         setStep(5);
       } else {
-        setError(`Failed to provision clinic: ${err.message}`);
+        setError(`Provisioning error: ${err.message}`);
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Step progress indicator ──────────────────────────────────────────────────
   const stepMeta = [
-    { n: 1, label: 'Details',  Icon: ShieldCheck },
-    { n: 2, label: 'Branding', Icon: Paintbrush },
+    { n: 1, label: 'Profile',  Icon: Stethoscope },
+    { n: 2, label: 'Identity', Icon: Paintbrush },
     { n: 3, label: 'Package',  Icon: LayoutTemplate },
-    { n: 4, label: 'Launch',   Icon: Rocket },
+    { n: 4, label: 'Deploy',   Icon: Rocket },
   ];
 
   const Stepper = () => (
-    <div className="w-full max-w-3xl flex justify-between mb-12 relative px-4">
+    <div className="w-full max-w-2xl flex justify-between mb-16 relative px-4 mx-auto">
       {stepMeta.map(({ n, label, Icon }, idx) => {
         const isActive = step === n;
         const isPast   = step > n;
         return (
-          <div key={n} className={`flex flex-col items-center flex-1 ${idx < stepMeta.length - 1 ? 'relative' : ''}`}>
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 z-10 bg-white transition-all duration-300
-              ${isActive ? 'border-primary text-primary shadow-md scale-110'
-                : isPast  ? 'border-blue-500 bg-blue-50 text-blue-600'
-                : 'border-gray-200 text-gray-400'}`
-            }>
-              {isPast ? <CheckCircle2 className="w-6 h-6" /> : <Icon className="w-5 h-5" />}
+          <div key={n} className="flex flex-col items-center flex-1 relative z-10">
+            <div 
+              style={{
+                background: isPast ? T.primary : isActive ? `${T.primary}20` : 'rgba(255,255,255,0.02)',
+                borderColor: isPast || isActive ? T.primary : T.border,
+                color: isPast ? T.white : isActive ? T.primary : T.ink4,
+                boxShadow: isActive ? `0 0 20px ${T.primary}40` : 'none',
+                transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)'
+              }}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center border-2 z-10"
+            >
+              {isPast ? <CheckCircle2 className="w-6 h-6" /> : <Icon className="w-5 h-5 shadow-sm" />}
             </div>
-            <p className={`text-xs mt-2 font-medium ${isActive ? 'text-primary' : 'text-gray-500'}`}>{label}</p>
+            <p style={{ color: isActive ? T.ink : T.ink4, fontSize: 11, fontWeight: isActive ? 800 : 500 }} className="mt-3 uppercase tracking-widest">{label}</p>
             {idx < stepMeta.length - 1 && (
               <div
-                className={`absolute top-6 h-[2px] transition-all duration-500 ${isPast ? 'bg-blue-400' : 'bg-gray-200'}`}
-                style={{ left: '50%', right: '-50%', zIndex: 0 }}
+                style={{ background: isPast ? T.primary : T.border, left: '50%', right: '-50%' }}
+                className="absolute top-6 h-[1.5px] z-0 transition-colors duration-700 opacity-60"
               />
             )}
           </div>
@@ -227,325 +243,341 @@ export default function ClinicOnboardingFlow() {
     </div>
   );
 
-  // ── Plan data ────────────────────────────────────────────────────────────────
+  const commonFeatures = [
+    'Appointment Booking',
+    'Patient Records',
+    'WhatsApp Alerts',
+    'Secure Video Calls',
+    'Digital Prescriptions',
+    'Custom Branding'
+  ];
+
   const plans = [
     { 
       id: 'Starter',        
-      price: '₹1,999', 
-      desc: 'Everything you need for a digital practice start.',
-      features: ['Online Appointment Booking', 'Patient Records (EHR)', 'WhatsApp Reminders', 'Clinic Landing Page']
+      price: '₹0', 
+      billing: '/15 days',
+      desc: 'Full clinical access for 15 days.',
+      features: commonFeatures
     },
     { 
-      id: 'Pro',            
-      price: '₹3,999', 
-      desc: 'Advanced tele-rehab with secure video & prescriptions.',
-      features: ['Everything in Starter', 'WebRTC Secure Video Calls', 'Digital Prescription HEP Builder', 'Revenue Analytics']
+      id: 'Monthly',            
+      price: '₹351', 
+      billing: '/month',
+      desc: 'Flexible monthly billing for growing clinics.',
+      features: commonFeatures
     },
     { 
-      id: 'Premium Bundle', 
-      price: '₹7,999', 
-      desc: 'The ultimate white-labeled clinical ecosystem.',
-      features: ['Everything in Pro', 'Custom Domain (clinic.com)', 'WhatsApp Automation API', 'Priority HIPAA Support']
+      id: 'Annual', 
+      price: '₹2,500', 
+      billing: '/year',
+      desc: 'Maximum value clinical ecosystem.',
+      features: commonFeatures
     },
   ];
 
-  // ── UI ───────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div style={{ background: T.bg, color: T.ink }} className="min-h-screen flex flex-col font-sans overflow-x-hidden">
+      <style>{`
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+        .cosmic-blob { position: fixed; border-radius: 50%; filter: blur(80px); z-index: 0; opacity: 0.15; pointer-events: none; }
+      `}</style>
+      
+      {/* Dynamic Background */}
+      <div className="cosmic-blob w-96 h-96 top-0 -left-20" style={{ background: T.primary }}></div>
+      <div className="cosmic-blob w-80 h-80 bottom-0 -right-20" style={{ background: T.accent }}></div>
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-        <div className="flex items-center gap-2">
-          <Stethoscope className="w-6 h-6 text-primary" />
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-            {BRAND_NAME} SaaS
+      <header style={{ background: T.glass, backdropFilter: T.blur, borderBottomColor: T.border }} className="border-b px-8 py-5 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <div style={{ background: T.primary }} className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+            <Stethoscope className="w-6 h-6 text-white" />
+          </div>
+          <span style={{ fontFamily: "'Manrope', sans-serif" }} className="text-xl font-extrabold tracking-tight">
+            Online<span style={{ color: T.primary }}>PT</span> <span style={{ fontWeight: 400, opacity: 0.5, marginLeft: 6 }}>Setup</span>
           </span>
         </div>
-        <span className="text-sm text-gray-500 font-medium hidden sm:block">Clinic Provisioning Engine</span>
+        <div className="hidden sm:flex items-center gap-4 text-xs font-bold text-ink4 tracking-widest uppercase">
+          Provisioning Instance 0422
+        </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center py-12 px-4 sm:px-6">
+      <main className="flex-1 flex flex-col items-center py-16 px-4 z-10 relative">
+        <div className="w-full max-w-4xl">
+          {step < 5 && <Stepper />}
 
-        {/* Stepper */}
-        {step < 5 && <Stepper />}
+          <Card style={{ background: T.bgCard, backdropFilter: T.blur, borderColor: T.border }} className="shadow-2xl overflow-hidden border-t-0">
+            {/* Step 1: Details */}
+            {step === 1 && (
+              <div className="p-4 sm:p-10">
+                <h2 style={{ fontFamily: "'Manrope', sans-serif" }} className="text-3xl font-extrabold mb-2 tracking-tight">Welcome to the Cloud</h2>
+                <p style={{ color: T.ink3 }} className="mb-10 text-base">Let's create your clinical environment.</p>
 
-        <Card className="w-full max-w-2xl shadow-xl border-gray-100 overflow-hidden">
-
-          {/* ── Step 1: Details ── */}
-          {step === 1 && (
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Let's Set Up Your Clinic</h2>
-              <p className="text-gray-500 text-sm mb-8">Enter your details to generate your white-labeled instance.</p>
-
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <Field label="Physiotherapist Name">
-                    <TextInput name="physioName" value={formData.physioName} onChange={handleChange} placeholder="Full Name" />
-                  </Field>
-                  <Field label="Work Email">
-                    <TextInput type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email Address" />
-                  </Field>
-                  <Field label="Clinical Phone Number">
-                    <TextInput name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone Number" />
-                  </Field>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                   <Field label="Physiotherapist Name">
+                     <TextInput name="physioName" value={formData.physioName} onChange={handleChange} placeholder="Dr. Firstname Lastname" />
+                   </Field>
+                   <Field label="Professional Email">
+                     <TextInput type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@clinic.com" />
+                   </Field>
+                   <Field label="Mobile Number">
+                     <TextInput name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 XXXXX XXXXX" />
+                   </Field>
+                   <Field label="Clinic Full Name">
+                     <TextInput name="clinicName" value={formData.clinicName} onChange={handleChange} placeholder="e.g. Zen Physio Center" />
+                   </Field>
                 </div>
 
-                <Field label="Clinic Display Name">
-                  <TextInput name="clinicName" value={formData.clinicName} onChange={handleChange} placeholder="Clinic Name" />
-                </Field>
-
-                <Field label="Choose Your Subdomain" hint="Only lowercase letters, numbers, and hyphens allowed.">
-                  <div className="flex">
-                    <TextInput
-                      name="subdomain"
-                      value={formData.subdomain}
-                      onChange={handleChange}
-                      placeholder="Subdomain"
-                      className="rounded-r-none flex-1"
-                    />
-                    <span className="inline-flex items-center px-4 rounded-e-md border border-l-0 border-gray-300 bg-gray-50 text-gray-500 sm:text-sm">
-                      .onlinept.in
-                    </span>
-                  </div>
-                  {formData.subdomain && (
-                    <p className={`text-xs flex items-center mt-1 ${
-                      subdomainStatus.status === 'available' ? 'text-blue-600'
-                      : subdomainStatus.status === 'taken' ? 'text-red-500'
-                      : subdomainStatus.status === 'checking' ? 'text-gray-400'
-                      : 'text-gray-400'
-                    }`}>
-                      {subdomainStatus.status === 'available' && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                      {subdomainStatus.status === 'taken' && <AlertCircle className="w-3 h-3 mr-1" />}
-                      {subdomainStatus.status === 'checking' && (
-                        <svg className="animate-spin w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                        </svg>
-                      )}
-                      {subdomainStatus.message}
-                    </p>
-                  )}
-                </Field>
-              </div>
-
-              <div className="mt-8 flex justify-end pt-6 border-t border-gray-100">
-                <Button onClick={handleNext} disabled={!formData.physioName || !formData.clinicName || !formData.subdomain}>
-                  Next: Branding <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Step 2: Branding ── */}
-          {step === 2 && (
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Design Your Portal</h2>
-              <p className="text-gray-500 text-sm mb-8">Choose the brand colors for your clinic's patient-facing app.</p>
-
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {[
-                    { label: 'Primary Color', name: 'primaryColor',   hint: 'Buttons, CTAs, active states' },
-                    { label: 'Accent Color',  name: 'secondaryColor', hint: 'Highlights, badges, gradients' },
-                  ].map(({ label, name, hint }) => (
-                    <Field key={name} label={label} hint={hint}>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="color"
-                          name={name}
-                          value={formData[name]}
-                          onChange={handleChange}
-                          className="w-12 h-12 rounded-lg cursor-pointer border border-gray-200 p-0.5"
-                        />
-                        <TextInput
-                          name={name}
-                          value={formData[name]}
-                          onChange={handleChange}
-                          className="w-32 font-mono"
-                          maxLength={7}
-                        />
-                      </div>
-                    </Field>
-                  ))}
-                </div>
-
-                {/* Live preview */}
-                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Live App Preview</p>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                    {/* Fake nav */}
-                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
-                      <span className="font-bold text-gray-900 text-sm">{formData.clinicName || 'Your Clinic'}</span>
-                      <button
-                        style={{ backgroundColor: formData.primaryColor }}
-                        className="px-3 py-1.5 text-xs text-white font-semibold rounded-md"
+                <div className="mt-8">
+                  <Field label="Claim Your Subdomain" hint="This will be your permanent clinical handle.">
+                    <div className="flex group">
+                      <TextInput
+                        name="subdomain"
+                        value={formData.subdomain}
+                        onChange={handleChange}
+                        placeholder="yourclinic"
+                        className="rounded-r-none border-r-0"
+                      />
+                      <div 
+                        style={{ background: 'rgba(255,255,255,0.02)', borderColor: T.border, color: T.ink4 }}
+                        className="inline-flex items-center px-6 rounded-r-xl border-1.5 border-l-0 font-bold text-sm tracking-wide"
                       >
-                        Book Now
-                      </button>
-                    </div>
-                    {/* Fake content */}
-                    <div className="space-y-2.5 mb-4">
-                      <div className="h-3 bg-gray-100 rounded w-3/4" />
-                      <div className="h-3 bg-gray-100 rounded w-1/2" />
-                    </div>
-                    {/* Fake badge */}
-                    <div
-                      className="inline-block text-xs font-semibold px-2.5 py-1 rounded-full"
-                      style={{ backgroundColor: `${formData.secondaryColor}22`, color: formData.secondaryColor }}
-                    >
-                      Free Consultation
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-8 flex justify-between pt-6 border-t border-gray-100">
-                <Button variant="ghost" onClick={handleBack}>Back</Button>
-                <Button onClick={handleNext}>Next: Select Package <ChevronRight className="w-4 h-4 ml-1" /></Button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Step 3: Plan ── */}
-          {step === 3 && (
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-1">Choose Your Subscription</h2>
-              <p className="text-gray-500 text-sm mb-8">All plans include a 14-day free trial. No credit card required.</p>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                {plans.map((plan) => {
-                  const active = formData.plan === plan.id;
-                  return (
-                    <div
-                      key={plan.id}
-                      onClick={() => setFormData((p) => ({ ...p, plan: plan.id }))}
-                      className={`flex flex-col p-6 rounded-[2.5rem] border-2 cursor-pointer transition-all duration-300 relative overflow-hidden group
-                        ${active ? 'border-primary bg-white shadow-2xl shadow-primary/10 ring-4 ring-primary/5 scale-105' : 'border-gray-100 bg-white hover:border-primary/20 hover:shadow-xl'}`}
-                    >
-                      {active && (
-                        <div className="absolute top-4 right-4 text-primary animate-in zoom-in-50 duration-500">
-                           <CheckCircle2 className="w-6 h-6" />
-                        </div>
-                      )}
-                      
-                      <div className="mb-6">
-                        <h4 className={`text-xl font-black tracking-tight ${active ? 'text-primary' : 'text-gray-900'}`}>{plan.id}</h4>
-                        <div className="flex items-baseline gap-1 mt-1">
-                          <span className="text-2xl font-black text-gray-900">{plan.price}</span>
-                          <span className="text-xs font-bold text-gray-400">/mo</span>
-                        </div>
-                      </div>
-
-                      <ul className="space-y-3 mb-8 flex-grow">
-                         {plan.features.map((f, i) => (
-                           <li key={i} className="flex items-start gap-2 text-[10px] font-bold text-gray-500 leading-tight">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" /> {f}
-                           </li>
-                         ))}
-                      </ul>
-
-                      <div className="mt-auto">
-                        <p className="text-[10px] font-medium text-gray-400 leading-snug">{plan.desc}</p>
+                        .onlinept.in
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                    {formData.subdomain && (
+                      <div className="flex items-center gap-2 mt-3 ml-1">
+                        {subdomainStatus.status === 'checking' ? <Loader2 className="w-4 h-4 animate-spin text-ink4" /> : subdomainStatus.status === 'available' ? <CheckCircle2 className="w-4 h-4 text-primary" /> : <AlertCircle className="w-4 h-4 text-red-500" />}
+                        <span style={{ 
+                          color: subdomainStatus.status === 'available' ? T.primary : subdomainStatus.status === 'taken' ? '#F87171' : T.ink4,
+                          fontSize: 12, fontWeight: 600
+                        }}>
+                          {subdomainStatus.message}
+                        </span>
+                      </div>
+                    )}
+                  </Field>
+                </div>
 
-              <div className="mt-8 flex justify-between pt-6 border-t border-gray-100">
-                <Button variant="ghost" onClick={handleBack}>Back</Button>
-                <Button onClick={handleNext} disabled={!formData.plan}>Review & Launch <ChevronRight className="w-4 h-4 ml-1" /></Button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Step 4: Confirm & Launch ── */}
-          {step === 4 && (
-            <div className="p-8">
-              <div className="text-center mb-8">
-                <Rocket className="w-16 h-16 text-primary mx-auto mb-4" />
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">Ready for Liftoff</h2>
-                <p className="text-gray-500">Review everything and claim your free trial.</p>
-              </div>
-
-              {/* Summary card */}
-              <div className="bg-gray-50 rounded-xl border border-gray-100 p-6 mb-8 max-w-sm mx-auto space-y-3 text-sm">
-                {[
-                  { label: 'Clinic',     value: formData.clinicName },
-                  { label: 'Physio',     value: formData.physioName },
-                  { label: 'Email',      value: formData.email },
-                  { label: 'Phone',      value: formData.phone },
-                  { label: 'Subdomain',  value: `${formData.subdomain}.onlinept.in` },
-                  { label: 'Plan',       value: formData.plan },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex justify-between">
-                    <span className="font-semibold text-gray-700">{label}</span>
-                    <span className="text-gray-600 text-right max-w-[55%] truncate">{value}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                  <span className="font-semibold text-gray-700">Theme</span>
-                  <div className="flex gap-2">
-                    <div className="w-5 h-5 rounded-full border shadow-sm" style={{ backgroundColor: formData.primaryColor }} />
-                    <div className="w-5 h-5 rounded-full border shadow-sm" style={{ backgroundColor: formData.secondaryColor }} />
-                  </div>
+                <div className="mt-12 flex justify-end">
+                   <Button size="lg" onClick={handleNext} disabled={!formData.physioName || !formData.clinicName || !formData.subdomain || subdomainStatus.status !== 'available'}>
+                      Continue to Branding <ChevronRight className="w-5 h-5 ml-2" />
+                   </Button>
                 </div>
               </div>
+            )}
 
-              {/* Error */}
-              {error && (
-                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl flex items-start gap-3 text-sm">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                  <p>{error}</p>
+            {/* Step 2: Branding */}
+            {step === 2 && (
+              <div className="p-4 sm:p-10">
+                <h2 style={{ fontFamily: "'Manrope', sans-serif" }} className="text-3xl font-extrabold mb-2 tracking-tight">Clinic Identity</h2>
+                <p style={{ color: T.ink3 }} className="mb-10 text-base">Your brand, your rules. Choose your color palette.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
+                   <div className="space-y-8">
+                      {[
+                        { label: 'Primary Brand Color', name: 'primaryColor',   hint: 'Used for buttons, links, and primary UI highlights.' },
+                        { label: 'Secondary Accent',  name: 'secondaryColor', hint: 'Used for secondary buttons and subtle accents.' },
+                      ].map(({ label, name, hint }) => (
+                        <Field key={name} label={label} hint={hint}>
+                          <div className="flex items-center gap-4">
+                            <div className="relative group">
+                              <input
+                                type="color"
+                                name={name}
+                                value={formData[name]}
+                                onChange={handleChange}
+                                style={{ background: 'transparent' }}
+                                className="w-16 h-16 rounded-2xl cursor-pointer border-2 border-border p-1"
+                              />
+                            </div>
+                            <TextInput
+                              name={name}
+                              value={formData[name]}
+                              onChange={handleChange}
+                              className="w-36 font-mono text-center uppercase"
+                              maxLength={7}
+                            />
+                          </div>
+                        </Field>
+                      ))}
+                   </div>
+
+                   <div style={{ background: 'rgba(255,255,255,0.01)', border: `1px solid ${T.border}` }} className="rounded-3xl p-8 flex flex-col justify-center">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-ink4 mb-6">Real-time Interface Simulation</p>
+                      <div style={{ background: T.bg, border: `1px solid ${T.border}` }} className="rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+                         <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center gap-2">
+                               <div style={{ background: formData.primaryColor }} className="w-6 h-6 rounded-md" />
+                               <span className="font-bold text-xs">{formData.clinicName || 'Clinic'}</span>
+                            </div>
+                            <div className="h-2 w-8 rounded-full bg-border" />
+                         </div>
+                         <div className="h-3 w-full rounded bg-surface mb-3" />
+                         <div className="h-3 w-2/3 rounded bg-surface mb-8" />
+                         <div 
+                           style={{ background: formData.primaryColor, boxShadow: `0 8px 20px ${formData.primaryColor}30` }} 
+                           className="h-10 w-full rounded-xl flex items-center justify-center font-bold text-[10px] text-white"
+                         >
+                           BOOK APPOINTMENT
+                         </div>
+                      </div>
+                   </div>
                 </div>
-              )}
 
-              <div className="flex flex-col items-center gap-3">
-                <Button
-                  size="lg"
-                  className="w-full max-w-sm text-lg shadow-xl shadow-primary/20"
-                  onClick={handleCompleteSignUp}
-                  loading={loading}
-                  disabled={loading}
-                >
-                  {loading ? 'Provisioning Clinic...' : 'Claim 14-Day Free Trial'}
-                </Button>
-                <Button variant="ghost" onClick={handleBack} disabled={loading}>Back to Edit</Button>
+                <div className="mt-12 flex justify-between">
+                   <Button variant="ghost" onClick={handleBack}>Go Back</Button>
+                   <Button size="lg" onClick={handleNext}>Confirm Branding <ChevronRight className="w-5 h-5 ml-2" /></Button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* ── Step 5: Pending Approval ── */}
-          {step === 5 && (
-            <div className="p-10 text-center">
-              <div className="w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle2 className="w-12 h-12" />
+            {/* Step 3: Plan */}
+            {step === 3 && (
+              <div className="p-4 sm:p-10">
+                <h2 style={{ fontFamily: "'Manrope', sans-serif" }} className="text-3xl font-extrabold mb-2 tracking-tight">Select Membership</h2>
+                <p style={{ color: T.ink3 }} className="mb-10 text-base">Transparent pricing for scaling clinics. 14 Days free.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                  {plans.map((p) => {
+                    const active = formData.plan === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => setFormData(prev => ({ ...prev, plan: p.id }))}
+                        style={{
+                          background: active ? `${T.primary}05` : 'transparent',
+                          borderColor: active ? T.primary : T.border,
+                          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                        }}
+                        className={`p-8 rounded-[2rem] border-2 cursor-pointer flex flex-col group relative ${active ? 'scale-105 shadow-2xl z-20' : 'hover:border-primary/30 z-10'}`}
+                      >
+                        {active && (
+                          <div style={{ background: T.primary }} className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black text-white uppercase tracking-tighter">
+                            SELECTED
+                          </div>
+                        )}
+                        <h4 className="text-xl font-extrabold mb-1 tracking-tight">{p.id}</h4>
+                        <div className="flex items-baseline gap-1 mb-4">
+                          <span className="text-2xl font-black">{p.price}</span>
+                          <span className="text-xs text-ink4 font-bold">{p.billing}</span>
+                        </div>
+                        <p style={{ color: T.ink3 }} className="text-xs font-medium mb-6 leading-relaxed flex-grow">{p.desc}</p>
+                        <ul className="space-y-3 pt-6 border-t border-border mt-auto">
+                           {p.features.map((f, i) => (
+                             <li key={i} className="flex items-center gap-2 text-[10px] font-bold text-ink2 uppercase tracking-wide">
+                                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" /> {f}
+                             </li>
+                           ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-12 flex justify-between">
+                   <Button variant="ghost" onClick={handleBack}>Go Back</Button>
+                   <Button size="lg" onClick={handleNext} disabled={!formData.plan}>
+                      Review & Provision <ChevronRight className="w-5 h-5 ml-2" />
+                   </Button>
+                </div>
               </div>
-              <h2 className="text-3xl font-extrabold text-gray-900 mb-3">Enrollment Submitted!</h2>
-              <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                Thank you, <strong>{formData.physioName}</strong>! Your clinic enrollment has been submitted for review.
-                The OnlinePT team will verify your details and activate your portal within 24 hours.
-                You will receive an email at <strong>{formData.email}</strong> once approved.
-              </p>
+            )}
 
-              <div className="bg-blue-50 inline-block px-6 py-4 rounded-xl border border-blue-100 mb-8">
-                <p className="text-xs text-blue-600 uppercase font-semibold mb-1.5">Clinic Subdomain</p>
-                <p className="text-primary font-bold text-base">
-                  {formData.subdomain}.onlinept.in
-                </p>
+            {/* Step 4: Final Launch */}
+            {step === 4 && (
+              <div className="p-4 sm:p-10 text-center">
+                 <div style={{ animation: 'float 4s ease-in-out infinite' }} className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-primary/20 shadow-2xl shadow-primary/20">
+                    <Rocket className="w-12 h-12 text-primary" />
+                 </div>
+                 <h2 style={{ fontFamily: "'Manrope', sans-serif" }} className="text-4xl font-black mb-3 tracking-tighter uppercase">Launch Protocol</h2>
+                 <p style={{ color: T.ink3 }} className="mb-12 max-w-md mx-auto text-base">Your clinical ecosystem is ready for deployment. Please review your portal details.</p>
+
+                 <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }} className="max-w-md mx-auto rounded-3xl p-8 mb-12 space-y-4 text-left">
+                    {[
+                      { l: 'Clinical ID', v: formData.subdomain },
+                      { l: 'Public URI', v: `${formData.subdomain}.onlinept.in` },
+                      { l: 'Physician',  v: formData.physioName },
+                      { l: 'Plan Type',  v: formData.plan },
+                    ].map(item => (
+                      <div key={item.l} className="flex justify-between items-center group">
+                         <span className="text-[10px] font-black text-ink4 uppercase tracking-widest">{item.l}</span>
+                         <span className="text-sm font-extrabold group-hover:text-primary transition-colors">{item.v}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center pt-4 border-t border-border">
+                       <span className="text-[10px] font-black text-ink4 uppercase tracking-widest">Brand DNA</span>
+                       <div className="flex gap-2.5">
+                          <div style={{ background: formData.primaryColor }} className="w-6 h-6 rounded-lg shadow-lg" />
+                          <div style={{ background: formData.secondaryColor }} className="w-6 h-6 rounded-lg shadow-lg" />
+                       </div>
+                    </div>
+                 </div>
+
+                 {error && (
+                   <div style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }} className="mb-8 p-4 rounded-2xl border flex items-center gap-3 text-red-400 text-sm font-bold">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                      {error}
+                   </div>
+                 )}
+
+                 <div className="flex flex-col items-center gap-4">
+                    <Button 
+                      size="lg" 
+                      className="w-full max-w-md h-16 shadow-2xl shadow-primary/30 text-base font-black tracking-widest"
+                      onClick={handleCompleteSignUp}
+                      loading={loading}
+                    >
+                       CLAIM 15-DAY CLOUD TRIAL
+                    </Button>
+                    <button onClick={handleBack} disabled={loading} className="text-xs font-bold text-ink4 uppercase tracking-widest hover:text-ink transition-colors mt-2">Modify Configuration</button>
+                 </div>
               </div>
+            )}
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button size="lg" onClick={() => navigate('/dashboard-login')}>Go to Dashboard Login</Button>
-                <Button size="lg" variant="outline" onClick={() => { setStep(1); setSubdomainStatus({ status: 'idle', message: '' }); setFormData({ physioName:'', email:'', clinicName:'', subdomain:'', phone:'', primaryColor:'#007AFF', secondaryColor:'#0055CC', plan:'' }); }}>
-                  Onboard Another Clinic
-                </Button>
+            {/* Step 5: Success */}
+            {step === 5 && (
+              <div className="p-4 sm:p-16 text-center">
+                 <div className="w-28 h-28 bg-primary/20 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 border-2 border-primary/40 shadow-2xl shadow-primary/40">
+                    <CheckCircle2 className="w-14 h-14 text-primary" />
+                 </div>
+                 <h2 style={{ fontFamily: "'Manrope', sans-serif" }} className="text-4xl font-black mb-4 tracking-tighter uppercase">Deployed to Cloud</h2>
+                 <p style={{ color: T.ink3 }} className="mb-12 max-w-lg mx-auto text-lg leading-relaxed font-medium">
+                   Welcome to the future of physiotherapy, <strong>{formData.physioName.split(' ')[0]}</strong>.<br />
+                   Your clinical environment is being provisioned. Soon our backoffice will look into the application and accept/reject your application.
+                 </p>
+
+                 <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.primary}30` }} className="max-w-sm mx-auto p-8 rounded-[2rem] mb-12">
+                     <p className="text-[10px] font-black text-ink4 uppercase tracking-widest mb-3">Permanent Access Link</p>
+                     <p style={{ color: T.primary }} className="text-2xl font-black tracking-tighter">
+                        {formData.subdomain}.onlinept.in
+                     </p>
+                 </div>
+
+                 <div className="flex flex-col sm:flex-row gap-5 justify-center mt-8">
+                    <Button size="lg" className="px-10 h-14" onClick={() => navigate('/dashboard-login')}>
+                       Log In to Dashboard
+                    </Button>
+                    <Button size="lg" variant="outline" className="px-10 h-14" onClick={() => window.location.reload()}>
+                       Onboard Another
+                    </Button>
+                 </div>
               </div>
-            </div>
-          )}
-
-        </Card>
+            )}
+          </Card>
+        </div>
       </main>
+
+      <footer style={{ background: 'rgba(0,0,0,0.4)', borderTop: `1px solid ${T.border}` }} className="py-12 px-8 flex flex-col md:flex-row items-center justify-between gap-8 z-10">
+         <div className="flex flex-col gap-2">
+            <span className="font-bold text-sm tracking-tight">OnlinePT Cloud <span style={{ color: T.primary }}>SaaS</span></span>
+            <p className="text-[10px] font-bold text-ink4 uppercase tracking-widest">Global Digital Health Infrastructure</p>
+         </div>
+         <div className="flex gap-12">
+            {['Privacy', 'Security', 'Legal'].map(l => (
+              <span key={l} className="text-[10px] font-bold text-ink4 uppercase tracking-widest hover:text-ink cursor-pointer transition-colors">{l}</span>
+            ))}
+         </div>
+      </footer>
     </div>
   );
 }

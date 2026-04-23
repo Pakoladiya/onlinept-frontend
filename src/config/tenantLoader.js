@@ -106,7 +106,6 @@ export async function loadTenantConfig() {
     } else {
       // No clinic found for domain
     }
-    }
   } catch (error) {
     throw error;
   }

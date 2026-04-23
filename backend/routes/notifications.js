@@ -11,8 +11,8 @@ const isConfigured = !!(
 
 async function getDb() {
   if (!isConfigured) return null;
-  const { getDb } = await import('../firebase-admin.js');
-  return getDb();
+  const { getDb: initDb } = await import('../firebase-admin.js');
+  return initDb();
 }
 
 function timeUntil(dateStr, timeStr) {

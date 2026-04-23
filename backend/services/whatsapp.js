@@ -78,7 +78,7 @@ export async function sendOnbbitsCampaign(to, campaignName, params = [], config 
  * Send OTP via WhatsApp
  */
 export async function sendOTP(to, otp, userName = 'User') {
-  const campaign = process.env.AISENSY_CAMPAIGN_BOOKING || 'OTP Campaing Through API';
+  const campaign = process.env.AISENSY_CAMPAIGN_OTP || 'opt';
   
   // For Onbbits OTP template, we usually put the OTP in the body or button
   // Based on user's cURL, there are params in both body and button.

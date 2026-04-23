@@ -180,6 +180,18 @@ export default function LandingPage() {
                View Results
              </button>
           </div>
+
+          <div style={{ marginTop: 80, position: 'relative' }}>
+             <div style={{
+               maxWidth: 1000, margin: '0 auto', borderRadius: 32, border: `1px solid ${T.border}`,
+               background: 'rgba(0,0,0,0.5)', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0,0,0,0.8)',
+               transform: 'perspective(1000px) rotateX(10deg)', transition: 'transform 0.6s'
+             }} className="hero-mockup">
+               <img src="/assets/features/dashboard-preview.png" alt="Platform Dashboard" style={{ width: '100%', height: 'auto', display: 'block' }} />
+             </div>
+             {/* Decorative glow */}
+             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', height: '80%', background: T.primary, filter: 'blur(120px)', opacity: 0.1, zIndex: -1 }}></div>
+          </div>
         </div>
       </section>
 
@@ -194,14 +206,14 @@ export default function LandingPage() {
 
           <div className="feature-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 24 }}>
             {[
-              { icon: Layout, title: 'Branded Portal', desc: 'A stunning, clinical-grade booking site with your logo & theme.', img: '/assets/booking-portal.png' },
-              { icon: ShieldCheck, title: 'Smart Admin', desc: 'Complete control over schedules, revenue & clinics.', img: '/assets/admin-controls.png' },
-              { icon: Activity, title: 'Recovery Tracker', desc: 'Visual VAS scales & clinical outcomes in real-time.', img: '/assets/recovery-tracking.png' },
-              { icon: Globe, title: 'Custom Domains', desc: 'Every clinic gets its own home on the web.', img: '/assets/custom-subdomains.png' },
-              { icon: Smartphone, title: 'Mobile-First', desc: 'Patients book in under 30 seconds from any device.', img: '/assets/mobile-first.png' },
-              { icon: BarChart3, title: 'Growth Hub', desc: 'Financial insights, patient retention & cohort analytics.', img: '/assets/growth-analytics.png' },
-              { icon: Video, title: 'Tele-Rehab', desc: 'Integrated clinical video calls & session recordings.', img: '/assets/video-consult.png' },
-              { icon: FileText, title: 'Digital SOAP', desc: 'Automated documentation & clinical notes exporter.', img: '/assets/soap-notes.png' },
+              { icon: Layout, title: 'Branded Portal', desc: 'A stunning, clinical-grade booking site with your logo & theme.', img: '/assets/features/booking-portal.png' },
+              { icon: ShieldCheck, title: 'Smart Admin', desc: 'Complete control over schedules, revenue & clinics.', img: '/assets/features/dashboard-preview.png' },
+              { icon: Activity, title: 'Recovery Tracker', desc: 'Visual VAS scales & clinical outcomes in real-time.', img: '/assets/features/recovery-tracking.png' },
+              { icon: Globe, title: 'Custom Domains', desc: 'Every clinic gets its own home on the web.', img: '/assets/features/custom-subdomains.png' },
+              { icon: Smartphone, title: 'Mobile-First', desc: 'Patients book in under 30 seconds from any device.', img: '/assets/features/mobile-first.png' },
+              { icon: BarChart3, title: 'Growth Hub', desc: 'Financial insights, patient retention & cohort analytics.', img: '/assets/features/growth-analytics.png' },
+              { icon: Video, title: 'Tele-Rehab', desc: 'Integrated clinical video calls & session recordings.', img: '/assets/features/video-consult.png' },
+              { icon: FileText, title: 'Digital SOAP', desc: 'Automated documentation & clinical notes exporter.', img: '/assets/features/soap-notes.png' },
             ].map((f, i) => (
               <div key={i} className="reveal feature-card" ref={addToRefs} style={{ 
                 borderRadius: 24, overflow: 'hidden', background: T.surface, border: `1px solid ${T.border}`, transition: 'all 0.4s' 

@@ -22,7 +22,7 @@ const T = {
   r: { sm: 12, md: 16, lg: 24, xl: 32 },
 };
 
-const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:5001');
+const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
 
 export default function PhysioLoginPage() {
   const navigate = useNavigate();
