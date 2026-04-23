@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import SchedulePicker from '@/components/booking/SchedulePicker';
 import Button from '@/components/ui/Button';
+import axios from 'axios';
 
 const T = {
   primary: '#0D7377',
@@ -36,11 +37,16 @@ export default function ReschedulePage() {
   const [newDate, setNewDate] = useState(new Date());
   const [newSlot, setNewSlot] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [step, setStep] = useState('pick'); // 'pick' | 'verify'
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpError, setOtpError] = useState('');
+
+  const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:5001');
 
   useEffect(() => {
     async function load() {
       try {
-        // 1. Load Booking
         const data = await getBooking(bookingId);
         if (!data) { setError('Booking not found.'); return; }
         if (data.rescheduleCount >= 1) {
@@ -54,9 +60,7 @@ export default function ReschedulePage() {
         }
         setBooking(data);
 
-        // 2. Load Clinic Config
-        // Note: Booking should have clinicId or physiotherapist name we can use to find the clinic
-        const clinicId = data.clinicId || 'nijanand'; // Fallback for legacy
+        const clinicId = data.clinicId || 'nijanand';
         const clinicsRef = collection(db, 'clinics');
         const q = query(clinicsRef, where('subdomain', '==', clinicId));
         const snap = await getDocs(q);
@@ -70,7 +74,6 @@ export default function ReschedulePage() {
             secondaryColor: cData.settings?.secondaryColor || cData.secondaryColor || '#F6A000',
           });
         } else {
-            // Minimal fallback config if clinic not found
             setActiveClinic({
                 clinicName: 'Physiotherapy Clinic',
                 primaryColor: '#007AFF',
@@ -88,10 +91,52 @@ export default function ReschedulePage() {
     load();
   }, [bookingId]);
 
-  const handleReschedule = async () => {
-    if (!newDate || !newSlot) return;
+  const initiateOTP = async () => {
+    if (!booking.patientPhone) {
+      alert('Patient phone number missing from booking. Please contact the clinic.');
+      return;
+    }
     setSubmitLoading(true);
+    setOtpError('');
     try {
+      const res = await axios.post(`${API_BASE}/api/notifications/send-otp`, {
+        phone: booking.patientPhone,
+        purpose: 'reschedule',
+        userName: booking.patientName
+      });
+      if (res.data.success) {
+        setStep('verify');
+        setOtpSent(true);
+      } else {
+        setOtpError(res.data.error || 'Failed to send OTP');
+      }
+    } catch (err) {
+      console.error('[OTP Reschedule Debug]:', err);
+      const detail = err.response?.data?.error || err.message;
+      setOtpError(`Failed to send OTP: ${detail}`);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleVerifyAndReschedule = async () => {
+    if (!otp) return;
+    setSubmitLoading(true);
+    setOtpError('');
+    try {
+      // 1. Verify OTP
+      const res = await axios.post(`${API_BASE}/api/notifications/verify-otp`, {
+        phone: booking.patientPhone,
+        otp
+      });
+
+      if (!res.data.success) {
+        setOtpError(res.data.error || 'Invalid OTP');
+        setSubmitLoading(false);
+        return;
+      }
+
+      // 2. Perform Reschedule
       await rescheduleBooking(bookingId, { 
         date: newDate.toISOString().split('T')[0], 
         slot: newSlot.id 
@@ -99,7 +144,7 @@ export default function ReschedulePage() {
       setSuccess(true);
       setTimeout(() => navigate(`/confirmation/${bookingId}`), 3000);
     } catch (err) {
-      alert(err.message || 'Reschedule failed');
+      setOtpError(err.message || 'Reschedule failed');
     } finally {
       setSubmitLoading(false);
     }
@@ -151,30 +196,82 @@ export default function ReschedulePage() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div>
-               <label style={{ display: 'block', fontSize: 13, fontWeight: 800, marginBottom: 16, color: T.ink, textTransform: 'uppercase', letterSpacing: 1 }}>Select New Slot</label>
-               <SchedulePicker 
-                 clinicConfig={activeClinic}
-                 selectedDate={newDate}
-                 selectedTime={newSlot}
-                 onSelect={(date, time) => {
-                   setNewDate(date);
-                   setNewSlot(time);
-                 }}
-                 T={dynamicT}
-               />
-            </div>
+            {step === 'pick' ? (
+              <>
+                <div>
+                   <label style={{ display: 'block', fontSize: 13, fontWeight: 800, marginBottom: 16, color: T.ink, textTransform: 'uppercase', letterSpacing: 1 }}>Select New Slot</label>
+                   <SchedulePicker 
+                     clinicConfig={activeClinic}
+                     selectedDate={newDate}
+                     selectedTime={newSlot}
+                     onSelect={(date, time) => {
+                       setNewDate(date);
+                       setNewSlot(time);
+                     }}
+                     T={dynamicT}
+                   />
+                </div>
 
-            <Button
-              onClick={handleReschedule}
-              disabled={!newDate || !newSlot || submitLoading}
-              loading={submitLoading}
-              fullWidth
-              size="lg"
-              style={{ marginTop: 12 }}
-            >
-              Confirm Reschedule <ChevronRight size={18} />
-            </Button>
+                <Button
+                  onClick={initiateOTP}
+                  disabled={!newDate || !newSlot || submitLoading}
+                  loading={submitLoading}
+                  fullWidth
+                  size="lg"
+                  style={{ marginTop: 12 }}
+                >
+                  Confirm Reschedule <ChevronRight size={18} />
+                </Button>
+              </>
+            ) : (
+              <div style={{ animation: 'slideUp 0.4s ease-out' }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 800, marginBottom: 16, color: T.ink, textTransform: 'uppercase', letterSpacing: 1 }}>Verify Identity</label>
+                <p style={{ fontSize: 14, color: T.ink3, marginBottom: 20 }}>
+                  We've sent a 6-digit code to your WhatsApp number <strong>{booking.patientPhone}</strong>.
+                </p>
+                
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  style={{
+                    width: '100%', height: 60, borderRadius: T.r.sm,
+                    border: `2px solid ${otpError ? T.red : dynamicT.primary}`,
+                    fontSize: 28, fontWeight: 800, textAlign: 'center', letterSpacing: 12,
+                    color: T.ink, outline: 'none', marginBottom: 12
+                  }}
+                />
+
+                {otpError && (
+                  <p style={{ color: T.red, fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <AlertTriangle size={14} /> {otpError}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep('pick')}
+                    style={{ flex: 1 }}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={handleVerifyAndReschedule}
+                    disabled={otp.length < 6 || submitLoading}
+                    loading={submitLoading}
+                    style={{ flex: 2 }}
+                  >
+                    Verify & Reschedule
+                  </Button>
+                </div>
+
+                <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: T.ink3 }}>
+                  Didn't receive it? <span onClick={initiateOTP} style={{ color: dynamicT.primary, fontWeight: 700, cursor: 'pointer' }}>Resend</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
