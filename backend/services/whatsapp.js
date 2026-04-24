@@ -23,8 +23,18 @@ export async function sendOnbbitsCampaign(to, campaignName, params = [], config 
     return { success: false, error: `Missing configuration: ${missing.join(', ')}` };
   }
 
-  // Ensure format is +91XXXXXXXXXX
-  const formattedNumber = to.startsWith('+') ? to : `+${to.replace(/\D/g, '')}`;
+  // Normalize to E.164 — strip non-digits first
+  const digits = to.replace(/\D/g, '');
+  let formattedNumber;
+  if (digits.length === 10) {
+    formattedNumber = `+91${digits}`;           // Indian 10-digit → add country code
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    formattedNumber = `+${digits}`;             // already has 91 prefix
+  } else if (to.startsWith('+')) {
+    formattedNumber = to.replace(/[^\d+]/g, ''); // already E.164
+  } else {
+    formattedNumber = `+${digits}`;             // caller provided full country code
+  }
   console.log(`[Onbbits] Sending to destination: ${formattedNumber}, campaign: ${campaignName}`);
 
   try {
@@ -113,7 +123,7 @@ export async function notifyPatientBooking(patientData, config = {}) {
   return sendOnbbitsCampaign(patientData.phone, campaign, params, {
     ...config,
     userName: patientData.name,
-    buttonParam: patientData.meetingLink || '', // "Talk To Clinic" button URL
+    // Note: buttonParam removed — the template's URL button is static (no dynamic params)
   });
 }
 

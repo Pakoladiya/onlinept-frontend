@@ -125,15 +125,16 @@ export default function PaymentPage() {
 
           // ── Send WhatsApp booking confirmation to patient ─────────────
           try {
-            const API_BASE = import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
-            
-            // Ensure phone is in E.164 format (+91XXXXXXXXXX)
-            let rawPhone = intakeData.personalInfo.whatsapp || '';
-            rawPhone = rawPhone.replace(/\D/g, ''); // strip non-digits
-            if (rawPhone.length === 10) rawPhone = '91' + rawPhone; // add India country code
-            const formattedPhone = rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`;
+            // On VPS: nginx proxies /api/* to backend, so relative URL works in prod.
+            // In local dev: backend runs on port 5001 separately.
+            const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
 
-            // Clinic subdomain: try subdomain field first, then doc ID
+            // Normalize phone to E.164 (+91XXXXXXXXXX for Indian numbers)
+            let rawPhone = (intakeData.personalInfo.whatsapp || '').replace(/\D/g, '');
+            if (rawPhone.length === 10) rawPhone = '91' + rawPhone;
+            const formattedPhone = `+${rawPhone}`;
+
+            // Clinic subdomain: prefer subdomain field, fall back to doc ID
             const clinicSubdomain = clinicData?.subdomain || clinicData?.id || bookingData.clinicId || 'onlinept';
 
             await fetch(`${API_BASE}/api/appointments/notify-success`, {
@@ -152,8 +153,6 @@ export default function PaymentPage() {
             });
             console.log('[WA] Booking notification dispatched to', formattedPhone);
           } catch (err) { console.warn('[WA] Booking notification non-critical failure:', err); }
-
-
           navigate(`/confirmation/${bookingId}`, { 
             state: { ...bookingData, paymentId: response.razorpay_payment_id } 
           });
