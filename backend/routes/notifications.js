@@ -211,6 +211,16 @@ router.post('/send-otp', async (req, res) => {
       }
     }
 
+    // Check 3: bookings collection (patient rescheduling their own appointment)
+    if (!registeredUser) {
+      for (const fieldVal of [formattedPhone, rawPhone, phone]) {
+        const bSnap = await db.collection('bookings')
+          .where('patientPhone', '==', fieldVal)
+          .limit(1).get();
+        if (!bSnap.empty) { registeredUser = bSnap.docs[0].id; break; }
+      }
+    }
+
     if (!registeredUser && purpose !== 'signup') {
       console.log(`[OTP] Blocked — number not found in DB: ${phone}`);
       return res.status(404).json({

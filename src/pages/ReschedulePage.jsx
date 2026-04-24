@@ -42,7 +42,8 @@ export default function ReschedulePage() {
   const [otpSent, setOtpSent] = useState(false);
   const [otpError, setOtpError] = useState('');
 
-  const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:5001');
+  // Always use absolute main domain — relative URLs fail on subdomains (nijanand.onlinept.in/api/...)
+  const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
 
   useEffect(() => {
     async function load() {
@@ -141,6 +142,30 @@ export default function ReschedulePage() {
         date: newDate.toISOString().split('T')[0], 
         slot: newSlot.id 
       });
+
+      // 3. Send WhatsApp confirmation for the new slot
+      try {
+        const phone = booking.patientPhone || '';
+        const subdomain = booking.clinicId || booking.subdomain || '';
+        await fetch(`${API_BASE}/api/appointments/notify-reschedule`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientData: {
+              name:        booking.patientName || 'Patient',
+              phone,
+              subdomain,
+              dateDisplay: newDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+              slotLabel:   newSlot.label || newSlot.time || '',
+              meetingLink: `https://${subdomain}.onlinept.in/join/${bookingId}`,
+            },
+          }),
+        });
+        console.log('[WA] Reschedule notification sent to', phone);
+      } catch (waErr) {
+        console.warn('[WA] Reschedule notification non-critical failure:', waErr);
+      }
+
       setSuccess(true);
       setTimeout(() => navigate(`/confirmation/${bookingId}`), 3000);
     } catch (err) {

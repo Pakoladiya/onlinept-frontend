@@ -1,4 +1,4 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -15,7 +15,7 @@ const router = Router();
 // In-memory mock store for when Firestore isn't configured
 const bookings = new Map();
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getDb() {
   const isConfigured = !!(
@@ -38,7 +38,7 @@ async function getClinic(db, clinicId) {
   return snap.exists ? { id: snap.id, ...snap.data() } : null;
 }
 
-// ── Routes ───────────────────────────────────────────────────────────────────
+// â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * GET /api/appointments
@@ -376,4 +376,30 @@ router.post('/notify-success', async (req, res) => {
   }
 });
 
+
+
+/**
+ * POST /api/appointments/notify-reschedule
+ * Sends WhatsApp confirmation after successful reschedule.
+ */
+router.post('/notify-reschedule', async (req, res) => {
+  try {
+    const { patientData } = req.body;
+    if (!patientData?.phone || !patientData?.name) {
+      return res.status(400).json({ error: 'patientData.phone and patientData.name are required' });
+    }
+    const { notifyPatientBooking } = await import('../services/whatsapp.js');
+    const result = await notifyPatientBooking(patientData);
+    if (result.success) {
+      console.log(`[Notify] Reschedule confirmation sent to ${patientData.phone}`);
+      res.json({ success: true });
+    } else {
+      console.warn('[Notify] Reschedule WA send failed:', result.error);
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    console.error('[Notify] notify-reschedule error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 export default router;
