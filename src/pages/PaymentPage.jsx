@@ -123,38 +123,24 @@ export default function PaymentPage() {
             } catch (pErr) { console.warn('Patient upsert skipped:', pErr); }
           }
 
-          // ── Dispatch Notifications ───────────────────────────
+          // ── Send WhatsApp booking confirmation to patient ─────────────
           try {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            const bSnap = await getDoc(doc(db, 'platform_config', 'billing'));
-            const config = bSnap.exists() ? bSnap.data() : {};
-
-            await fetch(`${API_BASE}/appointments/notify-success`, {
+            const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+            await fetch(`${API_BASE}/api/appointments/notify-success`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                 patientData: {
-                    name: intakeData.personalInfo.fullName,
-                    phone: intakeData.personalInfo.whatsapp,
-                    clinicName: clinicData?.clinicName || 'OnlinePT',
-                    dateDisplay: bookingData.dateDisplay || bookingData.date,
-                    slotLabel: bookingData.slotLabel || (bookingData.slot?.time),
-                    meetingLink: `https://onlinept.in/join/${bookingId}`,
-                    intakeSummary: `
-*Patient:* ${intakeData.personalInfo.fullName}
-*Age/Gen:* ${intakeData.personalInfo.age} / ${intakeData.personalInfo.gender}
-*Occupation:* ${intakeData.personalInfo.occupation || 'N/A'}
-*Chief Complaint / Paining Area:* ${intakeData.clinicalInfo.primaryComplaint}
-*Duration:* ${intakeData.clinicalInfo.duration}
-*History:* ${intakeData.clinicalInfo.medicalHistory || 'None'}
-`.trim()
-                 },
-                 therapistPhone: clinicData?.whatsappNumber || '',
-                 whatsappToken: config.whatsappToken,
-                 whatsappPhoneId: config.whatsappPhoneId
-              })
+                patientData: {
+                  name:        intakeData.personalInfo.fullName,
+                  phone:       intakeData.personalInfo.whatsapp,
+                  subdomain:   clinicData?.subdomain || clinicData?.clinicId || 'onlinept',
+                  dateDisplay: bookingData.dateDisplay || bookingData.date,
+                  slotLabel:   bookingData.slotLabel || bookingData.slot?.time || '',
+                  meetingLink: `https://${clinicData?.subdomain || 'onlinept'}.onlinept.in/join/${bookingId}`,
+                },
+              }),
             });
-          } catch (err) { console.warn('Notification non-critical failure:', err); }
+          } catch (err) { console.warn('[WA] Booking notification non-critical failure:', err); }
 
           navigate(`/confirmation/${bookingId}`, { 
             state: { ...bookingData, paymentId: response.razorpay_payment_id } 

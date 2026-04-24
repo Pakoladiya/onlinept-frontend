@@ -25,6 +25,7 @@ export async function sendOnbbitsCampaign(to, campaignName, params = [], config 
 
   // Ensure format is +91XXXXXXXXXX
   const formattedNumber = to.startsWith('+') ? to : `+${to.replace(/\D/g, '')}`;
+  console.log(`[Onbbits] Sending to destination: ${formattedNumber}, campaign: ${campaignName}`);
 
   try {
     // Construct components based on params
@@ -91,22 +92,28 @@ export async function sendOTP(to, otp, userName = 'User') {
 }
 
 /**
- * 1. Notify Patient of Booking Success
+ * 1. Notify Patient of Booking Confirmation
+ *    Template: patient_booking_confirmed
+ *    {{1}} = patient name
+ *    {{2}} = clinic subdomain (e.g. "drjiten")
+ *    {{3}} = appointment date (e.g. "25 Apr 2025")
+ *    {{4}} = appointment time (e.g. "10:00 AM")
+ *    Button = "Talk To Clinic" → session/join link
  */
 export async function notifyPatientBooking(patientData, config = {}) {
-  const campaign = process.env.AISENSY_CAMPAIGN_BOOKING || 'booking_confirmation';
-  
+  const campaign = process.env.AISENSY_CAMPAIGN_BOOKING || 'patient_booking_confirmed';
+
   const params = [
-    patientData.name,
-    patientData.clinicName,
-    patientData.dateDisplay,
-    patientData.slotLabel,
-    patientData.meetingLink
+    patientData.name,       // {{1}} Hi {name}!
+    patientData.subdomain || patientData.clinicName, // {{2}} appointment at {subdomain}
+    patientData.dateDisplay, // {{3}} Date
+    patientData.slotLabel,   // {{4}} Time
   ];
 
   return sendOnbbitsCampaign(patientData.phone, campaign, params, {
     ...config,
-    userName: patientData.name
+    userName: patientData.name,
+    buttonParam: patientData.meetingLink || '', // "Talk To Clinic" button URL
   });
 }
 

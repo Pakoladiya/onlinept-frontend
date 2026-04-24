@@ -346,4 +346,34 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/appointments/notify-success
+ * Called by frontend after successful Razorpay payment.
+ * Sends WhatsApp confirmation to patient using the approved template.
+ * Body: { patientData: { name, phone, subdomain, dateDisplay, slotLabel, meetingLink } }
+ */
+router.post('/notify-success', async (req, res) => {
+  try {
+    const { patientData } = req.body;
+
+    if (!patientData?.phone || !patientData?.name) {
+      return res.status(400).json({ error: 'patientData.phone and patientData.name are required' });
+    }
+
+    const { notifyPatientBooking } = await import('../services/whatsapp.js');
+    const result = await notifyPatientBooking(patientData);
+
+    if (result.success) {
+      console.log(`[Notify] Booking confirmation sent to ${patientData.phone}`);
+      res.json({ success: true });
+    } else {
+      console.warn('[Notify] WA send failed:', result.error);
+      res.status(500).json({ success: false, error: result.error });
+    }
+  } catch (err) {
+    console.error('[Notify] notify-success error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
