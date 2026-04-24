@@ -205,56 +205,82 @@ export default function BookingPage() {
       }
 
       try {
+        let clinicDocData = null;
+        let clinicDocId = null;
+
+        // Strategy A: query by subdomain field
         const q = query(collection(db, 'clinics'), where('subdomain', '==', targetSubdomain));
         const snap = await getDocs(q);
         if (!snap.empty) {
-          const docData = snap.docs[0].data();
-          const settings = docData.settings || {};
+          clinicDocData = snap.docs[0].data();
+          clinicDocId = snap.docs[0].id;
+        }
+
+        // Strategy B: direct document ID lookup (subdomain == doc ID)
+        if (!clinicDocData) {
+          const directSnap = await getDoc(doc(db, 'clinics', targetSubdomain));
+          if (directSnap.exists()) {
+            clinicDocData = directSnap.data();
+            clinicDocId = directSnap.id;
+          }
+        }
+
+        if (clinicDocData) {
+          // ── Check clinic is approved (allow missing/undefined status too for legacy) ──
+          const status = clinicDocData.status;
+          if (status && status !== 'approved' && status !== 'active') {
+            console.warn(`[BookingPage] Clinic "${targetSubdomain}" status is "${status}" — blocked`);
+            setActiveClinic(null);
+            setFetchingConfig(false);
+            return;
+          }
+
+          const settings = clinicDocData.settings || {};
           const clinicData = {
-            id: snap.docs[0].id,
-            ...docData,
+            id: clinicDocId,
+            ...clinicDocData,
             // Ensure critical arrays/configs have proper fallbacks
-            services: docData.services || settings.services || clinicConfig.services,
-            packages: docData.packages || settings.packages || clinicConfig.packages || [],
-            coupons: docData.coupons || settings.coupons || clinicConfig.coupons || [],
-            workingHours: docData.workingHours || settings.workingHours || clinicConfig.workingHours,
-            slotDurationMinutes: docData.slotDurationMinutes || settings.slotDurationMinutes || clinicConfig.slotDurationMinutes || 15,
+            services: clinicDocData.services || settings.services || clinicConfig.services,
+            packages: clinicDocData.packages || settings.packages || clinicConfig.packages || [],
+            coupons: clinicDocData.coupons || settings.coupons || clinicConfig.coupons || [],
+            workingHours: clinicDocData.workingHours || settings.workingHours || clinicConfig.workingHours,
+            slotDurationMinutes: clinicDocData.slotDurationMinutes || settings.slotDurationMinutes || clinicConfig.slotDurationMinutes || 15,
             
             // Admin panel saves these under settings — read from both locations
-            logo: settings.logo || docData.logo || '',
-            logoWidth: settings.logoWidth || docData.logoWidth || 44,
-            logoHeight: settings.logoHeight || docData.logoHeight || 44,
-            coverPhoto: settings.coverPhoto || docData.coverPhoto || '',
-            physioPhoto: settings.physioPhoto || docData.physioPhoto || '',
-            physioName: settings.physioName || docData.physioName || docData.name || 'Clinical Director',
-            primaryColor: settings.primaryColor || docData.primaryColor || '#007AFF',
-            secondaryColor: settings.secondaryColor || docData.secondaryColor || '#5AC8FA',
-            videoMode: settings.videoMode || docData.videoMode || 'whatsapp',
-            zoomLink: settings.zoomLink || docData.zoomLink || '',
-            facebook: settings.facebook || docData.facebook || '',
-            instagram: settings.instagram || docData.instagram || '',
-            youtube: settings.youtube || docData.youtube || '',
-            linkedin: settings.linkedin || docData.linkedin || '',
+            logo: settings.logo || clinicDocData.logo || '',
+            logoWidth: settings.logoWidth || clinicDocData.logoWidth || 44,
+            logoHeight: settings.logoHeight || clinicDocData.logoHeight || 44,
+            coverPhoto: settings.coverPhoto || clinicDocData.coverPhoto || '',
+            physioPhoto: settings.physioPhoto || clinicDocData.physioPhoto || '',
+            physioName: settings.physioName || clinicDocData.physioName || clinicDocData.name || 'Clinical Director',
+            primaryColor: settings.primaryColor || clinicDocData.primaryColor || '#007AFF',
+            secondaryColor: settings.secondaryColor || clinicDocData.secondaryColor || '#5AC8FA',
+            videoMode: settings.videoMode || clinicDocData.videoMode || 'whatsapp',
+            zoomLink: settings.zoomLink || clinicDocData.zoomLink || '',
+            facebook: settings.facebook || clinicDocData.facebook || '',
+            instagram: settings.instagram || clinicDocData.instagram || '',
+            youtube: settings.youtube || clinicDocData.youtube || '',
+            linkedin: settings.linkedin || clinicDocData.linkedin || '',
             
             // New Branding Fields
-            testimonials: settings.testimonials || docData.testimonials || [],
-            showTestimonials: settings.showTestimonials ?? docData.showTestimonials ?? false,
-            highlights: settings.highlights || docData.highlights || [],
-            showHighlights: settings.showHighlights ?? docData.showHighlights ?? false,
-            noticeText: settings.noticeText || docData.noticeText || '',
-            showNotice: settings.showNotice ?? docData.showNotice ?? false,
-            adBanner: settings.adBanner || docData.adBanner || '',
-            showAdBanner: settings.showAdBanner !== undefined ? settings.showAdBanner : docData.showAdBanner ?? false,
+            testimonials: settings.testimonials || clinicDocData.testimonials || [],
+            showTestimonials: settings.showTestimonials ?? clinicDocData.showTestimonials ?? false,
+            highlights: settings.highlights || clinicDocData.highlights || [],
+            showHighlights: settings.showHighlights ?? clinicDocData.showHighlights ?? false,
+            noticeText: settings.noticeText || clinicDocData.noticeText || '',
+            showNotice: settings.showNotice ?? clinicDocData.showNotice ?? false,
+            adBanner: settings.adBanner || clinicDocData.adBanner || '',
+            showAdBanner: settings.showAdBanner !== undefined ? settings.showAdBanner : clinicDocData.showAdBanner ?? false,
             googleReviews: settings.googleReviews || '',
             justDial: settings.justDial || '',
-            languages: settings.languages || docData.languages || [],
+            languages: settings.languages || clinicDocData.languages || [],
             showLanguages: settings.showLanguages ?? true,
           };
           setActiveClinic(clinicData);
           setForm(prev => ({ ...prev, service: (clinicData.services || [])[0]?.name || '' }));
           document.title = `${clinicData.clinicName || 'Clinic'} | Expert Physiotherapy`;
         } else {
-          // 🛑 NO FALLBACK: This is how we fix the 'abc1023' issue.
+          // 🛑 NO FALLBACK: clinic not found by subdomain field OR doc ID
           setActiveClinic(null);
         }
       } catch (err) {
