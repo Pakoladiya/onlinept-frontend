@@ -192,7 +192,11 @@ export default function ReschedulePage() {
 
           <div style={{ background: dynamicT.primaryLight, padding: 20, borderRadius: T.r.sm, marginBottom: 32, borderLeft: `4px solid ${dynamicT.primary}` }}>
             <p style={{ fontSize: 11, fontWeight: 800, color: dynamicT.primary, textTransform: 'uppercase', marginBottom: 4, letterSpacing: 0.5 }}>Current Appointment</p>
-            <p style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{booking.date} · {booking.slot}</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>
+              {booking.dateDisplay || booking.date} · {typeof booking.slot === 'object'
+                ? (booking.slot?.label || booking.slot?.time || booking.slot?.id || '')
+                : (booking.slotLabel || booking.slot || '')}
+            </p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
