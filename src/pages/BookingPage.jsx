@@ -378,25 +378,28 @@ export default function BookingPage() {
     setModifySearching(true);
     setModifyError('');
     try {
-      // Normalize phone to E.164 — patient may enter 10-digit, 91XXXXXXXXXX or +91XXXXXXXXXX
-      let raw = modifyPhone.trim().replace(/\D/g, '');
-      if (raw.length === 10) raw = '91' + raw;
-      const normalized = '+' + raw; // e.g. +919228108454
+      // Build all 3 possible phone formats stored in Firestore
+      const digits = modifyPhone.trim().replace(/\D/g, '');
+      const ten    = digits.slice(-10);              // last 10 digits
+      const e164   = `+91${ten}`;                   // +919228108454
+      const full91 = `91${ten}`;                    // 919228108454
+      const cId    = activeClinic?.id || '';
 
       const bookingsRef = collection(db, 'bookings');
-      // Try both the normalized (+91...) and raw (91...) variants for backward compat
-      const [snap1, snap2] = await Promise.all([
-        getDocs(query(bookingsRef, where('patientPhone', '==', normalized), where('clinicId', '==', activeClinic?.id || ''))),
-        getDocs(query(bookingsRef, where('patientPhone', '==', raw), where('clinicId', '==', activeClinic?.id || ''))),
+      const [snap1, snap2, snap3] = await Promise.all([
+        getDocs(query(bookingsRef, where('patientPhone', '==', e164),   where('clinicId', '==', cId))),
+        getDocs(query(bookingsRef, where('patientPhone', '==', full91), where('clinicId', '==', cId))),
+        getDocs(query(bookingsRef, where('patientPhone', '==', ten),    where('clinicId', '==', cId))),
       ]);
-      const allDocs = [...snap1.docs, ...snap2.docs];
-      const snap = { empty: allDocs.length === 0, docs: allDocs };
-      if (snap.empty) {
-        setModifyError('No booking found with this number. Please enter the WhatsApp number you used while booking.');
+      const allDocs = [...snap1.docs, ...snap2.docs, ...snap3.docs]
+        .filter((d, i, arr) => arr.findIndex(x => x.id === d.id) === i); // dedupe
+
+      if (allDocs.length === 0) {
+        setModifyError('No booking found. Please enter the exact WhatsApp number you registered with (e.g. 9228108454).');
       } else {
-        // Find the most recent upcoming booking
-        const bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const upcoming = bookings.filter(b => b.status !== 'completed' && b.status !== 'cancelled')
+        const bookings = allDocs.map(d => ({ id: d.id, ...d.data() }));
+        const upcoming = bookings
+          .filter(b => b.status !== 'completed' && b.status !== 'cancelled')
           .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
         if (upcoming.length === 0) {
           setModifyError('No active bookings found. Only upcoming appointments can be modified.');
@@ -405,9 +408,11 @@ export default function BookingPage() {
         }
       }
     } catch (err) {
+      console.error('[ModifySearch]', err);
       setModifyError('Something went wrong. Please try again.');
     }
     setModifySearching(false);
+
   };
 
   if (fetchingConfig) {

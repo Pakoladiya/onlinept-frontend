@@ -89,7 +89,8 @@ export default function PaymentPage() {
         try {
           // ── The physioId is the clinic owner's Firebase UID — required by the dashboard query
           const physioId = clinicData?.uid || clinicData?.ownerId || '';
-          const patientPhone = intakeData?.personalInfo?.whatsapp || bookingData?.patientPhone || '';
+          const rawPhone = (intakeData?.personalInfo?.whatsapp || bookingData?.patientPhone || '').replace(/\D/g, '');
+          const patientPhone = rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone.length === 12 ? `+${rawPhone}` : rawPhone;
           const patientName  = intakeData?.personalInfo?.fullName  || bookingData?.patientName  || '';
 
           // 1. Save booking with physioId so dashboard can find it
