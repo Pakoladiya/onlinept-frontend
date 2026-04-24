@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { signInWithEmailPassword, setAuthPersistence } from '@/firebase/auth';
+import { signInWithEmailPassword, signInWithCustomToken, setAuthPersistence } from '@/firebase/auth';
 import { auth } from '@/firebase/config';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound, Fingerprint, ShieldCheck, MessageSquare, Smartphone } from 'lucide-react';
@@ -89,17 +89,38 @@ export default function PhysioLoginPage() {
       try {
         const res = await axios.post(`${API_BASE}/api/notifications/verify-otp`, { phone, otp });
         if (res.data.success) {
-          // In a real app, you'd exchange this for a Firebase token or similar.
-          // For now, we'll simulate a successful login if the phone exists in our users collection.
-          // Or just redirect to dashboard as requested for "authentication".
+          let firebaseSignedIn = false;
+          if (res.data.token) {
+            try {
+              await signInWithCustomToken(res.data.token);
+              firebaseSignedIn = true;
+              console.log('[OTP Login] Firebase custom token sign-in successful.');
+            } catch (tokenErr) {
+              console.warn('[OTP Login] Custom token sign-in failed:', tokenErr.message);
+            }
+          }
+
+          // Always set whatsapp session flags so PhysioDashboard can allow access
+          // even when Firebase custom token isn't available (user not in users collection yet)
           localStorage.setItem('auth_method', 'whatsapp');
           localStorage.setItem('auth_phone', phone);
-          navigate('/dashboard');
+          localStorage.setItem('whatsapp_session', JSON.stringify({
+            phone,
+            purpose: res.data.purpose || 'signin',
+            userId: res.data.userId || null,
+            firebaseSignedIn,
+            expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString() // 8-hour session
+          }));
+
+          const dest = isSuperAdminEmail(email || '') ? '/saas/dashboard' : '/dashboard';
+          navigate(dest);
         } else {
           setError(res.data.error || 'Invalid OTP');
         }
       } catch (err) {
-        setError(err.response?.data?.error || 'Verification failed. Please try again.');
+        console.error('[OTP Verify Error]:', err);
+        const detail = err.response?.data?.error || err.response?.data?.details || err.message;
+        setError(`Verification failed: ${detail}`);
       }
       setLoading(false);
     }
@@ -122,7 +143,7 @@ export default function PhysioLoginPage() {
       }
     } catch (err) {
       console.error('[OTP Send Debug]:', err);
-      const detail = err.response?.data?.error || err.message;
+      const detail = err.response?.data?.error || err.response?.data?.details || err.message;
       setError(`Failed to send OTP: ${detail}`);
     }
     setLoading(false);
@@ -306,10 +327,11 @@ export default function PhysioLoginPage() {
                         background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.border}`,
                         color: T.ink, fontSize: 24, fontWeight: 800, textAlign: 'center', letterSpacing: '8px', outline: 'none', transition: 'all 0.3s'
                       }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleLogin(); }}
                       required
                     />
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={sendWhatsAppOTP}
                       style={{ alignSelf: 'flex-end', background: 'none', border: 'none', color: T.inkSecondary, fontSize: 12, cursor: 'pointer', marginTop: 4 }}
                     >

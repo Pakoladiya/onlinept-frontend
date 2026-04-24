@@ -98,17 +98,48 @@ export async function getClinic(clinicSlug) {
 }
 
 /**
- * Get a clinic by its owner's UID.
+ * Get a clinic by its owner's UID, with optional phone fallback for WhatsApp sessions.
  * @param {string} uid
+ * @param {string} [phone] — optional phone number for WA session fallback
  */
-export async function getClinicByOwner(uid) {
+export async function getClinicByOwner(uid, phone = null) {
   if (!db) return null;
   const col = collection(db, 'clinics');
-  const q = query(col, where('uid', '==', uid));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const doc = snapshot.docs[0];
-  return { id: doc.id, ...doc.data() };
+
+  // Primary: look up by uid
+  if (uid && !uid.startsWith('wa_')) {
+    const q = query(col, where('uid', '==', uid));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      const d = snapshot.docs[0];
+      return { id: d.id, ...d.data() };
+    }
+  }
+
+  // Fallback: search by whatsapp or phone field (for WhatsApp OTP sessions)
+  const searchPhone = phone || (uid?.startsWith('wa_') ? uid.replace('wa_', '') : null);
+  if (searchPhone) {
+    const normalized = searchPhone.startsWith('+') ? searchPhone : `+${searchPhone.replace(/\D/g, '')}`;
+    const raw = searchPhone.replace(/\D/g, '');
+
+    // Try whatsapp field
+    for (const fieldVal of [normalized, raw, searchPhone]) {
+      const q2 = query(col, where('whatsapp', '==', fieldVal));
+      const snap2 = await getDocs(q2);
+      if (!snap2.empty) {
+        const d = snap2.docs[0];
+        return { id: d.id, ...d.data() };
+      }
+      const q3 = query(col, where('phone', '==', fieldVal));
+      const snap3 = await getDocs(q3);
+      if (!snap3.empty) {
+        const d = snap3.docs[0];
+        return { id: d.id, ...d.data() };
+      }
+    }
+  }
+
+  return null;
 }
 
 /**

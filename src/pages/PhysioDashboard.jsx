@@ -220,6 +220,35 @@ export default function PhysioDashboard() {
   const today = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
+    // Check for WhatsApp OTP session (when Firebase custom token wasn't available)
+    const waSession = localStorage.getItem('whatsapp_session');
+    if (waSession) {
+      try {
+        const session = JSON.parse(waSession);
+        const isValid = session?.expiresAt && new Date() < new Date(session.expiresAt);
+        if (isValid) {
+          // Use a synthetic user-like object so the dashboard can load clinic data
+          // The clinicByOwner lookup needs a uid — fall back to userId from session or phone-derived
+          const syntheticUser = {
+            uid: session.userId || `wa_${session.phone}`,
+            phone: session.phone,
+            email: null,
+            _isWhatsAppSession: true,
+          };
+          setUser(syntheticUser);
+          setAuthLoading(false);
+          return; // Don't set up Firebase auth listener — we have a WA session
+        } else {
+          // Session expired — clear it
+          localStorage.removeItem('whatsapp_session');
+          localStorage.removeItem('auth_method');
+          localStorage.removeItem('auth_phone');
+        }
+      } catch {
+        localStorage.removeItem('whatsapp_session');
+      }
+    }
+
     const unsub = onAuth((u) => {
       if (!u) { navigate('/dashboard-login'); return; }
       if (isSuperAdminEmail(u.email)) { navigate('/saas/dashboard'); return; }
@@ -234,7 +263,8 @@ export default function PhysioDashboard() {
     async function loadData() {
       setDataLoading(true);
       try {
-        const clinicData = await getClinicByOwner(user.uid);
+        // For WhatsApp sessions, pass phone as fallback to find clinic
+        const clinicData = await getClinicByOwner(user.uid, user.phone || null);
         setClinicInfo(clinicData);
 
         if (!clinicData) {
@@ -255,7 +285,9 @@ export default function PhysioDashboard() {
           if (isExpired && !isActive) setIsLocked(true);
         }
 
-        const [b, p] = await Promise.all([getPhysioBookings(user.uid), getPhysioPatients(user.uid)]);
+        // For WhatsApp sessions, use the clinic's actual owner uid for data queries
+        const effectiveUid = user._isWhatsAppSession ? (clinicData.uid || user.uid) : user.uid;
+        const [b, p] = await Promise.all([getPhysioBookings(effectiveUid), getPhysioPatients(effectiveUid)]);
         setBookings(b || []);
         setPatients(p || []);
       } catch (err) { console.error(err); }
@@ -263,6 +295,7 @@ export default function PhysioDashboard() {
     }
     loadData();
   }, [user, authLoading, navigate]);
+
 
   const filteredPatients = patients.filter(p =>
     !patientSearch ||
@@ -354,7 +387,14 @@ export default function PhysioDashboard() {
              <button onClick={() => navigate('/admin')} style={{ width: 44, height: 44, borderRadius: 15, background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.glassBorder}`, color: T.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}>
                 <Settings size={20} />
              </button>
-             <button onClick={async () => { await signOut(); navigate('/'); }} style={{ width: 44, height: 44, borderRadius: 15, background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}>
+             <button onClick={async () => { 
+               // Clear WhatsApp OTP session on logout
+               localStorage.removeItem('whatsapp_session');
+               localStorage.removeItem('auth_method');
+               localStorage.removeItem('auth_phone');
+               await signOut(); 
+               navigate('/'); 
+             }} style={{ width: 44, height: 44, borderRadius: 15, background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'}>
                 <LogOut size={20} color="#EF4444" />
              </button>
           </div>

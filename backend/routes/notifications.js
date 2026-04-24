@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { sendAppointmentReminder, sendOTP } from '../services/whatsapp.js';
+import { createCustomToken } from '../firebase-admin.js';
 
 const router = Router();
 
@@ -203,7 +204,7 @@ router.post('/send-otp', async (req, res) => {
     if (result.success) {
       res.json({ success: true, message: 'OTP sent successfully' });
     } else {
-      res.status(500).json({ success: false, error: result.error });
+      res.status(500).json({ success: false, error: typeof result.error === 'string' ? result.error : JSON.stringify(result.error) });
     }
   } catch (err) {
     console.error('[OTP Send Error]:', err);
@@ -239,11 +240,59 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     await db.collection('otps').doc(phone).delete();
-    res.json({ success: true, purpose: data.purpose });
+
+    // Look up Firebase UID by phone number
+    const formattedPhone = phone.startsWith('+') ? phone : `+${phone.replace(/\D/g, '')}`;
+    const rawPhone = phone.replace(/\D/g, '');
+
+    let token = null;
+    let userId = null;
+
+    // Strategy 1: Look up in users collection by phone
+    const usersSnap = await db.collection('users')
+      .where('phone', '==', formattedPhone)
+      .limit(1)
+      .get();
+
+    if (!usersSnap.empty) {
+      userId = usersSnap.docs[0].id;
+    }
+
+    // Strategy 2: Look up in clinics collection by whatsapp or phone field
+    if (!userId) {
+      for (const fieldVal of [formattedPhone, rawPhone, phone]) {
+        const clinicByWA = await db.collection('clinics')
+          .where('whatsapp', '==', fieldVal)
+          .limit(1)
+          .get();
+        if (!clinicByWA.empty) {
+          userId = clinicByWA.docs[0].data().uid || null;
+          break;
+        }
+        const clinicByPhone = await db.collection('clinics')
+          .where('phone', '==', fieldVal)
+          .limit(1)
+          .get();
+        if (!clinicByPhone.empty) {
+          userId = clinicByPhone.docs[0].data().uid || null;
+          break;
+        }
+      }
+    }
+
+    if (userId) {
+      try {
+        token = await createCustomToken(userId, { phone: formattedPhone, purpose: data.purpose });
+      } catch (err) {
+        console.error('[verify-otp] Custom token creation failed:', err);
+      }
+    }
+
+    res.json({ success: true, purpose: data.purpose, token, userId });
 
   } catch (err) {
     console.error('[OTP Verify Error]:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Internal server error', details: err.message });
   }
 });
 
