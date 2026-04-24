@@ -146,6 +146,11 @@ export default function BookingPage() {
   const [modifyPhone, setModifyPhone] = useState('');
   const [modifySearching, setModifySearching] = useState(false);
   const [modifyError, setModifyError] = useState('');
+  const [modifyStep, setModifyStep] = useState('phone'); // 'phone' | 'otp'
+  const [modifyOtp, setModifyOtp] = useState('');
+  const [modifyFoundId, setModifyFoundId] = useState(null);
+  const [modifyOtpSending, setModifyOtpSending] = useState(false);
+  const [modifyPatientName, setModifyPatientName] = useState('');
 
   // Read follow-up params from URL
   const urlSearchParams = new URLSearchParams(location.search);
@@ -372,17 +377,16 @@ export default function BookingPage() {
     });
   };
 
-  // Modify consultation handler — find booking by phone and redirect to reschedule
+  // Step 1: find booking by phone → send OTP
   const handleModifySearch = async () => {
     if (!modifyPhone.trim()) { setModifyError('Please enter your phone number.'); return; }
     setModifySearching(true);
     setModifyError('');
     try {
-      // Build all 3 possible phone formats stored in Firestore
       const digits = modifyPhone.trim().replace(/\D/g, '');
-      const ten    = digits.slice(-10);              // last 10 digits
-      const e164   = `+91${ten}`;                   // +919228108454
-      const full91 = `91${ten}`;                    // 919228108454
+      const ten    = digits.slice(-10);
+      const e164   = `+91${ten}`;
+      const full91 = `91${ten}`;
       const cId    = activeClinic?.id || '';
 
       const bookingsRef = collection(db, 'bookings');
@@ -392,27 +396,82 @@ export default function BookingPage() {
         getDocs(query(bookingsRef, where('patientPhone', '==', ten),    where('clinicId', '==', cId))),
       ]);
       const allDocs = [...snap1.docs, ...snap2.docs, ...snap3.docs]
-        .filter((d, i, arr) => arr.findIndex(x => x.id === d.id) === i); // dedupe
+        .filter((d, i, arr) => arr.findIndex(x => x.id === d.id) === i);
 
       if (allDocs.length === 0) {
-        setModifyError('No booking found. Please enter the exact WhatsApp number you registered with (e.g. 9228108454).');
-      } else {
-        const bookings = allDocs.map(d => ({ id: d.id, ...d.data() }));
-        const upcoming = bookings
-          .filter(b => b.status !== 'completed' && b.status !== 'cancelled')
-          .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-        if (upcoming.length === 0) {
-          setModifyError('No active bookings found. Only upcoming appointments can be modified.');
-        } else {
-          navigate(`/reschedule/${upcoming[0].id}`);
-        }
+        setModifyError('No booking found. Please enter the exact WhatsApp number you used while booking.');
+        setModifySearching(false);
+        return;
       }
+      const bookings = allDocs.map(d => ({ id: d.id, ...d.data() }));
+      const upcoming = bookings
+        .filter(b => b.status !== 'completed' && b.status !== 'cancelled')
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      if (upcoming.length === 0) {
+        setModifyError('No active bookings found. Only upcoming appointments can be modified.');
+        setModifySearching(false);
+        return;
+      }
+      // Booking found — now send OTP to verify identity
+      const found = upcoming[0];
+      setModifyFoundId(found.id);
+      setModifyPatientName(found.patientName || 'Patient');
+
+      const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
+      const otpRes = await fetch(`${API_BASE}/api/notifications/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: e164, purpose: 'reschedule', userName: found.patientName || 'Patient' }),
+      });
+      const otpData = await otpRes.json();
+      if (!otpRes.ok || !otpData.success) {
+        setModifyError(otpData.error || 'Failed to send OTP. Please try again.');
+        setModifySearching(false);
+        return;
+      }
+      setModifyStep('otp'); // advance to OTP step
     } catch (err) {
       console.error('[ModifySearch]', err);
       setModifyError('Something went wrong. Please try again.');
     }
     setModifySearching(false);
+  };
 
+  // Step 2: verify OTP → navigate to reschedule page
+  const handleModifyVerifyOtp = async () => {
+    if (modifyOtp.length < 6) return;
+    setModifyOtpSending(true);
+    setModifyError('');
+    try {
+      const digits = modifyPhone.trim().replace(/\D/g, '');
+      const e164   = `+91${digits.slice(-10)}`;
+      const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
+      const res = await fetch(`${API_BASE}/api/notifications/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: e164, otp: modifyOtp }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setModifyError(data.error || 'Invalid OTP. Please try again.');
+        setModifyOtpSending(false);
+        return;
+      }
+      // OTP verified — navigate to reschedule page
+      navigate(`/reschedule/${modifyFoundId}`);
+    } catch (err) {
+      setModifyError('OTP verification failed. Please try again.');
+    }
+    setModifyOtpSending(false);
+  };
+
+  const handleCloseModifyModal = () => {
+    setShowModifyModal(false);
+    setModifyStep('phone');
+    setModifyPhone('');
+    setModifyOtp('');
+    setModifyError('');
+    setModifyFoundId(null);
   };
 
   if (fetchingConfig) {
@@ -742,7 +801,7 @@ export default function BookingPage() {
       {/* ── Modify Consultation Modal ─────────────────────────────── */}
       {showModifyModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-          onClick={() => setShowModifyModal(false)}
+          onClick={handleCloseModifyModal}
         >
           <div style={{ background: 'rgba(15, 23, 42, 0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 28, padding: 40, maxWidth: 460, width: '100%', boxShadow: '0 40px 80px rgba(0,0,0,0.5)' }}
             onClick={e => e.stopPropagation()}
@@ -752,37 +811,81 @@ export default function BookingPage() {
                 <RefreshCw size={28} color={primaryColor} />
               </div>
               <h2 style={{ fontSize: 24, fontWeight: 800, color: '#F1F5F9', marginBottom: 8 }}>{t('manageAppointment')}</h2>
-              <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6 }}>Enter your registered WhatsApp number to find your booking. You can modify or cancel your appointment.</p>
+              <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6 }}>
+                {modifyStep === 'phone'
+                  ? 'Enter your registered WhatsApp number to find your booking.'
+                  : `We sent a 6-digit OTP to your WhatsApp. Enter it below to verify your identity.`}
+              </p>
             </div>
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 16, border: `2px solid ${modifyError ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 12, height: 60 }}>
-                <Phone size={18} color={primaryColor} />
-                <input
-                  value={modifyPhone}
-                  onChange={e => { setModifyPhone(e.target.value); setModifyError(''); }}
-                  placeholder="Your registered phone number"
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 16, fontWeight: 600, color: '#F1F5F9' }}
-                  onKeyDown={e => e.key === 'Enter' && handleModifySearch()}
-                />
-              </div>
-              {modifyError && <p style={{ color: '#EF4444', fontSize: 12, fontWeight: 600, marginTop: 8, marginLeft: 4 }}>{modifyError}</p>}
-            </div>
-            <button
-              onClick={handleModifySearch}
-              disabled={modifySearching}
-              style={{ 
-                width: '100%', height: 56, borderRadius: 16, 
-                background: primaryColor, color: getContrastColor(primaryColor), 
-                border: 'none', fontSize: 16, fontWeight: 800, cursor: 'pointer', 
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 
-              }}
-            >
-              {modifySearching ? <Loader2 size={20} className="animate-spin" /> : <><Search size={18} /> Find My Booking</>}
-            </button>
+
+            {modifyStep === 'phone' ? (
+              <>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 16, border: `2px solid ${modifyError ? '#EF4444' : 'rgba(255,255,255,0.1)'}`, padding: '0 16px', display: 'flex', alignItems: 'center', gap: 12, height: 60 }}>
+                    <Phone size={18} color={primaryColor} />
+                    <input
+                      value={modifyPhone}
+                      onChange={e => { setModifyPhone(e.target.value); setModifyError(''); }}
+                      placeholder="Your registered phone number"
+                      style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 16, fontWeight: 600, color: '#F1F5F9' }}
+                      onKeyDown={e => e.key === 'Enter' && handleModifySearch()}
+                    />
+                  </div>
+                  {modifyError && <p style={{ color: '#EF4444', fontSize: 12, fontWeight: 600, marginTop: 8, marginLeft: 4 }}>{modifyError}</p>}
+                </div>
+                <button
+                  onClick={handleModifySearch}
+                  disabled={modifySearching}
+                  style={{ width: '100%', height: 56, borderRadius: 16, background: primaryColor, color: getContrastColor(primaryColor), border: 'none', fontSize: 16, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+                >
+                  {modifySearching ? <Loader2 size={20} className="animate-spin" /> : <><Search size={18} /> Find My Booking</>}
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ marginBottom: 20 }}>
+                  <input
+                    type="text"
+                    value={modifyOtp}
+                    onChange={e => { setModifyOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setModifyError(''); }}
+                    placeholder="000000"
+                    maxLength={6}
+                    autoFocus
+                    style={{
+                      width: '100%', height: 70, borderRadius: 16,
+                      border: `2px solid ${modifyError ? '#EF4444' : primaryColor}`,
+                      background: 'rgba(255,255,255,0.05)',
+                      fontSize: 32, fontWeight: 800, textAlign: 'center', letterSpacing: 14,
+                      color: '#F1F5F9', outline: 'none',
+                    }}
+                    onKeyDown={e => e.key === 'Enter' && handleModifyVerifyOtp()}
+                  />
+                  {modifyError && <p style={{ color: '#EF4444', fontSize: 12, fontWeight: 600, marginTop: 8, textAlign: 'center' }}>{modifyError}</p>}
+                </div>
+                <button
+                  onClick={handleModifyVerifyOtp}
+                  disabled={modifyOtp.length < 6 || modifyOtpSending}
+                  style={{ width: '100%', height: 56, borderRadius: 16, background: modifyOtp.length < 6 ? '#334155' : primaryColor, color: '#fff', border: 'none', fontSize: 16, fontWeight: 800, cursor: modifyOtp.length < 6 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+                >
+                  {modifyOtpSending ? <Loader2 size={20} className="animate-spin" /> : 'Verify & Continue →'}
+                </button>
+                <p style={{ textAlign: 'center', marginTop: 16, fontSize: 13, color: '#64748B' }}>
+                  Wrong number?{' '}
+                  <span onClick={() => { setModifyStep('phone'); setModifyOtp(''); setModifyError(''); }} style={{ color: primaryColor, fontWeight: 700, cursor: 'pointer' }}>
+                    Go back
+                  </span>
+                  {' · '}
+                  <span onClick={handleModifySearch} style={{ color: primaryColor, fontWeight: 700, cursor: 'pointer' }}>
+                    Resend OTP
+                  </span>
+                </p>
+              </>
+            )}
             <p style={{ textAlign: 'center', color: '#475569', fontSize: 12, marginTop: 16 }}>Rescheduling is only available ≥12 hours before your appointment.</p>
           </div>
         </div>
       )}
+
 
       {/* ── Main Booking Form ────────────────────────────────────────── */}
       <section id="booking" className="booking-section" style={{ position: 'relative', zIndex: 2 }}>
