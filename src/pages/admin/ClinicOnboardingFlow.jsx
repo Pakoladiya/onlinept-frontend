@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import { db, auth } from '@/firebase/config';
@@ -7,8 +8,10 @@ import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/fires
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   CheckCircle2, ChevronRight, Stethoscope, Paintbrush,
-  ShieldCheck, Rocket, LayoutTemplate, AlertCircle, Loader2,
+  ShieldCheck, Rocket, LayoutTemplate, AlertCircle, Loader2, MessageSquare,
 } from 'lucide-react';
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
 
 // Brand name — hardcoded for the SaaS onboarding engine
 const BRAND_NAME = 'OnlinePT';
@@ -65,6 +68,48 @@ export default function ClinicOnboardingFlow() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [subdomainStatus, setSubdomainStatus] = useState({ status: 'idle', message: '' }); // 'idle' | 'checking' | 'available' | 'taken'
+
+  // ── WhatsApp OTP verification state ──────────────────────────────────────────
+  const [countryCode, setCountryCode] = useState('91');
+  const [rawPhone, setRawPhone] = useState('');
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
+  const [phoneOtpError, setPhoneOtpError] = useState('');
+
+  // Common country codes list
+  const COUNTRY_CODES = [
+    { code: '91',  flag: '🇮🇳', name: 'India' },
+    { code: '1',   flag: '🇺🇸', name: 'USA/Canada' },
+    { code: '44',  flag: '🇬🇧', name: 'UK' },
+    { code: '61',  flag: '🇦🇺', name: 'Australia' },
+    { code: '971', flag: '🇦🇪', name: 'UAE' },
+    { code: '65',  flag: '🇸🇬', name: 'Singapore' },
+    { code: '60',  flag: '🇲🇾', name: 'Malaysia' },
+    { code: '49',  flag: '🇩🇪', name: 'Germany' },
+    { code: '33',  flag: '🇫🇷', name: 'France' },
+    { code: '81',  flag: '🇯🇵', name: 'Japan' },
+    { code: '86',  flag: '🇨🇳', name: 'China' },
+    { code: '55',  flag: '🇧🇷', name: 'Brazil' },
+    { code: '27',  flag: '🇿🇦', name: 'South Africa' },
+    { code: '92',  flag: '🇵🇰', name: 'Pakistan' },
+    { code: '880', flag: '🇧🇩', name: 'Bangladesh' },
+    { code: '94',  flag: '🇱🇰', name: 'Sri Lanka' },
+    { code: '977', flag: '🇳🇵', name: 'Nepal' },
+  ];
+
+  // Helper: combine countryCode + rawPhone → formData.phone
+  const buildFullPhone = (cc, num) => `${cc}${num.replace(/\D/g, '')}`;
+
+  const handlePhonePartChange = (newCc, newRaw) => {
+    const full = buildFullPhone(newCc, newRaw);
+    setFormData(prev => ({ ...prev, phone: full }));
+    setPhoneVerified(false);
+    setPhoneOtpSent(false);
+    setPhoneOtp('');
+    setPhoneOtpError('');
+  };
 
   // Pre-fill from sessionStorage if available (set by SaaS landing page signup)
   const getInitialFormData = () => {
@@ -140,6 +185,51 @@ export default function ClinicOnboardingFlow() {
   const handleNext = () => setStep((s) => Math.min(s + 1, 4));
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
+  // ── WhatsApp OTP functions ────────────────────────────────────────────────────
+  async function sendPhoneOTP() {
+    if (!formData.phone) { setPhoneOtpError('Please enter your WhatsApp number first.'); return; }
+    setPhoneOtpLoading(true);
+    setPhoneOtpError('');
+    try {
+      const res = await axios.post(`${API_BASE}/api/notifications/send-otp`, {
+        phone: formData.phone,
+        purpose: 'signup',
+        userName: formData.physioName || 'Doctor',
+      });
+      if (res.data.success) {
+        setPhoneOtpSent(true);
+        setPhoneOtp('');
+      } else {
+        setPhoneOtpError(res.data.error || 'Failed to send OTP. Try again.');
+      }
+    } catch (err) {
+      setPhoneOtpError(err.response?.data?.error || 'Failed to send OTP. Check your number.');
+    }
+    setPhoneOtpLoading(false);
+  }
+
+  async function verifyPhoneOTP() {
+    if (!phoneOtp || phoneOtp.length !== 6) { setPhoneOtpError('Please enter the 6-digit OTP.'); return; }
+    setPhoneOtpLoading(true);
+    setPhoneOtpError('');
+    try {
+      const res = await axios.post(`${API_BASE}/api/notifications/verify-otp`, {
+        phone: formData.phone,
+        otp: phoneOtp,
+      });
+      if (res.data.success) {
+        setPhoneVerified(true);
+        setPhoneOtpSent(false);
+        setPhoneOtpError('');
+      } else {
+        setPhoneOtpError(res.data.error || 'Invalid OTP. Please try again.');
+      }
+    } catch (err) {
+      setPhoneOtpError(err.response?.data?.error || 'Verification failed. Try again.');
+    }
+    setPhoneOtpLoading(false);
+  }
+
   // ── Firebase provisioning ────────────────────────────────────────────────────
   const handleCompleteSignUp = async () => {
     setLoading(true);
@@ -174,6 +264,7 @@ export default function ClinicOnboardingFlow() {
         physioName: formData.physioName,
         email: formData.email,
         phone: formData.phone || '',
+        whatsapp: formData.phone || '',
         domain: `${clinicId}.onlinept.in`,
         subdomain: clinicId,
         primaryColor: formData.primaryColor,
@@ -319,9 +410,145 @@ export default function ClinicOnboardingFlow() {
                    <Field label="Professional Email">
                      <TextInput type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@clinic.com" />
                    </Field>
-                   <Field label="Mobile Number">
-                     <TextInput name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 XXXXX XXXXX" />
+                   {/* ── WhatsApp Number + OTP Verification ── */}
+                 <div style={{ gridColumn: '1 / -1' }}>
+                   <Field label="WhatsApp Number" hint="We'll send a 6-digit OTP to this WhatsApp number to verify it.">
+
+                     {/* Row 1: Country code dropdown + number input + Send OTP button */}
+                     <div style={{ display: 'flex', gap: 8 }}>
+
+                       {/* Country Code Dropdown */}
+                       <select
+                         value={countryCode}
+                         onChange={(e) => {
+                           setCountryCode(e.target.value);
+                           handlePhonePartChange(e.target.value, rawPhone);
+                         }}
+                         disabled={phoneVerified}
+                         style={{
+                           background: 'rgba(255,255,255,0.05)',
+                           border: `1.5px solid ${T.border}`,
+                           borderRadius: 12, color: T.ink,
+                           padding: '12px 10px', fontSize: 14, fontWeight: 700,
+                           cursor: phoneVerified ? 'default' : 'pointer',
+                           outline: 'none', minWidth: 100,
+                         }}
+                       >
+                         {COUNTRY_CODES.map(c => (
+                           <option key={c.code} value={c.code} style={{ background: '#1a1a1a' }}>
+                             {c.flag} +{c.code}
+                           </option>
+                         ))}
+                       </select>
+
+                       {/* Phone Number Input */}
+                       <input
+                         type="tel"
+                         value={rawPhone}
+                         onChange={(e) => {
+                           const digits = e.target.value.replace(/\D/g, '');
+                           setRawPhone(digits);
+                           handlePhonePartChange(countryCode, digits);
+                         }}
+                         placeholder="9876543210"
+                         disabled={phoneVerified}
+                         style={{
+                           flex: 1, background: 'rgba(255,255,255,0.03)',
+                           border: `1.5px solid ${T.border}`, borderRadius: 12,
+                           color: T.ink, padding: '12px 16px', fontSize: 15,
+                           fontWeight: 600, outline: 'none',
+                           opacity: phoneVerified ? 0.6 : 1,
+                         }}
+                       />
+
+                       {/* Verified badge OR Send OTP button */}
+                       {phoneVerified ? (
+                         <div style={{
+                           display: 'flex', alignItems: 'center', gap: 6, padding: '0 16px',
+                           background: 'rgba(16, 185, 129, 0.1)', border: '1.5px solid rgba(16, 185, 129, 0.3)',
+                           borderRadius: 12, color: '#10B981', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap'
+                         }}>
+                           <CheckCircle2 size={16} /> Verified
+                         </div>
+                       ) : (
+                         <button
+                           type="button"
+                           onClick={sendPhoneOTP}
+                           disabled={!rawPhone || rawPhone.length < 7 || phoneOtpLoading}
+                           style={{
+                             padding: '0 18px', borderRadius: 12, border: `1.5px solid ${T.primary}`,
+                             background: phoneOtpSent ? 'transparent' : T.primary,
+                             color: phoneOtpSent ? T.primary : T.white,
+                             fontWeight: 800, fontSize: 13, cursor: 'pointer',
+                             display: 'flex', alignItems: 'center', gap: 6,
+                             opacity: (!rawPhone || rawPhone.length < 7 || phoneOtpLoading) ? 0.5 : 1,
+                             whiteSpace: 'nowrap', transition: 'all 0.2s'
+                           }}
+                         >
+                           {phoneOtpLoading && !phoneOtpSent
+                             ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                             : <MessageSquare size={15} />}
+                           {phoneOtpSent ? 'Resend' : 'Send OTP'}
+                         </button>
+                       )}
+                     </div>
+
+                     {/* Full number preview */}
+                     {rawPhone && !phoneVerified && (
+                       <p style={{ marginTop: 6, marginLeft: 2, fontSize: 11, color: T.ink4, fontWeight: 600 }}>
+                         Sending to: <span style={{ color: T.ink2 }}>+{countryCode} {rawPhone}</span>
+                       </p>
+                     )}
+
+                     {/* OTP Input row — shown after OTP is sent */}
+                     {phoneOtpSent && !phoneVerified && (
+                       <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                         <input
+                           type="text"
+                           value={phoneOtp}
+                           onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                           placeholder="• • • • • •"
+                           maxLength={6}
+                           autoFocus
+                           style={{
+                             flex: 1, background: 'rgba(255,255,255,0.03)',
+                             border: `1.5px solid ${phoneOtp.length === 6 ? T.primary : T.border}`,
+                             borderRadius: 12, color: T.ink, padding: '12px 16px',
+                             fontSize: 22, fontWeight: 800, textAlign: 'center',
+                             letterSpacing: '10px', outline: 'none', transition: 'border-color 0.2s'
+                           }}
+                           onKeyDown={(e) => { if (e.key === 'Enter') verifyPhoneOTP(); }}
+                         />
+                         <button
+                           type="button"
+                           onClick={verifyPhoneOTP}
+                           disabled={phoneOtp.length !== 6 || phoneOtpLoading}
+                           style={{
+                             padding: '0 22px', borderRadius: 12, border: 'none',
+                             background: phoneOtp.length === 6 ? T.primary : 'rgba(255,255,255,0.06)',
+                             color: T.white, fontWeight: 800, fontSize: 14,
+                             cursor: phoneOtp.length === 6 ? 'pointer' : 'not-allowed',
+                             display: 'flex', alignItems: 'center', gap: 6,
+                             opacity: (phoneOtp.length !== 6 || phoneOtpLoading) ? 0.5 : 1,
+                             transition: 'all 0.2s'
+                           }}
+                         >
+                           {phoneOtpLoading
+                             ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                             : <ShieldCheck size={16} />}
+                           Verify
+                         </button>
+                       </div>
+                     )}
+
+                     {/* Error message */}
+                     {phoneOtpError && (
+                       <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, color: '#F87171', fontSize: 12, fontWeight: 600 }}>
+                         <AlertCircle size={14} /> {phoneOtpError}
+                       </div>
+                     )}
                    </Field>
+                 </div>
                    <Field label="Clinic Full Name">
                      <TextInput name="clinicName" value={formData.clinicName} onChange={handleChange} placeholder="e.g. Zen Physio Center" />
                    </Field>
@@ -359,7 +586,7 @@ export default function ClinicOnboardingFlow() {
                 </div>
 
                 <div className="mt-12 flex justify-end">
-                   <Button size="lg" onClick={handleNext} disabled={!formData.physioName || !formData.clinicName || !formData.subdomain || subdomainStatus.status !== 'available'}>
+                   <Button size="lg" onClick={handleNext} disabled={!formData.physioName || !formData.clinicName || !formData.subdomain || subdomainStatus.status !== 'available' || !phoneVerified}>
                       Continue to Branding <ChevronRight className="w-5 h-5 ml-2" />
                    </Button>
                 </div>
