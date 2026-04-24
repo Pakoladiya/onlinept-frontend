@@ -36,6 +36,7 @@ const PrivacyPolicyPage = lazyRetry(() => import('@/pages/PrivacyPolicyPage'));
 const ContactUsPage = lazyRetry(() => import('@/pages/ContactUsPage'));
 const HelpCenterPage = lazyRetry(() => import('@/pages/HelpCenterPage'));
 const CancellationPolicyPage = lazyRetry(() => import('@/pages/CancellationPolicyPage'));
+const ClinicWhatsAppRedirect = lazyRetry(() => import('@/pages/ClinicWhatsAppRedirect'));
 
 // ── Loading Spinner ──
 // ── Loading Spinner (Luxe Midnight) ──
@@ -114,6 +115,8 @@ export default function AppRouter() {
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/cancellation" element={<CancellationPolicyPage />} />
         <Route path="/contact" element={<ContactUsPage />} />
+        {/* WhatsApp redirect: used by the approved WA template "Talk To Clinic" button */}
+        <Route path="/wa/:subdomain" element={<ClinicWhatsAppRedirect />} />
         <Route path="/help" element={<HelpCenterPage />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
