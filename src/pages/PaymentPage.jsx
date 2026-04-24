@@ -125,9 +125,11 @@ export default function PaymentPage() {
 
           // ── Send WhatsApp booking confirmation to patient ─────────────
           try {
-            // On VPS: nginx proxies /api/* to backend, so relative URL works in prod.
-            // In local dev: backend runs on port 5001 separately.
-            const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+            // Always call the main domain backend — relative URLs break on subdomains
+            // e.g. patient on nijanand.onlinept.in → needs onlinept.in/api/...
+            const API_BASE = import.meta.env.DEV
+              ? 'http://localhost:5001'
+              : 'https://onlinept.in';
 
             // Normalize phone to E.164 (+91XXXXXXXXXX for Indian numbers)
             let rawPhone = (intakeData.personalInfo.whatsapp || '').replace(/\D/g, '');

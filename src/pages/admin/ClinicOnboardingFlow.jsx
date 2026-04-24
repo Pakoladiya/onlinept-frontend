@@ -11,7 +11,7 @@ import {
   ShieldCheck, Rocket, LayoutTemplate, AlertCircle, Loader2, MessageSquare,
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
 
 // Brand name — hardcoded for the SaaS onboarding engine
 const BRAND_NAME = 'OnlinePT';
