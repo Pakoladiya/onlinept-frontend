@@ -120,10 +120,14 @@ export async function notifyPatientBooking(patientData, config = {}) {
     patientData.slotLabel,   // {{4}} Time
   ];
 
-  return sendOnbbitsCampaign(patientData.phone, campaign, params, {
+  const campaignName = process.env.AISENSY_CAMPAIGN_BOOKING || 'patient_booking_confirmed';
+  const hasStaticButton = campaignName === 'patient_booking_confirmed'; // old template = static URL
+
+  return sendOnbbitsCampaign(patientData.phone, campaignName, params, {
     ...config,
     userName: patientData.name,
-    buttonParam: patientData.subdomain || '', // Dynamic URL suffix → https://onlinept.in/wa/{subdomain}
+    // Only pass buttonParam for templates with a Dynamic URL button
+    ...(hasStaticButton ? {} : { buttonParam: patientData.subdomain || '' }),
   });
 }
 
