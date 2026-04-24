@@ -123,7 +123,7 @@ export async function notifyPatientBooking(patientData, config = {}) {
   return sendOnbbitsCampaign(patientData.phone, campaign, params, {
     ...config,
     userName: patientData.name,
-    // Note: buttonParam removed — the template's URL button is static (no dynamic params)
+    buttonParam: patientData.subdomain || '', // Dynamic URL suffix → https://onlinept.in/wa/{subdomain}
   });
 }
 
