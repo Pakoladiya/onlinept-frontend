@@ -121,13 +121,11 @@ export async function notifyPatientBooking(patientData, config = {}) {
   ];
 
   const campaignName = process.env.AISENSY_CAMPAIGN_BOOKING || 'patient_booking_confirmed';
-  const hasStaticButton = campaignName === 'patient_booking_confirmed'; // old template = static URL
 
   return sendOnbbitsCampaign(patientData.phone, campaignName, params, {
     ...config,
     userName: patientData.name,
-    // Only pass buttonParam for templates with a Dynamic URL button
-    ...(hasStaticButton ? {} : { buttonParam: patientData.subdomain || '' }),
+    // No buttonParam — both templates use static URL buttons
   });
 }
 
