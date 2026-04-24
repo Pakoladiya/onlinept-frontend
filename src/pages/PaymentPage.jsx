@@ -125,22 +125,34 @@ export default function PaymentPage() {
 
           // ── Send WhatsApp booking confirmation to patient ─────────────
           try {
-            const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : '';
+            const API_BASE = import.meta.env.VITE_BACKEND_URL || (import.meta.env.DEV ? 'http://localhost:5001' : '');
+            
+            // Ensure phone is in E.164 format (+91XXXXXXXXXX)
+            let rawPhone = intakeData.personalInfo.whatsapp || '';
+            rawPhone = rawPhone.replace(/\D/g, ''); // strip non-digits
+            if (rawPhone.length === 10) rawPhone = '91' + rawPhone; // add India country code
+            const formattedPhone = rawPhone.startsWith('+') ? rawPhone : `+${rawPhone}`;
+
+            // Clinic subdomain: try subdomain field first, then doc ID
+            const clinicSubdomain = clinicData?.subdomain || clinicData?.id || bookingData.clinicId || 'onlinept';
+
             await fetch(`${API_BASE}/api/appointments/notify-success`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 patientData: {
                   name:        intakeData.personalInfo.fullName,
-                  phone:       intakeData.personalInfo.whatsapp,
-                  subdomain:   clinicData?.subdomain || clinicData?.clinicId || 'onlinept',
+                  phone:       formattedPhone,
+                  subdomain:   clinicSubdomain,
                   dateDisplay: bookingData.dateDisplay || bookingData.date,
                   slotLabel:   bookingData.slotLabel || bookingData.slot?.time || '',
-                  meetingLink: `https://${clinicData?.subdomain || 'onlinept'}.onlinept.in/join/${bookingId}`,
+                  meetingLink: `https://${clinicSubdomain}.onlinept.in/join/${bookingId}`,
                 },
               }),
             });
+            console.log('[WA] Booking notification dispatched to', formattedPhone);
           } catch (err) { console.warn('[WA] Booking notification non-critical failure:', err); }
+
 
           navigate(`/confirmation/${bookingId}`, { 
             state: { ...bookingData, paymentId: response.razorpay_payment_id } 
