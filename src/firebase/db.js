@@ -122,19 +122,27 @@ export async function getClinicByOwner(uid, phone = null) {
     const normalized = searchPhone.startsWith('+') ? searchPhone : `+${searchPhone.replace(/\D/g, '')}`;
     const raw = searchPhone.replace(/\D/g, '');
 
+    // Helper: pick active clinic over pending ones (multiple clinics may share same number)
+    const pickBest = (docs) => {
+      const active = docs.find(d => d.data().subscriptionStatus === 'active');
+      const nonPending = docs.find(d => d.data().subscriptionStatus !== 'pending_approval');
+      const chosen = active || nonPending || docs[0];
+      return chosen ? { id: chosen.id, ...chosen.data() } : null;
+    };
+
     // Try whatsapp field
     for (const fieldVal of [normalized, raw, searchPhone]) {
-      const q2 = query(col, where('whatsapp', '==', fieldVal));
+      const q2 = query(col, where('whatsapp', '==', fieldVal), limit(10));
       const snap2 = await getDocs(q2);
       if (!snap2.empty) {
-        const d = snap2.docs[0];
-        return { id: d.id, ...d.data() };
+        const result = pickBest(snap2.docs);
+        if (result) return result;
       }
-      const q3 = query(col, where('phone', '==', fieldVal));
+      const q3 = query(col, where('phone', '==', fieldVal), limit(10));
       const snap3 = await getDocs(q3);
       if (!snap3.empty) {
-        const d = snap3.docs[0];
-        return { id: d.id, ...d.data() };
+        const result = pickBest(snap3.docs);
+        if (result) return result;
       }
     }
   }

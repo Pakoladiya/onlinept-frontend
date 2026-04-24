@@ -290,23 +290,31 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     // Strategy 2: Look up in clinics collection by whatsapp or phone field
+    // Fetch up to 10 and prefer the active clinic if multiple share the same number
     if (!userId) {
+      const pickActiveUid = (docs) => {
+        const active = docs.find(d => d.data().subscriptionStatus === 'active');
+        const nonPending = docs.find(d => d.data().subscriptionStatus !== 'pending_approval');
+        const chosen = active || nonPending || docs[0];
+        return chosen?.data()?.uid || null;
+      };
+
       for (const fieldVal of [formattedPhone, rawPhone, phone]) {
         const clinicByWA = await db.collection('clinics')
           .where('whatsapp', '==', fieldVal)
-          .limit(1)
+          .limit(10)
           .get();
         if (!clinicByWA.empty) {
-          userId = clinicByWA.docs[0].data().uid || null;
-          break;
+          userId = pickActiveUid(clinicByWA.docs);
+          if (userId) break;
         }
         const clinicByPhone = await db.collection('clinics')
           .where('phone', '==', fieldVal)
-          .limit(1)
+          .limit(10)
           .get();
         if (!clinicByPhone.empty) {
-          userId = clinicByPhone.docs[0].data().uid || null;
-          break;
+          userId = pickActiveUid(clinicByPhone.docs);
+          if (userId) break;
         }
       }
     }
