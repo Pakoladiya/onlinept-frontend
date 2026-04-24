@@ -13,7 +13,7 @@ import {
   Loader2, AlertCircle, Image, User, Palette, Globe, Clock,
   Eye, EyeOff, Plus, Trash2, Check, Tag, Link as LinkIcon, Gift,
   Facebook, Instagram, Youtube, Linkedin, Phone,
-  Video, DollarSign, MessageCircle, ChevronLeft, ExternalLink, Star
+  Video, DollarSign, MessageCircle, ChevronLeft, ExternalLink, Star, Briefcase
 } from 'lucide-react';
 
 // ─── iOS Design Tokens ──────────────────────────────────────────────────────────
@@ -1681,6 +1681,239 @@ export default function PhysioAdminPanel() {
                   </div>
                 </div>
              </div>
+          )}
+
+          {/* ── Services & Promos Tab ──────────────────────────────────────────── */}
+          {activeTab === 'pricing' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'slideIn 0.25s ease' }}>
+
+              {/* ── Services ── */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <SectionHeader
+                  icon={<Briefcase size={16} style={{ color: T.primary }} />}
+                  title="Your Services"
+                  subtitle="Add the treatments you offer. Patients see these on your booking page."
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {(s.services || []).map((svc, i) => (
+                    <div key={svc.id || i} style={{
+                      border: `1.5px solid ${T.border}`, borderRadius: T.r.md,
+                      padding: 16, background: T.surface, position: 'relative'
+                    }}>
+                      {/* Delete button */}
+                      <button
+                        onClick={() => {
+                          const updated = s.services.filter((_, idx) => idx !== i);
+                          update('services', updated);
+                        }}
+                        style={{
+                          position: 'absolute', top: 12, right: 12,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: '#EF4444', padding: 4
+                        }}
+                        title="Remove service"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }} className="admin-form-grid">
+                        <Field
+                          label="Service Name"
+                          value={svc.name}
+                          onChange={v => {
+                            const updated = [...s.services];
+                            updated[i] = { ...updated[i], name: v };
+                            update('services', updated);
+                          }}
+                          placeholder="e.g. Initial Consultation"
+                        />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <Field
+                            label="Duration (min)"
+                            value={svc.duration}
+                            type="number"
+                            onChange={v => {
+                              const updated = [...s.services];
+                              updated[i] = { ...updated[i], duration: parseInt(v) || 0 };
+                              update('services', updated);
+                            }}
+                            placeholder="45"
+                          />
+                          <Field
+                            label="Price (₹)"
+                            value={svc.price}
+                            type="number"
+                            onChange={v => {
+                              const updated = [...s.services];
+                              updated[i] = { ...updated[i], price: parseInt(v) || 0 };
+                              update('services', updated);
+                            }}
+                            placeholder="500"
+                          />
+                        </div>
+                      </div>
+                      <Field
+                        label="Short Description"
+                        value={svc.description}
+                        multiline
+                        rows={2}
+                        onChange={v => {
+                          const updated = [...s.services];
+                          updated[i] = { ...updated[i], description: v };
+                          update('services', updated);
+                        }}
+                        placeholder="What does this service include?"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    const newSvc = {
+                      id: `svc_${Date.now()}`,
+                      name: '',
+                      duration: 30,
+                      price: 500,
+                      description: '',
+                    };
+                    update('services', [...(s.services || []), newSvc]);
+                  }}
+                  style={{
+                    marginTop: 16, width: '100%', height: 44,
+                    border: `2px dashed ${T.border}`, borderRadius: T.r.md,
+                    background: 'transparent', color: T.ink3,
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    transition: 'border-color 0.2s, color 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.primary; e.currentTarget.style.color = T.primary; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.ink3; }}
+                >
+                  <Plus size={16} /> Add New Service
+                </button>
+              </div>
+
+              {/* ── Promo Coupons ── */}
+              <div style={{ background: T.white, borderRadius: T.r.lg, border: `1px solid ${T.border}`, padding: 24 }}>
+                <SectionHeader
+                  icon={<Tag size={16} style={{ color: T.orange }} />}
+                  title="Promo Coupons"
+                  subtitle="Create discount codes patients can apply at checkout."
+                />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {(s.coupons || []).map((cpn, i) => (
+                    <div key={i} style={{
+                      border: `1.5px solid ${T.border}`, borderRadius: T.r.md,
+                      padding: 16, background: T.surface, position: 'relative'
+                    }}>
+                      <button
+                        onClick={() => {
+                          const updated = s.coupons.filter((_, idx) => idx !== i);
+                          update('coupons', updated);
+                        }}
+                        style={{
+                          position: 'absolute', top: 12, right: 12,
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          color: '#EF4444', padding: 4
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }} className="admin-form-grid">
+                        <Field
+                          label="Coupon Code"
+                          value={cpn.code}
+                          onChange={v => {
+                            const updated = [...s.coupons];
+                            updated[i] = { ...updated[i], code: v.toUpperCase() };
+                            update('coupons', updated);
+                          }}
+                          placeholder="e.g. WELCOME10"
+                        />
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: T.ink2, marginBottom: 6 }}>Discount Type</label>
+                          <select
+                            value={cpn.type || 'percent'}
+                            onChange={e => {
+                              const updated = [...s.coupons];
+                              updated[i] = { ...updated[i], type: e.target.value };
+                              update('coupons', updated);
+                            }}
+                            style={{
+                              width: '100%', height: 48, padding: '0 12px',
+                              background: T.surface, border: `1.5px solid ${T.border}`,
+                              borderRadius: T.r.md, fontSize: 14, color: T.ink,
+                              outline: 'none', cursor: 'pointer'
+                            }}
+                          >
+                            <option value="percent">% Percent Off</option>
+                            <option value="flat">₹ Flat Off</option>
+                          </select>
+                        </div>
+                        <Field
+                          label={cpn.type === 'flat' ? 'Amount (₹)' : 'Discount (%)'}
+                          value={cpn.value}
+                          type="number"
+                          onChange={v => {
+                            const updated = [...s.coupons];
+                            updated[i] = { ...updated[i], value: parseInt(v) || 0 };
+                            update('coupons', updated);
+                          }}
+                          placeholder={cpn.type === 'flat' ? '100' : '10'}
+                        />
+                      </div>
+                      <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <Field
+                          label="Max Uses (blank = unlimited)"
+                          value={cpn.maxUses || ''}
+                          type="number"
+                          onChange={v => {
+                            const updated = [...s.coupons];
+                            updated[i] = { ...updated[i], maxUses: parseInt(v) || null };
+                            update('coupons', updated);
+                          }}
+                          placeholder="e.g. 50"
+                        />
+                        <Field
+                          label="Expiry Date (optional)"
+                          value={cpn.expiry || ''}
+                          type="date"
+                          onChange={v => {
+                            const updated = [...s.coupons];
+                            updated[i] = { ...updated[i], expiry: v };
+                            update('coupons', updated);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    const newCoupon = { code: '', type: 'percent', value: 10, maxUses: null, expiry: '' };
+                    update('coupons', [...(s.coupons || []), newCoupon]);
+                  }}
+                  style={{
+                    marginTop: 16, width: '100%', height: 44,
+                    border: `2px dashed ${T.border}`, borderRadius: T.r.md,
+                    background: 'transparent', color: T.ink3,
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    transition: 'border-color 0.2s, color 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = T.orange; e.currentTarget.style.color = T.orange; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = T.border; e.currentTarget.style.color = T.ink3; }}
+                >
+                  <Plus size={16} /> Add Promo Coupon
+                </button>
+              </div>
+
+            </div>
           )}
         </div>
 
