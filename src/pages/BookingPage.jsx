@@ -378,14 +378,21 @@ export default function BookingPage() {
     setModifySearching(true);
     setModifyError('');
     try {
+      // Normalize phone to E.164 — patient may enter 10-digit, 91XXXXXXXXXX or +91XXXXXXXXXX
+      let raw = modifyPhone.trim().replace(/\D/g, '');
+      if (raw.length === 10) raw = '91' + raw;
+      const normalized = '+' + raw; // e.g. +919228108454
+
       const bookingsRef = collection(db, 'bookings');
-      const q = query(bookingsRef,
-        where('patientPhone', '==', modifyPhone.trim()),
-        where('clinicId', '==', activeClinic?.id || '')
-      );
-      const snap = await getDocs(q);
+      // Try both the normalized (+91...) and raw (91...) variants for backward compat
+      const [snap1, snap2] = await Promise.all([
+        getDocs(query(bookingsRef, where('patientPhone', '==', normalized), where('clinicId', '==', activeClinic?.id || ''))),
+        getDocs(query(bookingsRef, where('patientPhone', '==', raw), where('clinicId', '==', activeClinic?.id || ''))),
+      ]);
+      const allDocs = [...snap1.docs, ...snap2.docs];
+      const snap = { empty: allDocs.length === 0, docs: allDocs };
       if (snap.empty) {
-        setModifyError('No booking found with this phone number. Please try again.');
+        setModifyError('No booking found with this number. Please enter the WhatsApp number you used while booking.');
       } else {
         // Find the most recent upcoming booking
         const bookings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -767,7 +774,7 @@ export default function BookingPage() {
             >
               {modifySearching ? <Loader2 size={20} className="animate-spin" /> : <><Search size={18} /> Find My Booking</>}
             </button>
-            <p style={{ textAlign: 'center', color: '#475569', fontSize: 12, marginTop: 16 }}>Rescheduling is only available ≥4 hours before your appointment.</p>
+            <p style={{ textAlign: 'center', color: '#475569', fontSize: 12, marginTop: 16 }}>Rescheduling is only available ≥12 hours before your appointment.</p>
           </div>
         </div>
       )}

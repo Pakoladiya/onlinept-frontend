@@ -53,8 +53,8 @@ export default function ReschedulePage() {
           setError('This appointment has already been rescheduled once and cannot be moved again per platform policy.');
           setLoading(false);
           return;
-        } else if (!isWithinRescheduleWindow(data, 4)) {
-          setError('This appointment is scheduled to start soon (within 4 hours) and can no longer be moved. Please contact the clinic for assistance.');
+        } else if (!isWithinRescheduleWindow(data, 12)) {
+          setError('Rescheduling is no longer possible. Appointments can only be moved at least 12 hours before the session. Please contact the clinic for assistance.');
           setLoading(false);
           return;
         }

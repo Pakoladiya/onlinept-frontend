@@ -280,11 +280,11 @@ export async function updateBookingStatus(bookingId, status, extraFields = {}) {
 }
 
 /**
- * Check if a booking is within the rescheduling window (e.g., at least 4 hours before).
+ * Check if a booking is within the rescheduling window (e.g., at least 12 hours before).
  * @param {object} booking
  * @param {number} hours
  */
-export function isWithinRescheduleWindow(booking, hours = 4) {
+export function isWithinRescheduleWindow(booking, hours = 12) {
   if (!booking || !booking.date || !booking.slot) return false;
   
   let bDate;
@@ -337,8 +337,8 @@ export async function rescheduleBooking(bookingId, newSlot) {
     throw new Error('Appointment has already been rescheduled once and cannot be moved again.');
   }
 
-  if (!isWithinRescheduleWindow(booking, 4)) {
-    throw new Error('Appointments can only be rescheduled up to 4 hours before the scheduled time.');
+  if (!isWithinRescheduleWindow(booking, 12)) {
+    throw new Error('Appointments can only be rescheduled at least 12 hours before the scheduled time.');
   }
 
   return updateDocument('bookings', bookingId, {
