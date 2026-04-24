@@ -189,6 +189,37 @@ router.post('/send-otp', async (req, res) => {
     const db = await getDb();
     if (!db) return res.status(503).json({ error: 'Database not available' });
 
+    // ── Gate: verify the number exists in our database before burning an OTP ──
+    const formattedPhone = phone.startsWith('+') ? phone : `+${phone.replace(/\D/g, '')}`;
+    const rawPhone = phone.replace(/\D/g, '');
+    let registeredUser = null;
+
+    // Check 1: users collection
+    const usersSnap = await db.collection('users')
+      .where('phone', '==', formattedPhone)
+      .limit(1)
+      .get();
+    if (!usersSnap.empty) registeredUser = usersSnap.docs[0].id;
+
+    // Check 2: clinics collection (whatsapp or phone field)
+    if (!registeredUser) {
+      for (const fieldVal of [formattedPhone, rawPhone, phone]) {
+        const cWA = await db.collection('clinics').where('whatsapp', '==', fieldVal).limit(1).get();
+        if (!cWA.empty) { registeredUser = cWA.docs[0].id; break; }
+        const cPhone = await db.collection('clinics').where('phone', '==', fieldVal).limit(1).get();
+        if (!cPhone.empty) { registeredUser = cPhone.docs[0].id; break; }
+      }
+    }
+
+    if (!registeredUser) {
+      console.log(`[OTP] Blocked — number not found in DB: ${phone}`);
+      return res.status(404).json({
+        success: false,
+        error: 'This number is not registered on OnlinePT. Please check the number or contact support.'
+      });
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiry = new Date(Date.now() + 10 * 60000); // 10 mins
 
