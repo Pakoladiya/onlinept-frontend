@@ -168,20 +168,20 @@ Test all routes with `curl` or Postman:
 
 ```bash
 # Create appointment
-curl -X POST http://localhost:5000/api/appointments/create \
+curl -X POST https://onlinept-render.onrender.com/api/appointments/create \
   -H "Content-Type: application/json" \
   -d '{"patientName":"Test","serviceId":"initial","date":"2026-03-27","slot":"10:00"}'
 
 # Get slots
-curl "http://localhost:5000/api/slots/nfc_surat?date=2026-03-27"
+curl "https://onlinept-render.onrender.com/api/slots/nfc_surat?date=2026-03-27"
 
 # Create Zoom meeting (mock mode)
-curl -X POST http://localhost:5000/api/zoom/create-meeting \
+curl -X POST https://onlinept-render.onrender.com/api/zoom/create-meeting \
   -H "Content-Type: application/json" \
   -d '{"bookingId":"test123","dateTime":"2026-03-27T10:00:00","duration":30}'
 
 # Create payment order (mock mode)
-curl -X POST http://localhost:5000/api/payments/create-order \
+curl -X POST https://onlinept-render.onrender.com/api/payments/create-order \
   -H "Content-Type: application/json" \
   -d '{"bookingId":"test123","amount":50000}'
 ```

@@ -84,6 +84,11 @@ export default function PhysioLoginPage() {
       setLoading(false);
     } else {
       // WhatsApp OTP Verification
+      if (!otpSent) {
+        e?.preventDefault();
+        sendWhatsAppOTP();
+        return;
+      }
       if (!otp) { setError('Please enter the OTP sent to your WhatsApp.'); return; }
       setLoading(true);
       setError('');
