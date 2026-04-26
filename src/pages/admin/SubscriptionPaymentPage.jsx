@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   Crown
 } from 'lucide-react';
+import { API_BASE } from '@/utils/api';
 
 /**
  * SubscriptionPaymentPage — For Clinicians to pay Super Admin platform fees.
@@ -61,7 +62,7 @@ export default function SubscriptionPaymentPage() {
 
     try {
       // 1. Create Subscription on Backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/subscriptions/create`, {
+      const response = await fetch(`${API_BASE}/api/subscriptions/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -81,7 +82,7 @@ export default function SubscriptionPaymentPage() {
         description: `${plan} Plan Subscription`,
         handler: async (paymentResp) => {
           // Verify on backend
-          const verifyUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/subscriptions/verify`;
+          const verifyUrl = `${API_BASE}/api/subscriptions/verify`;
           const verifyResp = await fetch(verifyUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

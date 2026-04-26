@@ -1,5 +1,6 @@
 import {
   signInWithEmailAndPassword,
+  signInWithCustomToken as firebaseSignInWithCustomToken,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -19,6 +20,11 @@ import { auth } from './config';
 export async function signIn(email, password) {
   if (!auth) throw new Error('Firebase is not configured. Please set up your .env file.');
   return signInWithEmailAndPassword(auth, email, password);
+}
+
+export async function signInWithCustomToken(token) {
+  if (!auth) throw new Error('Firebase is not configured.');
+  return firebaseSignInWithCustomToken(auth, token);
 }
 
 export const signInWithEmailPassword = signIn;

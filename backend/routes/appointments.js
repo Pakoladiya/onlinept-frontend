@@ -1,4 +1,4 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -322,25 +322,72 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const db = await getDb();
+    const { id } = req.params;
+
+    // Helper: Check if date/time is at least 12h away
+    const isWithinWindow = (booking, hours = 12) => {
+      if (!booking || !booking.date || !booking.slot) return false;
+      try {
+        const bDate = new Date(booking.date);
+        const timeStr = (typeof booking.slot === 'object' ? booking.slot?.label : booking.slot) || '';
+        const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+        if (timeMatch) {
+          let [_, h, m, meridiem] = timeMatch;
+          h = parseInt(h); m = parseInt(m);
+          if (meridiem) {
+            if (meridiem.toUpperCase() === 'PM' && h < 12) h += 12;
+            if (meridiem.toUpperCase() === 'AM' && h === 12) h = 0;
+          }
+          bDate.setHours(h, m, 0, 0);
+        }
+        const now = new Date();
+        const diffMs = bDate.getTime() - now.getTime();
+        return (diffMs / (1000 * 60 * 60)) >= hours;
+      } catch (e) { return false; }
+    };
 
     if (db) {
-      const booking = await getBooking(db, req.params.id);
+      const booking = await getBooking(db, id);
       if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
-      await db.collection('bookings').doc(req.params.id).update({
+      // Policy: 12-hour cancellation window
+      if (!isWithinWindow(booking, 12)) {
+        return res.status(400).json({ 
+          error: 'Cancellation policy violation. Appointments can only be cancelled at least 12 hours before the session. Please contact support for urgent changes.' 
+        });
+      }
+
+      await db.collection('bookings').doc(id).update({
         status: 'cancelled',
+        cancelledBy: 'therapist',
         updatedAt: new Date().toISOString(),
       });
-      const updated = await getBooking(db, req.params.id);
+      
+      const updated = await getBooking(db, id);
+
+      // Trigger WhatsApp notification to patient (Fire-and-forget)
+      const { notifyPatientCancellation } = require('../services/whatsapp');
+      notifyPatientCancellation({
+        name: updated.patientName,
+        phone: updated.patientPhone || updated.phone,
+        date: updated.date,
+        time: updated.slotLabel || updated.slot,
+        clinicName: updated.clinicName,
+        subdomain: updated.clinicId || updated.subdomain
+      }).catch(err => console.error('[WA] Cancel notification failed:', err));
+
       return res.json({ booking: updated });
     }
 
     // Fallback: in-memory
-    const b = bookings.get(req.params.id);
+    const b = bookings.get(id);
     if (!b) return res.status(404).json({ error: 'Booking not found' });
+    if (!isWithinWindow(b, 12)) {
+        return res.status(400).json({ error: 'Cannot cancel within 12 hours of session.' });
+    }
     b.status = 'cancelled';
     b.updatedAt = new Date().toISOString();
-    return res.json({ booking: { id: req.params.id, ...b } });
+    return res.json({ booking: { id, ...b } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -360,15 +407,47 @@ router.post('/notify-success', async (req, res) => {
       return res.status(400).json({ error: 'patientData.phone and patientData.name are required' });
     }
 
-    const { notifyPatientBooking } = await import('../services/whatsapp.js');
-    const result = await notifyPatientBooking(patientData);
+    const { notifyPatientBooking, notifyTherapistNewBooking } = await import('../services/whatsapp.js');
+    
+    // 1. Notify Patient
+    const patientResult = await notifyPatientBooking(patientData);
 
-    if (result.success) {
+    // 2. Notify Therapist (Sub-domain contact)
+    try {
+      const db = await getDb();
+      if (db && patientData.subdomain) {
+        // Find clinic by subdomain
+        const clinicSnap = await db.collection('clinics')
+          .where('subdomain', '==', patientData.subdomain)
+          .limit(1)
+          .get();
+        
+        if (!clinicSnap.empty) {
+          const clinic = clinicSnap.docs[0].data();
+          if (clinic.whatsapp) {
+            console.log(`[Notify] Sending therapist alert to ${clinic.whatsapp}`);
+            await notifyTherapistNewBooking(clinic.whatsapp, {
+              patientName: patientData.name,
+              patientPhone: patientData.phone,
+              date: patientData.dateDisplay,
+              time: patientData.slotLabel,
+              serviceName: patientData.serviceName || 'Consultation',
+              preferredPlatform: patientData.preferredPlatform || 'WhatsApp Video',
+              subdomain: patientData.subdomain
+            });
+          }
+        }
+      }
+    } catch (therapistErr) {
+      console.warn('[Notify] Therapist notification failed (non-critical):', therapistErr.message);
+    }
+
+    if (patientResult.success) {
       console.log(`[Notify] Booking confirmation sent to ${patientData.phone}`);
       res.json({ success: true });
     } else {
-      console.warn('[Notify] WA send failed:', result.error);
-      res.status(500).json({ success: false, error: result.error });
+      console.warn('[Notify] Patient WA send failed:', patientResult.error);
+      res.status(500).json({ success: false, error: patientResult.error });
     }
   } catch (err) {
     console.error('[Notify] notify-success error:', err);
@@ -388,18 +467,87 @@ router.post('/notify-reschedule', async (req, res) => {
     if (!patientData?.phone || !patientData?.name) {
       return res.status(400).json({ error: 'patientData.phone and patientData.name are required' });
     }
-    const { notifyPatientBooking } = await import('../services/whatsapp.js');
-    const result = await notifyPatientBooking(patientData);
-    if (result.success) {
+    
+    const { notifyPatientBooking, notifyTherapistReschedule } = await import('../services/whatsapp.js');
+    
+    // 1. Notify Patient
+    const patientResult = await notifyPatientBooking(patientData);
+
+    // 2. Notify Therapist
+    try {
+      const db = await getDb();
+      if (db && patientData.subdomain) {
+        const clinicSnap = await db.collection('clinics')
+          .where('subdomain', '==', patientData.subdomain)
+          .limit(1)
+          .get();
+        
+        if (!clinicSnap.empty) {
+          const clinic = clinicSnap.docs[0].data();
+          if (clinic.whatsapp) {
+            console.log(`[Notify] Sending therapist reschedule alert to ${clinic.whatsapp}`);
+            await notifyTherapistReschedule(clinic.whatsapp, {
+              patientName: patientData.name,
+              patientPhone: patientData.phone,
+              date: patientData.dateDisplay,
+              time: patientData.slotLabel,
+              preferredPlatform: patientData.preferredPlatform || 'WhatsApp Video',
+              subdomain: patientData.subdomain
+            });
+          }
+        }
+      }
+    } catch (therapistErr) {
+      console.warn('[Notify] Therapist reschedule notification failed:', therapistErr.message);
+    }
+
+    if (patientResult.success) {
       console.log(`[Notify] Reschedule confirmation sent to ${patientData.phone}`);
       res.json({ success: true });
     } else {
-      console.warn('[Notify] Reschedule WA send failed:', result.error);
-      res.status(500).json({ success: false, error: result.error });
+      console.warn('[Notify] Reschedule WA send failed:', patientResult.error);
+      res.status(500).json({ success: false, error: patientResult.error });
     }
   } catch (err) {
     console.error('[Notify] notify-reschedule error:', err);
     res.status(500).json({ error: err.message });
   }
 });
+/**
+ * POST /api/appointments/notify-new-clinic
+ * Called by frontend after successful clinic onboarding.
+ * Sends WhatsApp alert to Super Admin (919228108454) using new_clinic_signup_alert template.
+ * Body: { clinicData: { clinicName, ownerName, phone, subdomain, plan } }
+ */
+router.post('/notify-new-clinic', async (req, res) => {
+  try {
+    const { clinicData } = req.body;
+
+    if (!clinicData?.clinicName || !clinicData?.ownerName) {
+      return res.status(400).json({ error: 'clinicData.clinicName and clinicData.ownerName are required' });
+    }
+
+    const { notifySuperAdminNewClinic } = await import('../services/whatsapp.js');
+
+    const result = await notifySuperAdminNewClinic({
+      clinicName: clinicData.clinicName,
+      ownerName: clinicData.ownerName,
+      phone: clinicData.phone || 'Not provided',
+      subdomain: clinicData.subdomain,
+      plan: clinicData.plan || 'Starter',
+    });
+
+    if (result.success) {
+      console.log(`[Notify] Super Admin alerted: New clinic "${clinicData.clinicName}"`);
+      res.json({ success: true });
+    } else {
+      console.warn('[Notify] Super Admin WA send failed:', result.error);
+      res.json({ success: true, warning: 'Super admin notified via logs, but WhatsApp send failed', error: result.error });
+    }
+  } catch (err) {
+    console.error('[Notify] notify-new-clinic error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

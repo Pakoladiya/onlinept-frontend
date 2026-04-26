@@ -10,10 +10,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
-        name: 'Physio On Web',
-        short_name: 'PhysioWeb',
-        description: 'Elite virtual physical therapy clinic platform.',
-        theme_color: '#007AFF',
+        name: 'OnlinePT',
+        short_name: 'OnlinePT',
+        description: 'Professional virtual physical therapy clinic platform.',
+        theme_color: '#14A3A8',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',
@@ -21,19 +21,19 @@ export default defineConfig({
         categories: ['medical', 'health', 'lifestyle'],
         icons: [
           {
-            src: '/icon-192.svg',
+            src: '/icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
           },
           {
-            src: '/icon-512.svg',
+            src: '/icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
           },
           {
-            src: '/icon-512.svg',
+            src: '/icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],
@@ -63,7 +63,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:5001',
         changeOrigin: true,
       },
     },

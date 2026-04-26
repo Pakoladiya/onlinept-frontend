@@ -28,7 +28,7 @@ function formatDate(dateStr) {
 
 async function fetchClinicData(clinicId) {
   try {
-    const db = getDb();
+    const db = await getDb();
     if (!db) return {};
     const [clinicSnap, presetSnap] = await Promise.all([
       db.collection('clinics').doc(clinicId).get(),
@@ -44,7 +44,7 @@ async function fetchClinicData(clinicId) {
 
 async function fetchBookingData(bookingId, clinicId) {
   try {
-    const db = getDb();
+    const db = await getDb();
     if (!db) return null;
     const doc = await db.collection('bookings').doc(bookingId).get();
     if (!doc.exists) return null;

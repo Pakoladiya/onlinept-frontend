@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase/config';
 import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { API_BASE } from '@/utils/api';
 
 const T = {
   bg: '#0F172A',
@@ -84,7 +85,7 @@ export default function PaymentPage() {
       currency: 'INR',
       name: clinicData?.clinicName || 'OnlinePT',
       description: `Consultation: ${bookingData.serviceName}`,
-      image: clinicData?.logoUrl || '/logo.png',
+      image: clinicData?.logoUrl || '/onlinept-logo-v3.png',
       handler: async function (response) {
         try {
           // ── The physioId is the clinic owner's Firebase UID — required by the dashboard query
@@ -126,11 +127,7 @@ export default function PaymentPage() {
 
           // ── Send WhatsApp booking confirmation to patient ─────────────
           try {
-            // Always call the main domain backend — relative URLs break on subdomains
-            // e.g. patient on nijanand.onlinept.in → needs onlinept.in/api/...
-            const API_BASE = import.meta.env.DEV
-              ? 'http://localhost:5001'
-              : 'https://onlinept.in';
+            // Always use centralized API_BASE — handles subdomains automatically
 
             // Normalize phone to E.164 (+91XXXXXXXXXX for Indian numbers)
             let rawPhone = (intakeData.personalInfo.whatsapp || '').replace(/\D/g, '');
@@ -150,6 +147,8 @@ export default function PaymentPage() {
                   subdomain:   clinicSubdomain,
                   dateDisplay: bookingData.dateDisplay || bookingData.date,
                   slotLabel:   bookingData.slotLabel || bookingData.slot?.time || '',
+                  serviceName: bookingData.serviceName || 'Consultation',
+                  preferredPlatform: intakeData?.clinicalInfo?.preferredPlatform || 'whatsapp',
                   meetingLink: `https://${clinicSubdomain}.onlinept.in/join/${bookingId}`,
                 },
               }),

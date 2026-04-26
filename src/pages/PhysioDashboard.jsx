@@ -6,14 +6,17 @@ import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import SessionOutcomesWidget from '@/components/SessionOutcomesWidget';
+import axios from 'axios';
 import {
   Settings, Clock, LogOut, ChevronRight, Video, Search, X,
   Loader2, Calendar, ShieldCheck, ChevronLeft,
   Users, CalendarCheck, TrendingUp, UserCheck, Activity,
   BarChart3, MessageSquare, Crown, Menu, PlusCircle, Share2, Copy, Send,
   HeartPulse, FileText, RefreshCw, PhoneCall, ArrowRight,
-  FolderOpen, Layers, Palette, LayoutGrid
+  FolderOpen, Layers, Palette, LayoutGrid, Ban
 } from 'lucide-react';
+
+import { API_BASE } from '@/utils/api';
 
 const toTitleCase = (str) => {
   if (!str) return '';
@@ -37,8 +40,12 @@ const T = {
   ink: '#F8FAFC',
   inkSecondary: '#94A3B8',
   inkTertiary: '#64748B',
+  ink2: '#94A3B8',
+  ink3: '#64748B',
+  ink4: '#475569',
   primary: '#0EA5E9', // iOS-style Cyan/Blue
   primaryVibrant: '#38BDF8',
+  accent: '#14A3A8',
   white: '#FFFFFF',
   r: { sm: 12, md: 16, lg: 24, xl: 32 },
   blur: 'blur(30px)',
@@ -216,6 +223,8 @@ export default function PhysioDashboard() {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [followUpSearch, setFollowUpSearch] = useState('');
   const [followUpResults, setFollowUpResults] = useState([]);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [blockingLoading, setBlockingLoading] = useState(false);
   
   const today = new Date().toISOString().split('T')[0];
 
@@ -284,8 +293,6 @@ export default function PhysioDashboard() {
           const isActive = clinicData.subscriptionStatus === 'active';
           if (isExpired && !isActive) setIsLocked(true);
         }
-
-        // For WhatsApp sessions, use the clinic's actual owner uid for data queries
         const effectiveUid = user._isWhatsAppSession ? (clinicData.uid || user.uid) : user.uid;
         const [b, p] = await Promise.all([getPhysioBookings(effectiveUid), getPhysioPatients(effectiveUid)]);
         setBookings(b || []);
@@ -296,6 +303,59 @@ export default function PhysioDashboard() {
     loadData();
   }, [user, authLoading, navigate]);
 
+  const handleCancelAppointment = async (apt) => {
+    if (!window.confirm(`Are you sure you want to cancel the appointment with ${apt.patientName}? This will notify the patient via WhatsApp.`)) return;
+    setCancellingId(apt.id);
+    try {
+      const res = await axios.delete(`${API_BASE}/api/appointments/${apt.id}`);
+      if (res.data.booking) {
+        setBookings(prev => prev.map(b => b.id === apt.id ? { ...b, status: 'cancelled' } : b));
+        alert('Appointment cancelled successfully.');
+      }
+    } catch (err) { alert(err.response?.data?.error || 'Failed to cancel appointment.'); } finally { setCancellingId(null); }
+  };
+
+  const handleQuickBlock = async (type) => {
+    const dateStr = document.getElementById('quick-block-date')?.value;
+    if (!dateStr) { alert('Please select a date.'); return; }
+    setBlockingLoading(true);
+    try {
+      if (type === 'day') {
+        const currentBlocked = clinicInfo.blockedDates || [];
+        if (currentBlocked.includes(dateStr)) { alert('This date is already blocked.'); setBlockingLoading(false); return; }
+        const clinicsRef = doc(db, 'clinics', clinicInfo.id);
+        await updateDoc(clinicsRef, { blockedDates: [...currentBlocked, dateStr] });
+        setClinicInfo(prev => ({ ...prev, blockedDates: [...currentBlocked, dateStr] }));
+        alert(`Date ${dateStr} has been blocked successfully.`);
+      } else {
+        const time = document.getElementById('quick-block-time')?.value;
+        if (!time) { alert('Please enter a time.'); setBlockingLoading(false); return; }
+        await blockSlot(user.uid, dateStr, { startTime: time, endTime: time, reason: 'Quick block from dashboard' });
+        alert(`Slot at ${time} on ${dateStr} has been blocked.`);
+      }
+    } catch (err) { console.error('Block Error:', err); alert('Failed to block availability.'); } finally { setBlockingLoading(false); }
+  };
+
+  const isCancelable = (apt) => {
+    if (apt.status === 'cancelled') return false;
+    try {
+      const bDate = new Date(apt.date);
+      const timeStr = (typeof apt.slot === 'object' ? apt.slot?.label : apt.slot) || '';
+      const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (timeMatch) {
+        let [_, h, m, meridiem] = timeMatch;
+        h = parseInt(h); m = parseInt(m);
+        if (meridiem) {
+          if (meridiem.toUpperCase() === 'PM' && h < 12) h += 12;
+          if (meridiem.toUpperCase() === 'AM' && h === 12) h = 0;
+        }
+        bDate.setHours(h, m, 0, 0);
+      }
+      const now = new Date();
+      const diffMs = bDate.getTime() - now.getTime();
+      return (diffMs / (1000 * 60 * 60)) >= 12;
+    } catch (e) { return false; }
+  };
 
   const filteredPatients = patients.filter(p =>
     !patientSearch ||
@@ -367,14 +427,14 @@ export default function PhysioDashboard() {
       <header style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(11, 15, 26, 0.8)', backdropFilter: 'blur(30px)', borderBottom: `1px solid ${T.glassBorder}` }}>
         <div style={{ maxWidth: 1200, height: 84, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-             <div style={{ position: 'relative' }}>
-                <img 
-                  src="https://raw.githubusercontent.com/Pakoladiya/onlinept-frontend/main/artifacts/doctor_avatar_premium_1776789834088.png" 
-                  alt="Doctor"
-                  style={{ width: 48, height: 48, borderRadius: 18, objectFit: 'cover', border: `1px solid ${T.glassBorder}` }}
-                />
-                <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, background: '#10B981', border: `2.5px solid #0F172A`, borderRadius: '50%' }} />
-             </div>
+              <div style={{ position: 'relative' }}>
+                 <img 
+                   src="/onlinept-logo-v3.png" 
+                   alt="OnlinePT"
+                   style={{ width: 64, height: 64, objectFit: 'contain', background: '#fff', borderRadius: 16, padding: 6 }}
+                 />
+                 <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, background: '#10B981', border: `2.5px solid #0F172A`, borderRadius: '50%' }} />
+              </div>
              <div>
                 <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 18, color: T.ink, letterSpacing: '-0.5px' }}>
                    {new Date().getHours() < 12 ? 'Good Morning' : 'Welcome Back'}
@@ -388,7 +448,6 @@ export default function PhysioDashboard() {
                 <Settings size={20} />
              </button>
              <button onClick={async () => { 
-               // Clear WhatsApp OTP session on logout
                localStorage.removeItem('whatsapp_session');
                localStorage.removeItem('auth_method');
                localStorage.removeItem('auth_phone');
@@ -512,6 +571,55 @@ export default function PhysioDashboard() {
                       <Share2 size={22} /> Share Clinic Link on WhatsApp
                     </button>
                     
+                  </div>
+
+                  {/* Quick Availability Block */}
+                  <div style={{ background: T.bgCard, borderRadius: 32, border: `1px solid ${T.glassBorder}`, padding: '28px', display: 'flex', flexDirection: 'column', gap: 20, backdropFilter: T.blur }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
+                        <Ban size={20} />
+                      </div>
+                      <h3 style={{ fontSize: 17, fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>Quick Block</h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, textTransform: 'uppercase' }}>Date</label>
+                        <input 
+                          type="date" 
+                          id="quick-block-date"
+                          defaultValue={new Date().toISOString().split('T')[0]}
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.glassBorder}`, borderRadius: 12, padding: '10px', color: T.ink, fontSize: 13, outline: 'none' }} 
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, textTransform: 'uppercase' }}>Time (Optional)</label>
+                        <input 
+                          type="time" 
+                          id="quick-block-time"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.glassBorder}`, borderRadius: 12, padding: '10px', color: T.ink, fontSize: 13, outline: 'none' }} 
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button 
+                        onClick={() => handleQuickBlock('day')}
+                        disabled={blockingLoading}
+                        style={{ flex: 1, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.05)', color: T.ink, border: `1px solid ${T.glassBorder}`, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                      >
+                        Block Day
+                      </button>
+                      <button 
+                        onClick={() => handleQuickBlock('slot')}
+                        disabled={blockingLoading}
+                        style={{ flex: 1, height: 44, borderRadius: 14, background: T.accent, color: T.white, border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+                      >
+                        {blockingLoading ? <Loader2 size={16} className="animate-spin" /> : 'Block Slot'}
+                      </button>
+                    </div>
                   </div>
                </div>
 
@@ -641,24 +749,34 @@ export default function PhysioDashboard() {
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
                           {dayBookings.map(apt => (
-                            <div 
-                              key={apt.id} 
-                              onClick={() => navigate(`/join/${apt.id}`)}
-                              style={{ padding: 16, background: T.bgCard, borderRadius: 20, border: `1px solid ${T.glassBorder}`, display: 'flex', gap: 14, alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                              onMouseEnter={e => e.currentTarget.style.borderColor = T.accent}
-                              onMouseLeave={e => e.currentTarget.style.borderColor = T.glassBorder}
-                            >
-                               <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: T.accent }}>
-                                  {(apt.patientName || 'P')[0]}
-                               </div>
-                               <div style={{ flex: 1 }}>
-                                  <p style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>{toTitleCase(apt.patientName)}</p>
-                                  <p style={{ fontSize: 12, color: T.ink2, marginTop: 2 }}>{apt.slotLabel || apt.slot}</p>
-                               </div>
-                               <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', padding: '4px 8px', borderRadius: 6, background: apt.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)', color: apt.status === 'completed' ? '#10B981' : T.ink3 }}>
-                                  {apt.status}
-                                </span>
-                            </div>
+                             <div 
+                               key={apt.id} 
+                               style={{ padding: 16, background: T.bgCard, borderRadius: 20, border: `1px solid ${apt.status === 'cancelled' ? '#ef444430' : T.glassBorder}`, display: 'flex', gap: 14, alignItems: 'center', transition: 'all 0.2s', opacity: apt.status === 'cancelled' ? 0.6 : 1 }}
+                             >
+                                <div onClick={() => navigate(`/join/${apt.id}`)} style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: T.accent, cursor: 'pointer' }}>
+                                   {(apt.patientName || 'P')[0]}
+                                </div>
+                                <div onClick={() => navigate(`/join/${apt.id}`)} style={{ flex: 1, cursor: 'pointer' }}>
+                                   <p style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>{toTitleCase(apt.patientName)}</p>
+                                   <p style={{ fontSize: 12, color: T.ink2, marginTop: 2 }}>{apt.slotLabel || apt.slot}</p>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', padding: '4px 8px', borderRadius: 6, background: apt.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : apt.status === 'cancelled' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.05)', color: apt.status === 'completed' ? '#10B981' : apt.status === 'cancelled' ? '#EF4444' : T.ink3 }}>
+                                     {apt.status}
+                                   </span>
+                                   {isCancelable(apt) && (
+                                     <button 
+                                       onClick={(e) => { e.stopPropagation(); handleCancelAppointment(apt); }}
+                                       disabled={cancellingId === apt.id}
+                                       style={{ background: 'transparent', border: 'none', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '4px 8px', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 4 }}
+                                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.05)'}
+                                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                     >
+                                       {cancellingId === apt.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />} Cancel
+                                     </button>
+                                   )}
+                                </div>
+                             </div>
                           ))}
                         </div>
                       </div>

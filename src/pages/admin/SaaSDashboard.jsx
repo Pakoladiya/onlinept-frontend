@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { sendResetEmail } from '@/firebase/auth';
 import { getAllPlatformBookings } from '@/firebase/db';
+import { API_ROOT } from '@/utils/api';
 
 // ---─ Design Tokens ---------------------------------------------------------------------------------------------
 const T = {
@@ -48,7 +49,7 @@ const NAV_ITEMS = [
 
 const toTitleCase = (str) => {
   if (!str) return '';
-  return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  return str.trim().split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 };
 
 // ---─ Stat Card ------------------------------------------------------------------------------------------------─
@@ -108,7 +109,7 @@ function Sidebar({ activeTab, onTab, collapsed, onSignOut, mobileOpen, onMobileC
   const content = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ height: 72, padding: '0 24px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <img src="/logo.png" alt="OnlinePT" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'contain', flexShrink: 0 }} />
+        <img src="/onlinept-logo-v3.png" alt="OnlinePT" style={{ width: 34, height: 34, objectFit: 'contain', flexShrink: 0 }} />
         {(mobileOpen || !collapsed) && (
           <div>
             <p style={{ fontFamily: "'Manrope', sans-serif", fontWeight: 800, fontSize: 16, color: T.sidebarTextBright, lineHeight: 1.1 }}>OnlinePT</p>
@@ -225,7 +226,14 @@ export default function SaaSDashboard() {
   useEffect(() => {
     if (!db) { setLoading(false); return; }
     const unsub = onSnapshot(collection(db, 'clinics'), (snap) => {
-      setClinics(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Sort by createdAt descending (newest first)
+      list.sort((a, b) => {
+        const da = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+        const db = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+        return db - da;
+      });
+      setClinics(list);
       setLoading(false);
     }, () => setLoading(false));
 
@@ -263,23 +271,10 @@ export default function SaaSDashboard() {
         try {
           const clinic = clinics.find(c => c.id === id);
           if (clinic) {
-            const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-            await fetch(`${API_BASE}/appointments/notify-success`, {
+            await fetch(`${API_ROOT}/notifications/notify-clinic-approval`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                patientData: {
-                  name: clinic.physioName,
-                  phone: clinic.whatsappNumber || clinic.phone,
-                  clinicName: clinic.clinicName || clinic.name,
-                  dateDisplay: new Date().toLocaleDateString(),
-                  slotLabel: 'CLINIC ACTIVATED',
-                  meetingLink: `Welcome! Your clinic is live at https://${clinic.subdomain}.onlinept.in/dashboard-login`
-                },
-                therapistPhone: clinic.whatsappNumber || clinic.phone,
-                whatsappToken: platformBilling.whatsappToken,
-                whatsappPhoneId: platformBilling.whatsappPhoneId
-              })
+              body: JSON.stringify({ clinicId: id })
             });
           }
         } catch (通知Err) {

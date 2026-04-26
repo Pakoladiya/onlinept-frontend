@@ -54,3 +54,4 @@ setup_ssl.py
 mcp_vps_bridge.py
 mcp_test.json
 
+.env*.local

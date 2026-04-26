@@ -50,9 +50,10 @@ export default function MasterAdminPage() {
   const [clinics, setClinics] = useState([]);
   const [search, setSearch] = useState('');
   const [togglingId, setTogglingId] = useState(null);
-  const [activeTab, setActiveTab] = useState('clinics'); // 'clinics' or 'transactions'
+  const [activeTab, setActiveTab] = useState('clinics'); // 'clinics', 'transactions', or 'payouts'
   const [recentBookings, setRecentBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [updatingPayout, setUpdatingPayout] = useState(null);
 
     const unsub = onAuth(async (u) => {
       if (!u || u.email !== ADMIN_EMAIL) {
@@ -109,6 +110,17 @@ export default function MasterAdminPage() {
     setTogglingId(null);
   }
 
+  async function markAsPaid(bookingId) {
+    setUpdatingPayout(bookingId);
+    try {
+      await updateDoc(doc(db, 'bookings', bookingId), { payoutStatus: 'processed', paidAt: Date.now() });
+      setRecentBookings(prev => prev.map(b => b.id === bookingId ? { ...b, payoutStatus: 'processed' } : b));
+    } catch (e) {
+      console.error('Failed to mark as paid:', e);
+    }
+    setUpdatingPayout(null);
+  }
+
   async function approveAndEmail(clinic) {
     setTogglingId(clinic.id);
     try {
@@ -116,7 +128,19 @@ export default function MasterAdminPage() {
       await updateDoc(doc(db, 'clinics', clinic.id), { status: 'active', subscriptionStatus: 'active' });
       setClinics((prev) => prev.map((c) => (c.id === clinic.id ? { ...c, status: 'active', subscriptionStatus: 'active' } : c)));
       
-      // 2. Open Email Client
+      // 2. Trigger WhatsApp Notification via Backend
+      try {
+        await fetch('/api/notifications/notify-clinic-approval', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clinicId: clinic.id })
+        });
+        console.log('[Admin] WhatsApp approval notification triggered');
+      } catch (waErr) {
+        console.error('[Admin] WhatsApp notification failed:', waErr);
+      }
+
+      // 3. Open Email Client (Manual backup)
       const subject = encodeURIComponent("[URGENT] Your OnlinePT clinic application is granted. Your clinic ready to go.");
       const body = encodeURIComponent(`Hi ${clinic.physioName},\n\nCongratulations! We have successfully verified your clinic details.\nYour clinic (${clinic.clinicName}) is now APPROVED and live.\n\nYou can log in to your dashboard here:\nhttps://${clinic.subdomain}.onlinept.in/dashboard-login\n\nThank you,\nOnlinePT Support Team`);
       window.location.href = `mailto:${clinic.email}?subject=${subject}&body=${body}`;
@@ -146,6 +170,7 @@ export default function MasterAdminPage() {
       if (c.status === 'trial' && c.trialEndsAt) return getDaysLeft(c.trialEndsAt) <= 0;
       return false;
     }).length,
+    cancelledBookings: recentBookings.filter(b => b.status === 'cancelled').length,
   };
 
   async function handleLogout() {
@@ -167,9 +192,11 @@ export default function MasterAdminPage() {
       <header className="bg-white border-b border-border/70 sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#dc262615' }}>
-              <Shield size={16} style={{ color: '#dc2626' }} />
-            </div>
+            <img 
+              src="/onlinept-logo-v3.png" 
+              alt="OnlinePT"
+              style={{ width: 44, height: 44, objectFit: 'contain' }} 
+            />
             <div>
               <p className="text-sm font-bold text-text-primary leading-none">OnlinePT Admin</p>
               <p className="text-xs text-text-secondary leading-none mt-0.5">{user?.email}</p>
@@ -191,6 +218,7 @@ export default function MasterAdminPage() {
             { label: 'Active', value: stats.active, icon: CheckCircle2, color: '#0066FF' },
             { label: 'On Trial', value: stats.trial, icon: Clock, color: '#f59e0b' },
             { label: 'Deactivated', value: stats.deactivated, icon: Ban, color: '#ef4444' },
+            { label: 'Cancellations', value: stats.cancelledBookings, icon: AlertTriangle, color: '#f97316' },
           ].map(({ label, value, icon: Icon, color }) => (
             <Card key={label} padding="p-4" className="flex gap-3 items-start flex-col sm:flex-row">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color + '15' }}>
@@ -215,11 +243,11 @@ export default function MasterAdminPage() {
             </div>
           </button>
           <button
-            onClick={() => setActiveTab('transactions')}
-            className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'transactions' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}
+            onClick={() => setActiveTab('payouts')}
+            className={`flex-1 py-2 px-4 rounded-lg text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'payouts' ? 'bg-white shadow-sm text-primary' : 'text-gray-400'}`}
           >
             <div className="flex items-center justify-center gap-2">
-               <CreditCard size={14} /> Transactions ({recentBookings.filter(b => b.status === 'confirmed').length})
+               <DollarSign size={14} /> Payouts ({recentBookings.filter(b => b.status === 'completed' && b.payoutStatus !== 'processed').length})
             </div>
           </button>
         </div>
@@ -312,6 +340,11 @@ export default function MasterAdminPage() {
                           {clinic.createdAt && (
                             <span>Joined {formatDate(clinic.createdAt)}</span>
                           )}
+                          {clinic.hasAgreedToTerms && (
+                            <span className="inline-flex items-center gap-1 text-success font-black uppercase text-[9px] bg-success/5 px-2 py-0.5 rounded-full border border-success/10">
+                              <Shield size={10} /> Contract Signed {clinic.agreedAt && `· ${formatDate(clinic.agreedAt)}`}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -358,48 +391,75 @@ export default function MasterAdminPage() {
                 </Card>
               );
         ) : (
+          </div>
+        ) : (
           <div className="space-y-4">
-            {bookingsLoading ? (
-              <div className="py-12 text-center">
-                <Loader2 className="animate-spin mx-auto text-primary" size={32} />
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-4">Loading Transactions...</p>
-              </div>
-            ) : recentBookings.length === 0 ? (
+            <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mb-4">
+              <h3 className="text-sm font-bold text-primary mb-1">Today's Pending Settlements</h3>
+              <p className="text-[10px] text-text-secondary uppercase tracking-widest font-bold">Pay 98% of booking amount (2% Razorpay fee deducted)</p>
+            </div>
+            
+            {recentBookings.filter(b => b.status === 'completed' && b.payoutStatus !== 'processed').length === 0 ? (
               <Card padding="p-8" className="text-center">
-                <CreditCard size={32} className="mx-auto mb-3" style={{ color: '#6b728040' }} />
-                <p className="text-sm text-text-secondary">No transactions found across the platform.</p>
+                <CheckCircle2 size={32} className="mx-auto mb-3" style={{ color: '#10b98140' }} />
+                <p className="text-sm text-text-secondary">No pending payouts! All therapists are settled.</p>
               </Card>
             ) : (
-              recentBookings.map((booking) => (
-                <Card key={booking.id} padding="p-4" hover className="transition-all">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-primary">
-                        <Activity size={20} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm font-black text-gray-900">{booking.name || 'Patient'}</p>
-                          {booking.status === 'confirmed' ? (
-                            <Badge variant="success" size="sm">Confirmed</Badge>
-                          ) : (
-                            <Badge variant="secondary" size="sm">{booking.status}</Badge>
-                          )}
+              recentBookings
+                .filter(b => b.status === 'completed' && b.payoutStatus !== 'processed')
+                .map((booking) => {
+                  const clinic = clinics.find(c => c.id === booking.clinicId);
+                  const amount = booking.totalPrice || booking.amount || 0;
+                  const payoutAmount = (amount * 0.98).toFixed(2);
+                  const isUrgent = booking.createdAt && (Date.now() - (booking.createdAt.seconds * 1000) > 86400000);
+
+                  return (
+                    <Card key={booking.id} padding="p-4" border={isUrgent ? '2px solid #ef444430' : undefined} className="transition-all relative overflow-hidden">
+                      {isUrgent && <div className="absolute top-0 right-0 bg-error text-white text-[8px] font-bold px-2 py-0.5 rounded-bl-lg uppercase tracking-tighter">Overdue 24h</div>}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-black text-gray-900">{clinic?.physioName || 'Therapist'}</p>
+                            <Badge size="sm">{clinic?.subdomain}</Badge>
+                          </div>
+                          
+                          {/* Banking Box */}
+                          <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-100 mt-2 space-y-1">
+                             <div className="flex justify-between text-[10px]">
+                               <span className="text-gray-400 font-bold uppercase">UPI / BHIM:</span>
+                               <span className="text-primary font-black">{clinic?.settings?.upiId || 'Not provided'}</span>
+                             </div>
+                             <div className="flex justify-between text-[10px]">
+                               <span className="text-gray-400 font-bold uppercase">Bank:</span>
+                               <span className="text-gray-700 font-bold">{clinic?.settings?.bankName} ({clinic?.settings?.accountNumber})</span>
+                             </div>
+                             <div className="flex justify-between text-[10px]">
+                               <span className="text-gray-400 font-bold uppercase">IFSC / PAN:</span>
+                               <span className="text-gray-700 font-bold">{clinic?.settings?.ifsc} / {clinic?.settings?.pan}</span>
+                             </div>
+                          </div>
                         </div>
-                        <p className="text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-widest leading-none">
-                          {booking.serviceName || 'Consultation'} · {booking.clinicId || 'Platform'}
-                        </p>
+
+                        <div className="flex items-center gap-4 border-t sm:border-t-0 pt-3 sm:pt-0">
+                          <div className="text-right">
+                            <p className="text-xs text-gray-400 font-bold uppercase">To Pay (98%)</p>
+                            <p className="text-lg font-black text-success">₹{payoutAmount}</p>
+                            <p className="text-[9px] text-gray-400">Total: ₹{amount}</p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            onClick={() => markAsPaid(booking.id)}
+                            disabled={updatingPayout === booking.id}
+                            style={{ background: '#10b981', color: 'white', border: 'none' }}
+                          >
+                            {updatingPayout === booking.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                            Mark Paid
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-primary">₹{booking.totalPrice || booking.amount || 0}</p>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                        {booking.createdAt ? formatDate(booking.createdAt) : 'Pending Date'}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              ))
+                    </Card>
+                  );
+                })
             )}
           </div>
         )}

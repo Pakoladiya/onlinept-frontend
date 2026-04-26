@@ -118,6 +118,14 @@ export default function LandingPage() {
         @media (max-width: 540px) {
           .feature-grid { grid-template-columns: 1fr !important; }
         }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #09090B inset !important;
+            -webkit-text-fill-color: #F8FAFC !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
       `}</style>
 
       {/* ── Navbar ─────────────────────────────────────────────────────── */}
@@ -129,7 +137,7 @@ export default function LandingPage() {
       }}>
         <div style={{ maxWidth: 1200, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => navigate('/')}>
-             <img src="/logo.png" alt="Logo" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'contain' }} />
+             <img src="/onlinept-logo-v3.png" alt="Logo" style={{ width: 60, height: 60, objectFit: 'contain' }} />
              <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: '-0.5px' }}>Online<span style={{ color: T.primary }}>PT</span></span>
           </div>
 
@@ -288,9 +296,9 @@ export default function LandingPage() {
           <div style={{ padding: 40, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 32 }}>
              <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 <input required placeholder="Full Name" style={{ height: 60, borderRadius: 16, background: 'rgba(0,0,0,0.3)', border: `1px solid ${T.border}`, color: '#FFF', padding: '0 20px', fontSize: 16 }} onChange={e => setFormData({...formData, physioName: e.target.value})} />
-                <input required type="email" placeholder="Email Address" style={{ height: 60, borderRadius: 16, background: 'rgba(0,0,0,0.3)', border: `1px solid ${T.border}`, color: '#FFF', padding: '0 20px', fontSize: 16 }} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input required type="email" placeholder="Email Address" autoComplete="email" style={{ height: 60, borderRadius: 16, background: 'rgba(0,0,0,0.3)', border: `1px solid ${T.border}`, color: '#FFF', padding: '0 20px', fontSize: 16 }} onChange={e => setFormData({...formData, email: e.target.value})} />
                 <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', border: `1px solid ${T.border}`, borderRadius: 16, overflow: 'hidden' }}>
-                   <input required placeholder="my-clinic" style={{ flex: 1, height: 60, border: 'none', background: 'transparent', color: '#FFF', padding: '0 20px', fontSize: 16 }} onChange={e => setFormData({...formData, subdomain: e.target.value})} />
+                   <input required placeholder="My Clinic" spellCheck="false" autoComplete="off" className="no-titlecase" style={{ flex: 1, height: 60, border: 'none', background: 'transparent', color: '#FFF', padding: '0 20px', fontSize: 16 }} onChange={e => setFormData({...formData, subdomain: e.target.value})} />
                    <div style={{ padding: '0 20px', display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', color: T.primary, fontWeight: 800 }}>.onlinept.in</div>
                 </div>
                 <button style={{ height: 64, marginTop: 12, borderRadius: 16, background: T.primary, color: '#FFF', fontSize: 18, fontWeight: 800, border: 'none', cursor: 'pointer' }}>Create Portal</button>
@@ -304,7 +312,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 40 }}>
            <div style={{ maxWidth: 300 }}>
              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <img src="/logo.png" alt="Logo" style={{ width: 32, height: 32 }} />
+                <img src="/onlinept-logo-v3.png" alt="Logo" style={{ width: 54, height: 54 }} />
                 <span style={{ fontWeight: 800, fontSize: 18 }}>OnlinePT</span>
              </div>
              <p style={{ color: T.ink4, fontSize: 14, lineHeight: 1.6 }}>Modern practice management for forward-thinking physiotherapists.</p>

@@ -4,7 +4,7 @@ import { PageTransition, Reveal } from '../components/layout/LuxeMotion';
 import {
   User, Phone, Mail, Activity,
   Stethoscope, ArrowLeft, ArrowRight,
-  Loader2, Lock, ChevronDown
+  Loader2, Lock, ChevronDown, Zap
 } from 'lucide-react';
 import { db } from '../firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
@@ -123,6 +123,12 @@ const PAIN_AREAS = [
   'Lower Back', 'Hip', 'Knee', 'Ankle / Foot', 'Full Body / Generalized',
 ];
 
+const MEETING_PLATFORMS = [
+  { id: 'whatsapp', label: 'WhatsApp Video', icon: Phone },
+  { id: 'zoom', label: 'Zoom Meeting', icon: Activity },
+  { id: 'google_meet', label: 'Google Meet', icon: Mail },
+];
+
 /* ═══════════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════════ */
@@ -156,6 +162,7 @@ export default function IntakeFormPage() {
       vasScore:           5,
       conditions:         [],       // multi-select checkboxes
       previousTreatment:  '',
+      preferredPlatform:  'whatsapp', // default
     },
   });
 
@@ -377,6 +384,31 @@ export default function IntakeFormPage() {
                 <LuxeInput label="e.g. Physiotherapy, medicines, surgery…" rows={2}
                   value={intakeData.clinicalInfo.previousTreatment}
                   onChange={v => setClinical('previousTreatment', v)} color={pColor} />
+              </Card>
+            </Reveal>
+
+            {/* ── 7. Preferred Platform ── */}
+            <Reveal delay={0.38}>
+              <Card>
+                <SectionTitle icon={Zap} title="Preferred Meeting Platform" color={pColor} subtitle="Where would you prefer to have the video consultation?" />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                  {MEETING_PLATFORMS.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setClinical('preferredPlatform', p.id)}
+                      style={{
+                        padding: '20px 16px', borderRadius: 20, border: `2px solid ${intakeData.clinicalInfo.preferredPlatform === p.id ? pColor : 'rgba(255,255,255,0.06)'}`,
+                        background: intakeData.clinicalInfo.preferredPlatform === p.id ? `${pColor}15` : 'rgba(255,255,255,0.02)',
+                        color: intakeData.clinicalInfo.preferredPlatform === p.id ? pColor : '#94A3B8',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, cursor: 'pointer', transition: 'all 0.2s'
+                      }}
+                    >
+                      <p.icon size={24} />
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{p.label}</span>
+                    </button>
+                  ))}
+                </div>
               </Card>
             </Reveal>
 

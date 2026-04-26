@@ -24,12 +24,21 @@ export const lazyRetry = (componentImport) => {
     } catch (error) {
       if (!pageHasBeenForceRefreshed) {
         console.warn('[RETRY] Chunk load failed. New version likely deployed. Force refreshing...', error);
+        
+        // Try to clear Service Worker before reload to ensure we get fresh index.html
+        if ('serviceWorker' in navigator) {
+          try {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (let registration of registrations) {
+              await registration.unregister();
+            }
+          } catch (e) {}
+        }
+
         window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
         window.location.reload();
-        // Return a never-resolving promise to prevent the site from trying to render the failed import
         return new Promise(() => {});
       }
-      // If we already refreshed and it still fails, the error is real
       throw error;
     }
   });

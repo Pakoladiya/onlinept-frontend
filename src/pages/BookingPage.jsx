@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { API_BASE } from '@/utils/api';
 import { PageTransition, Reveal, StaggerContainer } from '../components/layout/LuxeMotion';
 import { 
   Calendar, Clock, User, Phone, Mail, MapPin, 
@@ -417,7 +418,6 @@ export default function BookingPage() {
       setModifyFoundId(found.id);
       setModifyPatientName(found.patientName || 'Patient');
 
-      const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
       const otpRes = await fetch(`${API_BASE}/api/notifications/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -445,7 +445,6 @@ export default function BookingPage() {
     try {
       const digits = modifyPhone.trim().replace(/\D/g, '');
       const e164   = `+91${digits.slice(-10)}`;
-      const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
       const res = await fetch(`${API_BASE}/api/notifications/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

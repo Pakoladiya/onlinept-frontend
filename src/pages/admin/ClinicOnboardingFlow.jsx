@@ -8,10 +8,10 @@ import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/fires
 import { onAuthStateChanged } from 'firebase/auth';
 import {
   CheckCircle2, ChevronRight, Stethoscope, Paintbrush,
-  ShieldCheck, Rocket, LayoutTemplate, AlertCircle, Loader2, MessageSquare,
+  ShieldCheck, Rocket, LayoutTemplate, AlertCircle, Loader2, MessageSquare, Shield, ArrowLeft
 } from 'lucide-react';
 
-const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
+import { API_BASE } from '@/utils/api';
 
 // Brand name — hardcoded for the SaaS onboarding engine
 const BRAND_NAME = 'OnlinePT';
@@ -57,6 +57,7 @@ function TextInput({ className = '', ...props }) {
         transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
       }}
       className={`w-full px-4 py-3 text-sm focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 placeholder:text-ink4 ${className}`}
+      spellCheck="false"
       {...props}
     />
   );
@@ -65,6 +66,7 @@ function TextInput({ className = '', ...props }) {
 export default function ClinicOnboardingFlow() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [hasAgreedToTerms, setHasAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [subdomainStatus, setSubdomainStatus] = useState({ status: 'idle', message: '' }); // 'idle' | 'checking' | 'available' | 'taken'
@@ -101,6 +103,11 @@ export default function ClinicOnboardingFlow() {
 
   // Helper: combine countryCode + rawPhone → formData.phone
   const buildFullPhone = (cc, num) => `${cc}${num.replace(/\D/g, '')}`;
+  const toTitleCase = (str) => {
+    if (!str) return '';
+    // Capitalize first letter of each word, but preserve spaces for typing
+    return str.replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+  };
 
   const handlePhonePartChange = (newCc, newRaw) => {
     const full = buildFullPhone(newCc, newRaw);
@@ -127,12 +134,14 @@ export default function ClinicOnboardingFlow() {
           primaryColor: '#14A3A8',
           secondaryColor: '#5AC8FA',
           plan: '',
+          password: '',
         };
       }
     } catch {}
     return {
       physioName: '', email: '', clinicName: '', subdomain: '',
       phone: '', primaryColor: '#14A3A8', secondaryColor: '#5AC8FA', plan: '',
+      password: '',
     };
   };
 
@@ -174,15 +183,25 @@ export default function ClinicOnboardingFlow() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === 'subdomain') {
-      const clean = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+      // Convert spaces to hyphens and strip invalid chars for subdomain
+      const clean = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
       setFormData((prev) => ({ ...prev, subdomain: clean }));
       checkSubdomain(clean);
+    } else if (name === 'physioName' || name === 'clinicName') {
+      setFormData((prev) => ({ ...prev, [name]: toTitleCase(value) }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleNext = () => setStep((s) => Math.min(s + 1, 4));
+  const handleNext = () => {
+    if (step === 4 && !hasAgreedToTerms) {
+      setError('Please agree to the Terms & Conditions to proceed.');
+      return;
+    }
+    setError('');
+    setStep((s) => Math.min(s + 1, 5));
+  };
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
   // ── WhatsApp OTP functions ────────────────────────────────────────────────────
@@ -195,15 +214,19 @@ export default function ClinicOnboardingFlow() {
         phone: formData.phone,
         purpose: 'signup',
         userName: formData.physioName || 'Doctor',
-      });
+      }, { timeout: 15000 });
       if (res.data.success) {
         setPhoneOtpSent(true);
         setPhoneOtp('');
       } else {
-        setPhoneOtpError(res.data.error || 'Failed to send OTP. Try again.');
+        const msg = res.data.error || 'Failed to send OTP. Try again.';
+        console.warn('[OTP] Backend reported failure:', msg);
+        setPhoneOtpError(msg);
       }
     } catch (err) {
-      setPhoneOtpError(err.response?.data?.error || 'Failed to send OTP. Check your number.');
+      const detail = err.response?.data?.error || err.message;
+      console.error('[OTP] Request failed:', err.response?.data || err);
+      setPhoneOtpError(`Failed to send OTP: ${detail}`);
     }
     setPhoneOtpLoading(false);
   }
@@ -237,11 +260,9 @@ export default function ClinicOnboardingFlow() {
 
     try {
       const clinicId = formData.subdomain;
+      console.log('[Onboarding] Provisioning clinic:', clinicId, 'DB status:', !!db);
       if (!db) {
-        await new Promise((r) => setTimeout(r, 2000));
-        setStep(5);
-        setLoading(false);
-        return;
+        throw new Error('Clinical database not connected. Please check your internet or contact support.');
       }
 
       const getUid = () => {
@@ -257,39 +278,39 @@ export default function ClinicOnboardingFlow() {
 
       const uid = await getUid();
 
-      await setDoc(doc(collection(db, 'clinics'), clinicId), {
-        uid,
+      // Use backend provisioning to bypass Firestore security rules for unauthenticated users
+      const provisionRes = await axios.post(`${API_BASE}/api/clinics/provision`, {
         clinicId,
-        clinicName: formData.clinicName,
-        physioName: formData.physioName,
-        email: formData.email,
-        phone: formData.phone || '',
-        whatsapp: formData.phone || '',
-        domain: `${clinicId}.onlinept.in`,
-        subdomain: clinicId,
-        primaryColor: formData.primaryColor,
-        secondaryColor: formData.secondaryColor,
-        tagline: `Expert physiotherapy consultations online`,
-        plan: formData.plan,
-        trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        subscriptionStatus: 'pending_approval',
-        workingHours: { start: '09:00', end: '19:00', days: [1, 2, 3, 4, 5, 6] },
-        slotDurationMinutes: 30,
-        videoMode: 'zoom',
-        razorpayEnabled: false,
-        currency: 'INR',
-        createdAt: serverTimestamp(),
-        createdBy: 'master_admin',
+        formData: {
+          ...formData,
+          hasAgreedToTerms,
+          agreedAt: new Date().toISOString()
+        },
+        uid
       });
 
-      setStep(5);
-    } catch (err) {
-      console.error('Clinic provisioning failed:', err);
-      if (window.location.hostname === 'localhost') {
-        setStep(5);
-      } else {
-        setError(`Provisioning error: ${err.message}`);
+      if (!provisionRes.data.success) {
+        throw new Error(provisionRes.data.error || 'Failed to provision clinic');
       }
+
+      // Fire-and-forget: notify Super Admin via WhatsApp
+      axios.post(`${API_BASE}/api/appointments/notify-new-clinic`, {
+        clinicData: {
+          clinicName: formData.clinicName,
+          ownerName: formData.physioName,
+          phone: formData.phone,
+          subdomain: clinicId,
+          plan: formData.plan || 'Starter',
+        }
+      }).catch(err => console.warn('[Onboarding] Super admin notification failed (non-critical):', err.message));
+
+      setStep(6);
+    } catch (err) {
+      const serverError = err.response?.data?.error || err.message;
+      const details = err.response?.data?.details || '';
+      const traceId = err.response?.data?.traceId || '';
+      console.error('Clinic provisioning failed:', err.response?.data || err);
+      setError(`Provisioning error: ${serverError}${details ? ` (${details})` : ''}${traceId ? ` [Trace ID: ${traceId}]` : ''}`);
     } finally {
       setLoading(false);
     }
@@ -372,17 +393,24 @@ export default function ClinicOnboardingFlow() {
       <style>{`
         @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
         .cosmic-blob { position: fixed; border-radius: 50%; filter: blur(80px); z-index: 0; opacity: 0.15; pointer-events: none; }
+        
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #09090B inset !important;
+            -webkit-text-fill-color: #F8FAFC !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
       `}</style>
       
       {/* Dynamic Background */}
       <div className="cosmic-blob w-96 h-96 top-0 -left-20" style={{ background: T.primary }}></div>
       <div className="cosmic-blob w-80 h-80 bottom-0 -right-20" style={{ background: T.accent }}></div>
 
-      <header style={{ background: T.glass, backdropFilter: T.blur, borderBottomColor: T.border }} className="border-b px-8 py-5 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div style={{ background: T.primary }} className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-            <Stethoscope className="w-6 h-6 text-white" />
-          </div>
+      <header style={{ background: T.glass, backdropFilter: T.blur, borderBottomColor: T.border, height: 80 }} className="border-b px-8 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-4">
+          <img src="/onlinept-logo-v3.png" alt="OnlinePT" style={{ width: 60, height: 60, objectFit: 'contain' }} />
           <span style={{ fontFamily: "'Manrope', sans-serif" }} className="text-xl font-extrabold tracking-tight">
             Online<span style={{ color: T.primary }}>PT</span> <span style={{ fontWeight: 400, opacity: 0.5, marginLeft: 6 }}>Setup</span>
           </span>
@@ -409,6 +437,9 @@ export default function ClinicOnboardingFlow() {
                    </Field>
                    <Field label="Professional Email">
                      <TextInput type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@clinic.com" />
+                   </Field>
+                   <Field label="Set Dashboard Password" hint="Minimum 8 characters. You'll use this to log in.">
+                     <TextInput type="password" name="password" value={formData.password} onChange={handleChange} placeholder="••••••••" />
                    </Field>
                    {/* ── WhatsApp Number + OTP Verification ── */}
                  <div style={{ gridColumn: '1 / -1' }}>
@@ -586,7 +617,7 @@ export default function ClinicOnboardingFlow() {
                 </div>
 
                 <div className="mt-12 flex justify-end">
-                   <Button size="lg" onClick={handleNext} disabled={!formData.physioName || !formData.clinicName || !formData.subdomain || subdomainStatus.status !== 'available' || !phoneVerified}>
+                   <Button size="lg" onClick={handleNext} disabled={!formData.physioName || !formData.clinicName || !formData.subdomain || subdomainStatus.status !== 'available' || !phoneVerified || !formData.email || (formData.password?.length < 8)}>
                       Continue to Branding <ChevronRight className="w-5 h-5 ml-2" />
                    </Button>
                 </div>
@@ -710,8 +741,101 @@ export default function ClinicOnboardingFlow() {
               </div>
             )}
 
-            {/* Step 4: Final Launch */}
+            {/* Step 4: Terms & Conditions (The Contract) */}
             {step === 4 && (
+              <div className="space-y-8 p-4 sm:p-2">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                    <Shield size={28} />
+                  </div>
+                  <div>
+                    <h2 style={{ fontFamily: "'Manrope', sans-serif" }} className="text-3xl font-black tracking-tight uppercase">Clinical Agreement</h2>
+                    <p style={{ color: T.ink3 }} className="text-sm font-medium">Please review our financial and operating terms.</p>
+                  </div>
+                </div>
+
+                <div 
+                  style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }} 
+                  className="rounded-3xl p-6 space-y-6 max-h-[400px] overflow-y-auto custom-scrollbar"
+                >
+                  <section>
+                    <h3 style={{ color: T.primary }} className="font-black text-xs uppercase tracking-widest mb-2">1. Security Deposit & Cancellations</h3>
+                    <p style={{ color: T.ink2 }} className="text-sm leading-relaxed">
+                      A security deposit of <strong className="text-white">₹500/-</strong> will be maintained with OnlinePT. This deposit is used to compensate patients with a full refund in cases where a consultation is cancelled by the therapist or the clinic.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 style={{ color: T.primary }} className="font-black text-xs uppercase tracking-widest mb-2">2. Platform & Transaction Fees</h3>
+                    <p style={{ color: T.ink2 }} className="text-sm leading-relaxed">
+                      A platform/gateway fee of <strong className="text-white">2%</strong> (levied by Razorpay) will be borne by the subdomain holder (Clinic/Therapist). This fee is deducted at the source from the consultation charges paid by the patient.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 style={{ color: T.primary }} className="font-black text-xs uppercase tracking-widest mb-2">3. Payout Schedule</h3>
+                    <p style={{ color: T.ink2 }} className="text-sm leading-relaxed">
+                      Consultation fees will be credited to the therapist's registered bank account within <strong className="text-white">24 hours of successful completion</strong> of the online consultation. Payouts are triggered by session completion, not by booking time.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 style={{ color: T.primary }} className="font-black text-xs uppercase tracking-widest mb-2">4. Professional Conduct</h3>
+                    <p style={{ color: T.ink2 }} className="text-sm leading-relaxed">
+                      Therapists must ensure a stable internet connection and a professional environment for video consultations. OnlinePT reserves the right to suspend subdomains in case of repeated patient complaints.
+                    </p>
+                  </section>
+
+                  <section>
+                    <h3 style={{ color: T.primary }} className="font-black text-xs uppercase tracking-widest mb-2">5. Data Privacy</h3>
+                    <p style={{ color: T.ink2 }} className="text-sm leading-relaxed">
+                      All patient data and consultation records are encrypted. Therapists are responsible for maintaining patient confidentiality as per standard medical ethics.
+                    </p>
+                  </section>
+                </div>
+
+                <div className="space-y-6">
+                  <label 
+                    className="flex items-start gap-4 cursor-pointer p-4 rounded-2xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/10"
+                    onClick={() => setHasAgreedToTerms(!hasAgreedToTerms)}
+                  >
+                    <div style={{ 
+                      width: 24, height: 24, borderRadius: 6, 
+                      border: `2px solid ${hasAgreedToTerms ? T.primary : T.border}`,
+                      background: hasAgreedToTerms ? T.primary : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.2s'
+                    }}>
+                      {hasAgreedToTerms && <CheckCircle2 size={16} color="white" />}
+                    </div>
+                    <span style={{ color: T.ink2 }} className="text-sm font-bold leading-snug">
+                      I have read and I agree to the platform's financial terms and operating conditions.
+                    </span>
+                  </label>
+
+                  <div className="flex gap-4">
+                    <Button 
+                      variant="ghost" 
+                      onClick={handleBack}
+                      className="flex-1 h-14"
+                    >
+                      Go Back
+                    </Button>
+                    <Button 
+                      size="lg" 
+                      onClick={handleNext}
+                      disabled={!hasAgreedToTerms}
+                      className="flex-[2] h-14 font-black tracking-widest"
+                    >
+                      I AGREE & CONTINUE <ChevronRight className="w-5 h-5 ml-2" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Final Launch */}
+            {step === 5 && (
               <div className="p-4 sm:p-10 text-center">
                  <div style={{ animation: 'float 4s ease-in-out infinite' }} className="w-24 h-24 bg-primary/10 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-primary/20 shadow-2xl shadow-primary/20">
                     <Rocket className="w-12 h-12 text-primary" />
@@ -721,9 +845,11 @@ export default function ClinicOnboardingFlow() {
 
                  <div style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${T.border}` }} className="max-w-md mx-auto rounded-3xl p-8 mb-12 space-y-4 text-left">
                     {[
-                      { l: 'Clinical ID', v: formData.subdomain },
-                      { l: 'Public URI', v: `${formData.subdomain}.onlinept.in` },
-                      { l: 'Physician',  v: formData.physioName },
+                      { l: 'Clinic Name',  v: formData.clinicName },
+                      { l: 'Clinical ID',  v: formData.subdomain },
+                      { l: 'Public URI',   v: `${formData.subdomain}.onlinept.in` },
+                      { l: 'Physician',    v: formData.physioName },
+                      { l: 'Security',   v: 'Password Encrypted' },
                       { l: 'Plan Type',  v: formData.plan },
                     ].map(item => (
                       <div key={item.l} className="flex justify-between items-center group">
@@ -761,8 +887,8 @@ export default function ClinicOnboardingFlow() {
               </div>
             )}
 
-            {/* Step 5: Success */}
-            {step === 5 && (
+            {/* Step 6: Success */}
+            {step === 6 && (
               <div className="p-4 sm:p-16 text-center">
                  <div className="w-28 h-28 bg-primary/20 rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 border-2 border-primary/40 shadow-2xl shadow-primary/40">
                     <CheckCircle2 className="w-14 h-14 text-primary" />

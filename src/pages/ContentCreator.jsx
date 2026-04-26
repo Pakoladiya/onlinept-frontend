@@ -14,7 +14,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '@/components/ui/Button';
 
-const API_BASE = 'http://localhost:5001/api/storage';
+import { API_BASE } from '@/utils/api';
+const API_STORAGE = `${API_BASE}/api/storage`;
 
 // ---─ Luxe Midnight Design Tokens (premium iOS) ------------------------------------------------------------------------------------------
 const T = {
@@ -706,7 +707,7 @@ export default function ContentCreator() {
     setSavingPdf(true);
     try {
       const canvas = blocks.map(b => ({ type: b.type, data: b.data }));
-      const res = await fetch(`${API_BASE}/generate-pdf`, {
+      const res = await fetch(`${API_STORAGE}/generate-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clinicId, canvas }),
@@ -717,7 +718,7 @@ export default function ContentCreator() {
       if (download) window.open(data.url, '_blank');
       if (saveToLib) {
         // Upload to resource library
-        await fetch(`${API_BASE}/upload`, {
+        await fetch(`${API_STORAGE}/upload`, {
           method: 'POST',
           body: new URLSearchParams({ clinicId, type: 'documents', name: `PDF_${Date.now()}` }),
         });
@@ -768,7 +769,7 @@ export default function ContentCreator() {
           }
         };
         xhr.onerror = () => reject(new Error('Network error'));
-        xhr.open('POST', `${API_BASE}/upload`);
+        xhr.open('POST', `${API_STORAGE}/upload`);
         xhr.send(formData);
       });
     } catch (err) {
@@ -826,7 +827,7 @@ export default function ContentCreator() {
       if (window._lastVideoFilename) formData.append('videoFilename', window._lastVideoFilename);
       if (logoFile) formData.append('logoFile', logoFile);
 
-      const res = await fetch(`${API_BASE}/process-video`, {
+      const res = await fetch(`${API_STORAGE}/process-video`, {
         method: 'POST',
         body: formData,
       });
@@ -866,7 +867,7 @@ export default function ContentCreator() {
   function pollVideoStatus(jid) {
     const pollInt = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/video-status/${jid}`);
+        const res = await fetch(`${API_STORAGE}/video-status/${jid}`);
         const resData = await res.json();
         setVideoStatus(resData);
         

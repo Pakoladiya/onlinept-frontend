@@ -142,3 +142,26 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+/* Dark Mode Autofill Fix */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #09090b inset !important;
+  -webkit-text-fill-color: white !important;
+  caret-color: white !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Title Case for Inputs & Placeholders */
+input:not([type='email']):not([type='password']):not(.no-titlecase) {
+  /* Removed text-transform: capitalize as it causes rendering glitches */
+}
+
+input::placeholder {
+  text-transform: capitalize;
+}
+
+.uppercase {
+  text-transform: none !important;
+}

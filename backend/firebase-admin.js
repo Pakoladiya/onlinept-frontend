@@ -2,7 +2,7 @@ import admin from 'firebase-admin';
 
 let _db = null;
 
-export function getDb() {
+export async function getDb() {
   if (_db) return _db;
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -27,4 +27,23 @@ export function getDb() {
   return _db;
 }
 
-export default { getDb };
+export function getFieldValue() {
+  return admin.firestore.FieldValue;
+}
+
+export async function getAdmin() {
+  if (!admin.apps.length) await getDb();
+  return admin;
+}
+
+export async function getAuth() {
+  if (!admin.apps.length) await getDb();
+  return admin.auth();
+}
+
+export async function createCustomToken(uid, claims = {}) {
+  const auth = await getAuth();
+  return auth.createCustomToken(uid, claims);
+}
+
+export default { getDb, getAuth };

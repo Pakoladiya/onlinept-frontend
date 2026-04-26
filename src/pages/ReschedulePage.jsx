@@ -10,6 +10,7 @@ import {
 import SchedulePicker from '@/components/booking/SchedulePicker';
 import Button from '@/components/ui/Button';
 import axios from 'axios';
+import { API_BASE } from '@/utils/api';
 
 const T = {
   primary: '#0D7377',
@@ -38,10 +39,6 @@ export default function ReschedulePage() {
   const [newDate, setNewDate] = useState(new Date());
   const [newSlot, setNewSlot] = useState(null);
   const [success, setSuccess] = useState(false);
-
-
-  // Always use absolute main domain — relative URLs fail on subdomains (nijanand.onlinept.in/api/...)
-  const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
 
   useEffect(() => {
     async function load() {

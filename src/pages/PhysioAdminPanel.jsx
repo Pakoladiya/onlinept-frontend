@@ -563,6 +563,7 @@ export default function PhysioAdminPanel() {
     bankName: '',
     accountNumber: '',
     ifsc: '',
+    pan: '',
     cancelledCheque: '',
     // Services, Packages, Coupons
     services: [
@@ -729,10 +730,11 @@ export default function PhysioAdminPanel() {
             adBanner: d.settings?.adBanner || d.adBanner || '',
             showAdBanner: d.settings?.showAdBanner || d.showAdBanner || false,
             upiId: d.settings?.upiId || d.upiId || '',
-            accountName: d.settings?.accountName || d.accountName || '',
+            accountName: d.settings?.accountName || d.accountName || d.settings?.accountHolder || '',
             bankName: d.settings?.bankName || d.bankName || '',
             accountNumber: d.settings?.accountNumber || d.accountNumber || '',
             ifsc: d.settings?.ifsc || d.ifsc || '',
+            pan: d.settings?.pan || d.pan || '',
             cancelledCheque: d.settings?.cancelledCheque || d.cancelledCheque || '',
             services: d.settings?.services || d.services || [{ id: 'initial', name: 'Initial Consultation', duration: 45, price: 500, description: 'First-time comprehensive assessment.' }],
             packages: d.settings?.packages || d.packages || [],
@@ -842,6 +844,7 @@ export default function PhysioAdminPanel() {
           bankName: s.bankName,
           accountNumber: s.accountNumber,
           ifsc: s.ifsc,
+          pan: s.pan,
           cancelledCheque: s.cancelledCheque,
           services: s.services,
           packages: s.packages,
@@ -1547,14 +1550,14 @@ export default function PhysioAdminPanel() {
                   subtitle="How we send you money for completed bookings"
                 />
                 
-                <div style={{ padding: '12px 16px', background: '#FEF9C3', borderRadius: T.r.md, marginBottom: 20, border: '1px solid #FEF08A' }}>
-                  <p style={{ fontSize: 13, color: '#854D0E', lineHeight: 1.5 }}>
-                    <strong>Note:</strong> We transfer your consultation fees (minus platform charges) directly to this account within T+2 days of the appointment.
+                <div style={{ padding: '12px 16px', background: '#F0FDF4', borderRadius: T.r.md, marginBottom: 20, border: '1px solid #BBF7D0' }}>
+                  <p style={{ fontSize: 13, color: '#166534', lineHeight: 1.5 }}>
+                    <strong>Payout Schedule:</strong> We transfer your consultation fees (minus platform charges) directly to your account within <strong>24 hours of successful session completion</strong>.
                   </p>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <Field label="Unified Payments Interface (UPI ID) - Preferred" value={s.upiId} onChange={v => update('upiId', v)} placeholder="dr.aruna@okaxis" />
+                  <Field label="BHIM / UPI ID (Fastest Transfer)" value={s.upiId} onChange={v => update('upiId', v)} placeholder="dr.aruna@okaxis" />
                   
                   <div style={{ height: 1, background: T.border, margin: '8px 0' }} />
                   
@@ -1567,6 +1570,7 @@ export default function PhysioAdminPanel() {
                   <div style={{ textAlign: 'center', color: T.ink4, fontSize: 11, fontWeight: 600, letterSpacing: '0.5px' }}>OR FILL MANUALLY</div>
 
                   <Field label="Account Holder Name" value={s.accountName} onChange={v => update('accountName', v)} placeholder="Aruna Kapoor" />
+                  <Field label="PAN Number (For TDS Compliance)" value={s.pan} onChange={v => update('pan', v.toUpperCase())} placeholder="ABCDE1234F" />
                   
                   <div>
                     <datalist id="bank-list">

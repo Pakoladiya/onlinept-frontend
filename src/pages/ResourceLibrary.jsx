@@ -13,7 +13,8 @@ import {
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 
-const API_BASE = '/api/storage';
+import { API_BASE } from '@/utils/api';
+const API_STORAGE = `${API_BASE}/api/storage`;
 
 const T = {
   bg: '#0B0F1A',
@@ -447,7 +448,7 @@ export default function ResourceLibrary() {
   const fetchFiles = useCallback(async () => {
     if (!clinicId) return;
     try {
-      const res = await fetch(`${API_BASE}/files/${clinicId}`);
+      const res = await fetch(`${API_STORAGE}/files/${clinicId}`);
       if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
       const all = Array.isArray(data) ? data : (Array.isArray(data.files) ? data.files : []);
@@ -484,8 +485,8 @@ export default function ResourceLibrary() {
     if (!clinicId) return;
     try {
       const [clinicRes, platformRes] = await Promise.all([
-        fetch(`${API_BASE}/bundles/${clinicId}`),
-        fetch(`${API_BASE}/bundles/platform`),
+        fetch(`${API_STORAGE}/bundles/${clinicId}`),
+        fetch(`${API_STORAGE}/bundles/platform`),
       ]);
       const clinicBundles = clinicRes.ok ? await clinicRes.json() : [];
       const platformData = platformRes.ok ? await platformRes.json() : [];
@@ -545,7 +546,7 @@ export default function ResourceLibrary() {
           }
         };
         xhr.onerror = () => reject(new Error('Network error'));
-        xhr.open('POST', `${API_BASE}/upload`);
+        xhr.open('POST', `${API_STORAGE}/upload`);
         xhr.send(formData);
       });
       setShowUploadModal(false);
@@ -566,7 +567,7 @@ export default function ResourceLibrary() {
   async function handleDelete(fileId) {
     if (!confirm('Delete this file?')) return;
     try {
-      const res = await fetch(`${API_BASE}/files/${clinicId}/${fileId}`, { method: 'DELETE' });
+      const res = await fetch(`${API_STORAGE}/files/${clinicId}/${fileId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Delete failed');
       showToast('File deleted');
       fetchFiles();
@@ -578,14 +579,14 @@ export default function ResourceLibrary() {
   async function handleSaveBundle(bundleData) {
     try {
       if (editingBundle?.id) {
-        await fetch(`${API_BASE}/bundles/${clinicId}/${editingBundle.id}`, {
+        await fetch(`${API_STORAGE}/bundles/${clinicId}/${editingBundle.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bundleData),
         });
         showToast('Bundle updated');
       } else {
-        await fetch(`${API_BASE}/bundles/${clinicId}`, {
+        await fetch(`${API_STORAGE}/bundles/${clinicId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bundleData),
@@ -603,7 +604,7 @@ export default function ResourceLibrary() {
   async function handleDeleteBundle(bundleId) {
     if (!confirm('Delete this bundle?')) return;
     try {
-      await fetch(`${API_BASE}/bundles/${clinicId}/${bundleId}`, { method: 'DELETE' });
+      await fetch(`${API_STORAGE}/bundles/${clinicId}/${bundleId}`, { method: 'DELETE' });
       showToast('Bundle deleted');
       fetchBundles();
     } catch (err) {
@@ -614,7 +615,7 @@ export default function ResourceLibrary() {
   async function handleDuplicateBundle(bundle) {
     try {
       const { name, description, condition, resources, recommendedSessions } = bundle;
-      await fetch(`${API_BASE}/bundles/${clinicId}`, {
+      await fetch(`${API_STORAGE}/bundles/${clinicId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

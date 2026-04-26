@@ -2,7 +2,7 @@ import admin from 'firebase-admin';
 
 let _db = null;
 
-export function getDb() {
+export async function getDb() {
   if (!_db) {
     if (!admin.apps.length && process.env.FIREBASE_PROJECT_ID) {
       try {

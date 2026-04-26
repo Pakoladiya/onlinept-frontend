@@ -3,10 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { signInWithEmailPassword, signInWithCustomToken, setAuthPersistence } from '@/firebase/auth';
 import { auth } from '@/firebase/config';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound, Fingerprint, ShieldCheck, MessageSquare, Smartphone } from 'lucide-react';
+import axios from 'axios';
+import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound, Fingerprint, ShieldCheck, MessageSquare, Smartphone, ArrowLeft, Briefcase, Globe, ChevronRight } from 'lucide-react';
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import { isBiometricAvailable } from '@/utils/biometricAuth';
-import axios from 'axios';
+import { API_BASE } from '@/utils/api';
 
 const T = {
   primary: '#0EA5E9', // iOS-style Cyan/Blue
@@ -22,8 +23,6 @@ const T = {
   r: { sm: 12, md: 16, lg: 24, xl: 32 },
 };
 
-const API_BASE = import.meta.env.DEV ? 'http://localhost:5001' : 'https://onlinept.in';
-
 export default function PhysioLoginPage() {
   const navigate = useNavigate();
   const [method, setMethod] = useState('password'); // 'password' | 'whatsapp'
@@ -33,6 +32,8 @@ export default function PhysioLoginPage() {
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [showPw, setShowPw] = useState(false);
+  const [selectionList, setSelectionList] = useState([]);
+  const [showSelector, setShowSelector] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [forgotMode, setForgotMode] = useState(false);
@@ -43,7 +44,7 @@ export default function PhysioLoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
-    document.title = 'Physio Access | OnlinePT';
+    document.title = 'OnlinePT Access | Command Center';
     isBiometricAvailable().then(setBiometricAvailable);
   }, []);
 
@@ -89,6 +90,13 @@ export default function PhysioLoginPage() {
       try {
         const res = await axios.post(`${API_BASE}/api/notifications/verify-otp`, { phone, otp });
         if (res.data.success) {
+          if (res.data.requiresSelection) {
+            setSelectionList(res.data.clinics);
+            setShowSelector(true);
+            setLoading(false);
+            return;
+          }
+
           let firebaseSignedIn = false;
           if (res.data.token) {
             try {
@@ -124,6 +132,49 @@ export default function PhysioLoginPage() {
       }
       setLoading(false);
     }
+  }
+
+  async function handleClinicSelection(clinic) {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await axios.post(`${API_BASE}/api/notifications/complete-selection-login`, {
+        phone,
+        userId: clinic.uid,
+        purpose: 'signin'
+      });
+
+      if (res.data.success) {
+        let firebaseSignedIn = false;
+        if (res.data.token) {
+          try {
+            await signInWithCustomToken(res.data.token);
+            firebaseSignedIn = true;
+          } catch (tokenErr) {
+            console.warn('[Selection Login] Firebase sign-in failed:', tokenErr.message);
+          }
+        }
+
+        localStorage.setItem('auth_method', 'whatsapp');
+        localStorage.setItem('auth_phone', phone);
+        localStorage.setItem('whatsapp_session', JSON.stringify({
+          phone,
+          purpose: 'signin',
+          userId: clinic.uid,
+          selectedClinicId: clinic.id,
+          firebaseSignedIn,
+          expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+        }));
+
+        navigate('/dashboard');
+      } else {
+        setError(res.data.error || 'Failed to initialize session for selected clinic.');
+      }
+    } catch (err) {
+      console.error('[Selection Finish Error]:', err);
+      setError(`Login failed: ${err.message}`);
+    }
+    setLoading(false);
   }
 
   async function sendWhatsAppOTP() {
@@ -172,7 +223,20 @@ export default function PhysioLoginPage() {
            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
         
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0px); } }
+        .cosmic-blob { position: fixed; border-radius: 50%; filter: blur(80px); z-index: 0; opacity: 0.15; pointer-events: none; }
+        
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #09090B inset !important;
+            -webkit-text-fill-color: #F8FAFC !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
         .login-input:focus {
            border-color: ${T.primary} !important;
            background: rgba(255,255,255,0.06) !important;
@@ -201,42 +265,127 @@ export default function PhysioLoginPage() {
           border-color: ${T.border};
           color: ${T.ink};
         }
+        .login-input:-webkit-autofill,
+        .login-input:-webkit-autofill:hover, 
+        .login-input:-webkit-autofill:focus, 
+        .login-input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #020617 inset !important;
+            -webkit-text-fill-color: #F8FAFC !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
       `}</style>
 
       {/* Decorative Blob */}
       <div style={{ position: 'absolute', top: '10%', left: '50%', transform: 'translateX(-50%)', width: '80%', height: '40%', background: `radial-gradient(circle, ${T.primary}15 0%, transparent 70%)`, filter: 'blur(60px)', zIndex: 0 }} />
 
       <div className="login-card" style={{ zIndex: 1, position: 'relative' }}>
-          {/* Logo Section */}
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${T.primary}, #0ea5e9)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: `0 12px 24px ${T.primary}30` }}>
-              <Sparkles size={32} color="#FFF" />
-            </div>
-            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-1.5px', marginBottom: 4 }}>Physio Access</h1>
-            <p style={{ fontSize: 14, color: T.inkSecondary, fontWeight: 500 }}>Secure Command Center Login</p>
-          </div>
+          {showSelector ? (
+            <div style={{ animation: 'fadeIn 0.5s ease' }}>
+               <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                  <div style={{ 
+                    width: 60, height: 60, borderRadius: 20, background: 'rgba(255,255,255,0.05)', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+                    border: '1px solid rgba(255,255,255,0.1)'
+                  }}>
+                    <Briefcase size={28} color={T.primary} />
+                  </div>
+                  <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Choose Clinic</h1>
+                  <p style={{ fontSize: 14, color: T.inkSecondary }}>Multiple accounts found for this number</p>
+               </div>
 
-          {/* Method Switcher */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 24, padding: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 16 }}>
-            <div 
-              className={`method-tab ${method === 'password' ? 'active' : ''}`}
-              onClick={() => { setMethod('password'); setError(''); }}
-            >
-              <Smartphone size={16} /> Password
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 380, overflowY: 'auto', paddingRight: 4, paddingBottom: 4 }}>
+                  {selectionList.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleClinicSelection(c)}
+                      disabled={loading}
+                      style={{
+                        width: '100%', padding: '16px 20px', borderRadius: 20, background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 16, transition: 'all 0.2s',
+                        color: T.ink, position: 'relative', overflow: 'hidden'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+                        e.currentTarget.style.borderColor = T.primary + '40';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <div style={{ 
+                        width: 48, height: 48, borderRadius: 14, background: T.primary + '15',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        overflow: 'hidden', border: '1px solid ' + T.primary + '20'
+                      }}>
+                        {c.logo ? <img src={c.logo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontWeight: 800, color: T.primary }}>{c.name?.charAt(0)}</span>}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 2 }}>{c.name}</div>
+                        <div style={{ fontSize: 12, color: T.inkSecondary, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <Globe size={10} /> {c.subdomain}.onlinept.in
+                        </div>
+                      </div>
+                      <ChevronRight size={18} color={T.inkSecondary} />
+                      
+                      {c.status === 'active' && (
+                        <div style={{ 
+                          position: 'absolute', top: 0, right: 0, 
+                          background: T.primary, color: '#fff', fontSize: 9, fontWeight: 800,
+                          padding: '2px 8px', borderRadius: '0 0 0 10px', textTransform: 'uppercase'
+                        }}>Active</div>
+                      )}
+                    </button>
+                  ))}
+               </div>
+
+               <button 
+                onClick={() => setShowSelector(false)}
+                style={{ 
+                  width: '100%', marginTop: 24, padding: 12, background: 'transparent', border: 'none',
+                  color: T.inkSecondary, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                }}>
+                  <ArrowLeft size={14} /> Back to Login
+               </button>
             </div>
-            <div 
-              className={`method-tab ${method === 'whatsapp' ? 'active' : ''}`}
-              onClick={() => { setMethod('whatsapp'); setError(''); }}
-            >
-              <MessageSquare size={16} /> WhatsApp
-            </div>
-          </div>
+          ) : (
+            <>
+              {/* Logo Section */}
+              <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                <img src="/onlinept-logo-v3.png?v=5" alt="Logo" style={{ width: 84, height: 84, objectFit: 'contain', margin: '0 auto 16px' }} />
+                <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-1.5px', marginBottom: 4 }}>OnlinePT Access</h1>
+                <p style={{ fontSize: 14, color: T.inkSecondary, fontWeight: 500 }}>Secure Command Center Login</p>
+              </div>
+
+              {/* Method Switcher */}
+              <div style={{ display: 'flex', gap: 12, marginBottom: 24, padding: 4, background: 'rgba(255,255,255,0.03)', borderRadius: 16 }}>
+                <div 
+                  className={`method-tab ${method === 'password' ? 'active' : ''}`}
+                  onClick={() => { setMethod('password'); setError(''); }}
+                >
+                  <Smartphone size={16} /> Password
+                </div>
+                <div 
+                  className={`method-tab ${method === 'whatsapp' ? 'active' : ''}`}
+                  onClick={() => { setMethod('whatsapp'); setError(''); }}
+                >
+                  <MessageSquare size={16} /> WhatsApp
+                </div>
+              </div>
+
+              {/* ... (Existing Login Forms) */}
+            </>
+          )}
 
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {method === 'password' ? (
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, textTransform: 'uppercase', letterSpacing: '1px', marginLeft: 4 }}>Email</label>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, letterSpacing: '0.5px', marginLeft: 4 }}>Email Address</label>
                   <input
                     type="email"
                     value={email}
@@ -254,7 +403,7 @@ export default function PhysioLoginPage() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginLeft: 4 }}>
-                    <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, textTransform: 'uppercase', letterSpacing: '1px' }}>Secret Key</label>
+                    <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, letterSpacing: '0.5px' }}>Secret Key</label>
                     <button type="button" onClick={() => setForgotMode(true)} style={{ color: T.primary, fontSize: 12, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}>Forgot?</button>
                   </div>
                   <div style={{ position: 'relative' }}>
@@ -284,7 +433,7 @@ export default function PhysioLoginPage() {
             ) : (
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, textTransform: 'uppercase', letterSpacing: '1px', marginLeft: 4 }}>WhatsApp Number</label>
+                  <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, letterSpacing: '0.5px', marginLeft: 4 }}>WhatsApp Number</label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type="tel"
@@ -315,7 +464,7 @@ export default function PhysioLoginPage() {
 
                 {otpSent && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, animation: 'slideUp 0.4s ease-out' }}>
-                    <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, textTransform: 'uppercase', letterSpacing: '1px', marginLeft: 4 }}>Enter 6-Digit OTP</label>
+                    <label style={{ fontSize: 11, fontWeight: 800, color: T.inkSecondary, letterSpacing: '0.5px', marginLeft: 4 }}>Enter 6-Digit OTP</label>
                     <input
                       type="text"
                       value={otp}

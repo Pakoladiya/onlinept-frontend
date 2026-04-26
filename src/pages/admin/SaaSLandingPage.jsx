@@ -30,6 +30,7 @@ export default function SaaSLandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     physioName: '',
+    clinicName: '',
     email: '',
     phone: '',
     password: '',
@@ -38,9 +39,16 @@ export default function SaaSLandingPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    let finalValue = value;
+    
+    if (name === 'subdomain') {
+      // Convert spaces to hyphens and strip invalid chars for subdomain
+      finalValue = value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+
     setFormData(prev => ({ 
       ...prev, 
-      [name]: name === 'subdomain' ? value.toLowerCase().replace(/[^a-z0-9-]/g, '') : value 
+      [name]: finalValue
     }));
   };
 
@@ -158,7 +166,7 @@ export default function SaaSLandingPage() {
       {/* ── Navbar ─────────────────────────────────────────────────────── */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 150,
-        height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '0 var(--section-px)', transition: 'all 0.3s',
         background: scrolled ? T.glass : 'transparent',
         backdropFilter: scrolled ? T.blur : 'none',
@@ -166,9 +174,9 @@ export default function SaaSLandingPage() {
         borderBottom: scrolled ? `1px solid ${T.border}` : 'none',
       }}>
         <div style={{ maxWidth: 1200, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => navigate('/')}>
-             <img src="/logo.png" alt="OnlinePT" style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: '50%' }} />
-             <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: 20, letterSpacing: '-0.5px' }}>OnlinePT</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }} onClick={() => navigate('/')}>
+             <img src="/onlinept-logo-v3.png" alt="OnlinePT" style={{ width: 60, height: 60, objectFit: 'contain' }} />
+             <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: 22, letterSpacing: '-0.5px' }}>OnlinePT</span>
           </div>
 
           <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
@@ -589,6 +597,11 @@ export default function SaaSLandingPage() {
                   </div>
 
                   <div style={{ textAlign: 'left' }}>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'block', paddingLeft: 4 }}>Clinic Name</label>
+                    <input required name="clinicName" autoComplete="off" value={formData.clinicName} onChange={handleChange} placeholder="e.g. Wellness Physio Center" style={{ width: '100%', height: 56, borderRadius: 16, border: `2px solid ${T.border}`, padding: '0 20px', fontSize: 16, outline: 'none' }} />
+                  </div>
+
+                  <div style={{ textAlign: 'left' }}>
                     <label style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 8, display: 'block', paddingLeft: 4 }}>Your Unique Subdomain</label>
                     <div style={{ display: 'flex', alignItems: 'center', background: '#F2F2F7', borderRadius: 16, border: `2px solid ${T.border}`, overflow: 'hidden' }}>
                       <input
@@ -597,7 +610,7 @@ export default function SaaSLandingPage() {
                         value={formData.subdomain}
                         onChange={handleChange}
                         className="no-titlecase"
-                        placeholder="my-clinic"
+                        placeholder="My Clinic"
                         style={{ flex: 1, height: 56, border: 'none', background: 'transparent', padding: '0 20px', fontSize: 16, outline: 'none' }}
                       />
                       <span style={{ padding: '0 20px', fontWeight: 700, color: T.ink3, fontSize: 14 }}>.onlinept.in</span>
@@ -623,7 +636,7 @@ export default function SaaSLandingPage() {
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 60, marginBottom: 60 }}>
               <div style={{ gridColumn: 'span 2' }}>
                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-                    <img src="/logo.png" alt="OnlinePT" style={{ width: 40, height: 40, objectFit: 'contain' }} />
+                    <img src="/onlinept-logo-v3.png" alt="OnlinePT" style={{ width: 56, height: 56, objectFit: 'contain' }} />
                     <span style={{ fontWeight: 800, fontSize: 20 }}>OnlinePT</span>
                  </div>
                  <p style={{ color: T.ink3, lineHeight: 1.6, maxWidth: 300 }}>

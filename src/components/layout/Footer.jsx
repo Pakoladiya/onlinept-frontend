@@ -114,7 +114,7 @@ export default function Footer() {
            </p>
            <div className="flex items-center gap-2 grayscale opacity-30 hover:grayscale-0 hover:opacity-100 transition-all cursor-default">
               <span className="text-[10px] font-black text-gray-500">Powered by</span>
-              <img src="/logo.png" className="h-4" alt="OnlinePT" /> 
+              <img src="/onlinept-logo-v3.png" className="h-8" alt="OnlinePT" /> 
               <span className="text-xs font-black text-white italic">OnlinePT.in</span>
            </div>
         </div>

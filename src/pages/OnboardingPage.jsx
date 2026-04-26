@@ -15,6 +15,8 @@ import {
   Clock,
   Zap,
   Calendar,
+  Shield,
+  CreditCard,
 } from 'lucide-react';
 
 const B = { primary: '#007AFF', dark: '#0055CC', light: '#E8F1FF', accent: '#5AC8FA' };
@@ -26,6 +28,8 @@ const STEPS = [
   { id: 'features', label: 'Features', icon: Zap },
   { id: 'video', label: 'Video', icon: Video },
   { id: 'hours', label: 'Hours', icon: Clock },
+  { id: 'payouts', label: 'Payouts', icon: CreditCard },
+  { id: 'terms', label: 'Terms', icon: Shield },
 ];
 
 const DAYS = [
@@ -70,9 +74,37 @@ export default function OnboardingPage() {
         4: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
         5: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }, { start: '16:00', end: '20:00' }] }, 
         6: { isOpen: true, shifts: [{ start: '09:00', end: '13:00' }] },
-      }
+      },
     },
+    payoutDetails: {
+      accountHolder: '',
+      bankName: '',
+      accountNumber: '',
+      ifsc: '',
+      pan: '',
+      upiId: '', // BHIM / UPI ID
+    },
+    hasAgreedToTerms: false,
   });
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem('pendingOnboarding');
+    if (pending) {
+      try {
+        const parsed = JSON.parse(pending);
+        setData(d => ({
+          ...d,
+          ...parsed,
+          clinicName: parsed.clinicName || d.clinicName,
+          physioName: parsed.physioName || d.physioName,
+          email: parsed.email || d.email,
+          phone: parsed.phone || d.phone
+        }));
+      } catch (err) {
+        console.error('Error parsing pending onboarding data:', err);
+      }
+    }
+  }, []);
 
   const update = (key, val) => setData((d) => ({ ...d, [key]: val }));
 
@@ -195,12 +227,11 @@ export default function OnboardingPage() {
       <div className="max-w-lg mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <div
-            className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl"
-            style={{ backgroundColor: data.primaryColor }}
-          >
-            P
-          </div>
+          <img 
+            src="/onlinept-logo-v3.png" 
+            alt="OnlinePT"
+            style={{ width: 64, height: 64, objectFit: 'contain', margin: '0 auto 16px' }} 
+          />
           <h1 className="text-xl font-bold text-text-primary">Setup Your Clinic</h1>
           <p className="text-sm text-text-secondary mt-1">Step {step + 1} of {STEPS.length} — {currentStep.label}</p>
         </div>
@@ -231,7 +262,7 @@ export default function OnboardingPage() {
                 { key: 'address', label: 'Address', placeholder: 'e.g. 123 Main Street, Surat' },
               ].map(({ key, label, placeholder, type = 'text' }) => (
                 <div key={key}>
-                  <label className="text-xs text-text-secondary uppercase tracking-wide mb-1 block">{label}</label>
+                  <label className="text-xs text-text-secondary tracking-wide mb-1 block">{label}</label>
                   <input
                     type={type}
                     value={data[key]}
@@ -259,7 +290,7 @@ export default function OnboardingPage() {
                   <input
                     value={svc.name}
                     onChange={(e) => updateService(idx, 'name', e.target.value)}
-                    placeholder="Service name"
+                    placeholder="Service Name"
                     className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-text-primary focus:outline-none focus:border-primary"
                   />
                   <div className="grid grid-cols-2 gap-2">
@@ -285,7 +316,7 @@ export default function OnboardingPage() {
                   <textarea
                     value={svc.description}
                     onChange={(e) => updateService(idx, 'description', e.target.value)}
-                    placeholder="Brief description"
+                    placeholder="Brief Description"
                     rows={2}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-border bg-background text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary resize-none"
                   />
@@ -452,6 +483,136 @@ export default function OnboardingPage() {
               </div>
             </div>
           )}
+
+          {step === 6 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <CreditCard size={20} />
+                </div>
+                <h2 className="font-bold text-text-primary text-lg">Payout Details</h2>
+              </div>
+              <p className="text-sm text-text-secondary mb-4">Provide your details to receive payments within 24 hours of session completion.</p>
+              
+              <div className="space-y-4">
+                {[
+                  { key: 'accountHolder', label: 'Account Holder Name', placeholder: 'As per bank records' },
+                  { key: 'bankName', label: 'Bank Name', placeholder: 'e.g. HDFC Bank' },
+                  { key: 'accountNumber', label: 'Account Number', placeholder: 'Your bank account number' },
+                  { key: 'ifsc', label: 'IFSC Code', placeholder: 'e.g. HDFC0001234' },
+                  { key: 'pan', label: 'PAN Number', placeholder: 'For TDS compliance' },
+                  { key: 'upiId', label: 'BHIM / UPI ID', placeholder: 'e.g. doctor@upi', highlight: true },
+                ].map(({ key, label, placeholder, highlight }) => (
+                  <div key={key}>
+                    <label className="text-[10px] text-text-secondary uppercase tracking-widest mb-1 block font-bold">
+                      {label} {highlight && <span style={{ color: data.primaryColor }}>(Fast Payout)</span>}
+                    </label>
+                    <input
+                      type="text"
+                      value={data.payoutDetails[key]}
+                      onChange={(e) => setData(prev => ({ 
+                        ...prev, 
+                        payoutDetails: { ...prev.payoutDetails, [key]: e.target.value.toUpperCase() } 
+                      }))}
+                      placeholder={placeholder}
+                      className="w-full px-3 py-2.5 text-sm rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:border-primary transition-all"
+                      style={{ borderLeft: highlight ? `3px solid ${data.primaryColor}` : undefined }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 7 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <Shield size={20} />
+                </div>
+                <h2 className="font-bold text-text-primary text-lg">Terms & Conditions</h2>
+              </div>
+              
+              <div className="p-4 bg-surface-variant border border-border rounded-xl space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar" style={{ background: 'rgba(0,0,0,0.02)', fontSize: '13px', lineHeight: '1.6' }}>
+                <section>
+                  <h3 className="font-bold text-text-primary mb-1">1. Security Deposit & Cancellations</h3>
+                  <p className="text-text-secondary">
+                    A security deposit of <strong>₹500/-</strong> will be maintained with OnlinePT. This deposit is used to compensate patients with a full refund in cases where a consultation is cancelled by the therapist or the clinic.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-text-primary mb-1">2. Platform & Transaction Fees</h3>
+                  <p className="text-text-secondary">
+                    A platform/gateway fee of <strong>2%</strong> (levied by Razorpay) will be borne by the subdomain holder (Clinic/Therapist). This fee is deducted at the source from the consultation charges paid by the patient.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-text-primary mb-1">3. Payout Schedule</h3>
+                  <p className="text-text-secondary">
+                    Consultation fees will be credited to the therapist's registered bank account within <strong>24 hours of successful completion</strong> of the online consultation. Please note that payouts are triggered by session completion, not by the time of booking.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-text-primary mb-1">4. Professional Conduct</h3>
+                  <p className="text-text-secondary">
+                    Therapists must ensure a stable internet connection and a professional environment for video consultations. OnlinePT reserves the right to suspend subdomains in case of repeated patient complaints or unethical behavior.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="font-bold text-text-primary mb-1">5. Data Privacy</h3>
+                  <p className="text-text-secondary">
+                    All patient data and consultation records are encrypted. Therapists are responsible for maintaining patient confidentiality as per standard medical ethics.
+                  </p>
+                </section>
+              </div>
+
+              <div className="space-y-4">
+                <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg hover:bg-black/5 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={data.hasAgreedToTerms} 
+                    onChange={e => update('hasAgreedToTerms', e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-border text-primary" 
+                  />
+                  <span className="text-sm text-text-primary font-medium">
+                    I have read and I agree to the platform's financial terms and operating conditions.
+                  </span>
+                </label>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => update('hasAgreedToTerms', true)}
+                    style={{ 
+                      flex: 1, height: 48, borderRadius: 12, 
+                      background: data.hasAgreedToTerms ? data.primaryColor : 'rgba(0,0,0,0.05)', 
+                      color: data.hasAgreedToTerms ? '#fff' : 'var(--text-secondary)',
+                      border: 'none', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    I Agree
+                  </button>
+                  <button 
+                    onClick={() => {
+                      update('hasAgreedToTerms', false);
+                      alert('You must agree to the terms to continue with the clinic setup.');
+                    }}
+                    style={{ 
+                      flex: 1, height: 48, borderRadius: 12, 
+                      background: 'transparent', 
+                      color: '#EF4444',
+                      border: '1px solid #EF444430', fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    I Disagree
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Navigation */}
@@ -465,11 +626,19 @@ export default function OnboardingPage() {
           )}
           <div className="flex-1" />
           {step < STEPS.length - 1 ? (
-            <Button onClick={() => setStep((s) => s + 1)}>
+            <Button 
+              onClick={() => {
+                if (currentStep.id === 'terms' && !data.hasAgreedToTerms) {
+                  alert('Please agree to the terms and conditions to proceed.');
+                  return;
+                }
+                setStep((s) => s + 1);
+              }}
+            >
               Next <ArrowRight size={16} />
             </Button>
           ) : (
-            <Button onClick={handleFinish} disabled={saving}>
+            <Button onClick={handleFinish} disabled={saving || (currentStep.id === 'terms' && !data.hasAgreedToTerms)}>
               {saving ? <Loader size={16} className="animate-spin" /> : <Check size={16} />}
               {saving ? 'Saving...' : 'Finish Setup'}
             </Button>
