@@ -42,6 +42,9 @@ export const updateClinicConfig = (newConfig) => {
     derivedConfig.cssVariables['--color-secondary-light'] = shadeColor(clinicConfig.secondaryColor, 92);
   }
 
+  derivedConfig.cssVariables['--clinic-name'] = clinicConfig.clinicName;
+  derivedConfig.cssVariables['--clinic-logo'] = clinicConfig.logo;
+
   derivedConfig.whatsappClean = (clinicConfig.whatsappNumber || '').replace(/\s|\+|\D/g, '');
   derivedConfig.whatsappLink = clinicConfig.whatsappNumber 
     ? `https://wa.me/${derivedConfig.whatsappClean}?text=${encodeURIComponent(clinicConfig.whatsappMessagePrefill || '')}`
@@ -53,7 +56,7 @@ const clinicConfig = {
   clinicId: 'nfc_surat',
   clinicName: 'Nijanand Fitness Centre',
   tagline: 'Expert physiotherapy & fitness consultations online',
-  logo: '/assets/nfc-logo.png',
+  logo: '/onlinept-logo-v3.png',
 
   // ── Physio Profile ──────────────────────────────────────────
   physioName: 'Dr. Jiten Makwana',
@@ -225,6 +228,8 @@ export const derivedConfig = {
     '--color-error': '#ef4444',
     '--color-warning': '#f59e0b',
     '--color-info': '#3b82f6',
+    '--clinic-name': clinicConfig.clinicName,
+    '--clinic-logo': clinicConfig.logo,
   },
 
   whatsappLink: '',

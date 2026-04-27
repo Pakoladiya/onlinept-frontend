@@ -230,7 +230,7 @@ router.post('/send-otp', async (req, res) => {
       }
     }
 
-    if (!registeredUser && purpose !== 'signup') {
+    if (!registeredUser && purpose !== 'signup' && purpose !== 'booking_verification') {
       console.log(`[OTP] Blocked — number not found in DB: ${phone} (Attempted: ${formattedPhone})`);
       return res.status(404).json({
         success: false,

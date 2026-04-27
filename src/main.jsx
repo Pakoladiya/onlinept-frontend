@@ -7,6 +7,7 @@ import AppRouter from '@/routes/AppRouter';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import '@/index.css';
 
+import { ClinicConfigProvider } from '@/context/ClinicConfigContext';
 import { loadTenantConfig } from '@/config/tenantLoader';
 
 const root = createRoot(document.getElementById('root'));
@@ -19,14 +20,16 @@ async function mountApp() {
     // 2. Render application
     root.render(
       <StrictMode>
-        <ThemeProvider />
-        <BrowserRouter>
-          <ErrorBoundary>
-            <LanguageProvider>
-              <AppRouter />
-            </LanguageProvider>
-          </ErrorBoundary>
-        </BrowserRouter>
+        <ClinicConfigProvider>
+          <ThemeProvider />
+          <BrowserRouter>
+            <ErrorBoundary>
+              <LanguageProvider>
+                <AppRouter />
+              </LanguageProvider>
+            </ErrorBoundary>
+          </BrowserRouter>
+        </ClinicConfigProvider>
       </StrictMode>
     );
   } catch (err) {

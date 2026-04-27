@@ -8,6 +8,7 @@ import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, Sparkles, X, KeyRound,
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
 import { isBiometricAvailable } from '@/utils/biometricAuth';
 import { API_BASE } from '@/utils/api';
+import clinicConfig from '@/config/clinicConfig';
 
 const T = {
   primary: '#0EA5E9', // iOS-style Cyan/Blue
@@ -361,8 +362,8 @@ export default function PhysioLoginPage() {
             <>
               {/* Logo Section */}
               <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                <img src="/onlinept-logo-v3.png?v=5" alt="Logo" style={{ width: 84, height: 84, objectFit: 'contain', margin: '0 auto 16px' }} />
-                <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-1.5px', marginBottom: 4 }}>OnlinePT Access</h1>
+                <img src={clinicConfig.logo || "/onlinept-logo-v3.png?v=5"} alt="Logo" style={{ width: 84, height: 84, objectFit: 'contain', margin: '0 auto 16px', background: '#fff', borderRadius: 20, padding: 8 }} />
+                <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: '-1.5px', marginBottom: 4 }}>{clinicConfig.name || 'OnlinePT Access'}</h1>
                 <p style={{ fontSize: 14, color: T.inkSecondary, fontWeight: 500 }}>Secure Command Center Login</p>
               </div>
 

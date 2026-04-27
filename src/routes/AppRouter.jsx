@@ -66,9 +66,6 @@ export default function AppRouter() {
 
   // 1. Production: 3+ parts ending with onlinept.in (e.g. abcefgh.onlinept.in)
   // 2. Local: if ?dev=1 or ?tenant= is present
-  const isClinicPortal = (effectiveHostname.split('.').length >= 3 && effectiveHostname.endsWith('onlinept.in')) || 
-                         ((hostname === 'localhost' || hostname === '127.0.0.1') && (urlParams.has('dev') || urlParams.has('tenant')));
-
   return (
     <Suspense fallback={<RouteLoader />}>
       <ScrollToTop />

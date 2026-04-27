@@ -7,11 +7,11 @@ import { db } from '@/firebase/config';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
-import {
   LayoutDashboard, LogOut, Users, Shield,
   Search, CheckCircle2, Clock,
   Globe, Loader2, AlertTriangle,
-  Ban, CreditCard, Activity, Calendar
+  Ban, CreditCard, Activity, Calendar,
+  Check, DollarSign
 } from 'lucide-react';
 
 const ADMIN_EMAIL = 'pakoladiya@gmail.com';
@@ -55,19 +55,26 @@ export default function MasterAdminPage() {
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [updatingPayout, setUpdatingPayout] = useState(null);
 
+  useEffect(() => {
+    let isMounted = true;
     const unsub = onAuth(async (u) => {
+      if (!isMounted) return;
+      
       if (!u || u.email !== ADMIN_EMAIL) {
         navigate('/');
         return;
       }
       setUser(u);
       
-      // Load Data
+      // Load Data only if not already loading
       fetchClinics();
       fetchRecentBookings();
     });
-    return unsub;
-  }, []);
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, [navigate]);
 
   async function fetchClinics() {
     try {
@@ -252,146 +259,145 @@ export default function MasterAdminPage() {
           </button>
         </div>
 
-        {activeTab === 'clinics' ? (
-          <>
-            {/* Search */}
-            <div className="mb-4 relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-              <input
-                type="text"
-                placeholder="Search by clinic name, physio, email or subdomain..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 text-sm rounded-lg border border-border bg-white text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary transition-colors"
-              />
-            </div>
+        {/* Search */}
+        {activeTab === 'clinics' && (
+          <div className="mb-4 relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
+            <input
+              type="text"
+              placeholder="Search by clinic name, physio, email or subdomain..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 text-sm rounded-lg border border-border bg-white text-text-primary placeholder-text-secondary/50 focus:outline-none focus:border-primary transition-colors"
+            />
+          </div>
+        )}
 
-            {/* Expired warning */}
-            {stats.expired > 0 && (
-              <div className="mb-4 flex items-center gap-2 p-3 rounded-lg bg-error/10 border border-error/30 text-sm text-error">
-                <AlertTriangle size={15} className="shrink-0" />
-                <span>
-                  {stats.expired} trial{stats.expired > 1 ? 's have' : ' has'} expired. Consider deactivating them.
-                </span>
-              </div>
-            )}
-          </>
-        ) : null}
+        {/* Expired warning */}
+        {activeTab === 'clinics' && stats.expired > 0 && (
+          <div className="mb-4 flex items-center gap-2 p-3 rounded-lg bg-error/10 border border-error/30 text-sm text-error">
+            <AlertTriangle size={15} className="shrink-0" />
+            <span>
+              {stats.expired} trial{stats.expired > 1 ? 's have' : ' has'} expired. Consider deactivating them.
+            </span>
+          </div>
+        )}
 
         {/* Dynamic Content */}
         {activeTab === 'clinics' ? (
-        {filtered.length === 0 ? (
-          <Card padding="p-8" className="text-center">
-            <Users size={32} className="mx-auto mb-3" style={{ color: '#6b728040' }} />
-            <p className="text-sm text-text-secondary">
-              {search ? 'No clinics match your search.' : 'No clinics registered yet.'}
-            </p>
-            {!search && (
-              <p className="text-xs text-text-secondary/70 mt-1">
-                Share <strong>onlinept.in</strong> with physiotherapists to get started.
+          filtered.length === 0 ? (
+            <Card padding="p-8" className="text-center">
+              <Users size={32} className="mx-auto mb-3" style={{ color: '#6b728040' }} />
+              <p className="text-sm text-text-secondary">
+                {search ? 'No clinics match your search.' : 'No clinics registered yet.'}
               </p>
-            )}
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map((clinic) => {
-              const daysLeft = getDaysLeft(clinic.trialEndsAt);
-              return (
-                <Card key={clinic.id} padding="p-4" hover className="transition-all">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
-                        style={{ backgroundColor: clinic.settings?.primaryColor || '#0066FF' }}
-                      >
-                        {(clinic.physioName || 'P').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                          <p className="text-sm font-semibold text-text-primary">{clinic.clinicName}</p>
-                          {getStatusBadge(clinic)}
+              {!search && (
+                <p className="text-xs text-text-secondary/70 mt-1">
+                  Share <strong>onlinept.in</strong> with physiotherapists to get started.
+                </p>
+              )}
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filtered.map((clinic) => {
+                const daysLeft = getDaysLeft(clinic.trialEndsAt);
+                return (
+                  <Card key={clinic.id} padding="p-4" hover className="transition-all">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <div
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0"
+                          style={{ backgroundColor: clinic.settings?.primaryColor || '#0066FF' }}
+                        >
+                          {(clinic.physioName || 'P').split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                         </div>
-                        <p className="text-xs text-text-secondary mb-1">
-                          {clinic.physioName} · {clinic.email}
-                          {clinic.passingYear && <span className="ml-2 px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-medium">Graduated {clinic.passingYear}</span>}
-                        </p>
-                        {clinic.address && (
-                          <p className="text-[10px] text-text-secondary/70 flex items-center gap-1 mb-1">
-                            <MapPin size={10} /> {clinic.address}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <p className="text-sm font-semibold text-text-primary">{clinic.clinicName}</p>
+                            {getStatusBadge(clinic)}
+                          </div>
+                          <p className="text-xs text-text-secondary mb-1">
+                            {clinic.physioName} · {clinic.email}
+                            {clinic.passingYear && <span className="ml-2 px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-medium">Graduated {clinic.passingYear}</span>}
                           </p>
-                        )}
-                        <div className="flex items-center gap-4 text-xs text-text-secondary/70 flex-wrap">
-                          <span className="inline-flex items-center gap-1">
-                            <Globe size={11} />
-                            <span className="font-mono">{clinic.subdomain}.onlinept.in</span>
-                          </span>
-                          {clinic.trialEndsAt && (
+                          {clinic.address && (
+                            <p className="text-[10px] text-text-secondary/70 flex items-center gap-1 mb-1">
+                              <MapPin size={10} /> {clinic.address}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-4 text-xs text-text-secondary/70 flex-wrap">
                             <span className="inline-flex items-center gap-1">
-                              <Clock size={11} />
-                              Trial ends {formatDate(clinic.trialEndsAt)}
-                              {daysLeft !== null && daysLeft > 0 && (
-                                <span className="font-semibold" style={{ color: '#f59e0b' }}>({daysLeft}d)</span>
-                              )}
-                              {daysLeft !== null && daysLeft <= 0 && (
-                                <span className="font-semibold text-error">(expired)</span>
-                              )}
+                              <Globe size={11} />
+                              <span className="font-mono">{clinic.subdomain}.onlinept.in</span>
                             </span>
-                          )}
-                          {clinic.createdAt && (
-                            <span>Joined {formatDate(clinic.createdAt)}</span>
-                          )}
-                          {clinic.hasAgreedToTerms && (
-                            <span className="inline-flex items-center gap-1 text-success font-black uppercase text-[9px] bg-success/5 px-2 py-0.5 rounded-full border border-success/10">
-                              <Shield size={10} /> Contract Signed {clinic.agreedAt && `· ${formatDate(clinic.agreedAt)}`}
-                            </span>
-                          )}
+                            {clinic.trialEndsAt && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock size={11} />
+                                Trial ends {formatDate(clinic.trialEndsAt)}
+                                {daysLeft !== null && daysLeft > 0 && (
+                                  <span className="font-semibold" style={{ color: '#f59e0b' }}>({daysLeft}d)</span>
+                                )}
+                                {daysLeft !== null && daysLeft <= 0 && (
+                                  <span className="font-semibold text-error">(expired)</span>
+                                )}
+                              </span>
+                            )}
+                            {clinic.createdAt && (
+                              <span>Joined {formatDate(clinic.createdAt)}</span>
+                            )}
+                            {clinic.hasAgreedToTerms && (
+                              <span className="inline-flex items-center gap-1 text-success font-black uppercase text-[9px] bg-success/5 px-2 py-0.5 rounded-full border border-success/10">
+                                <Shield size={10} /> Contract Signed {clinic.agreedAt && `· ${formatDate(clinic.agreedAt)}`}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {clinic.verificationDoc && (
+                          <a href={clinic.verificationDoc} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary underline mr-2">
+                            View Cert
+                          </a>
+                        )}
+                        
+                        {clinic.subscriptionStatus === 'pending_approval' ? (
+                          <button
+                            onClick={() => approveAndEmail(clinic)}
+                            disabled={togglingId === clinic.id}
+                            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border text-white transition-colors disabled:opacity-50"
+                            style={{ backgroundColor: '#007AFF', borderColor: '#0055CC' }}
+                          >
+                            {togglingId === clinic.id ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
+                            Approve & Email
+                          </button>
+                        ) : clinic.status !== 'deactivated' ? (
+                          <button
+                            onClick={() => toggleStatus(clinic)}
+                            disabled={togglingId === clinic.id}
+                            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border text-error transition-colors disabled:opacity-50"
+                            style={{ borderColor: '#ef444430', backgroundColor: '#ef444408' }}
+                          >
+                            {togglingId === clinic.id ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />}
+                            Deactivate
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => toggleStatus(clinic)}
+                            disabled={togglingId === clinic.id}
+                            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border text-success transition-colors disabled:opacity-50"
+                            style={{ borderColor: '#10b98130', backgroundColor: '#10b98108' }}
+                          >
+                            {togglingId === clinic.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+                            Activate
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="shrink-0 flex items-center gap-2">
-                      {clinic.verificationDoc && (
-                         <a href={clinic.verificationDoc} target="_blank" rel="noreferrer" className="text-xs font-semibold text-primary underline mr-2">
-                           View Cert
-                         </a>
-                      )}
-                      
-                      {clinic.subscriptionStatus === 'pending_approval' ? (
-                        <button
-                          onClick={() => approveAndEmail(clinic)}
-                          disabled={togglingId === clinic.id}
-                          className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border text-white transition-colors disabled:opacity-50"
-                          style={{ backgroundColor: '#007AFF', borderColor: '#0055CC' }}
-                        >
-                          {togglingId === clinic.id ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
-                          Approve & Email
-                        </button>
-                      ) : clinic.status !== 'deactivated' ? (
-                        <button
-                          onClick={() => toggleStatus(clinic)}
-                          disabled={togglingId === clinic.id}
-                          className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border text-error transition-colors disabled:opacity-50"
-                          style={{ borderColor: '#ef444430', backgroundColor: '#ef444408' }}
-                        >
-                          {togglingId === clinic.id ? <Loader2 size={12} className="animate-spin" /> : <Ban size={12} />}
-                          Deactivate
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => toggleStatus(clinic)}
-                          disabled={togglingId === clinic.id}
-                          className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border text-success transition-colors disabled:opacity-50"
-                          style={{ borderColor: '#10b98130', backgroundColor: '#10b98108' }}
-                        >
-                          {togglingId === clinic.id ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
-                          Activate
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              );
-        ) : (
-          </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )
         ) : (
           <div className="space-y-4">
             <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mb-4">

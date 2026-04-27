@@ -97,17 +97,11 @@ function Preview({ settings }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 overflow: 'hidden'
               }}>
-                {logo ? (
-                  <img src={logo} alt="" style={{ 
-                    maxWidth: '100%', maxHeight: '100%',
-                    width: 'auto', height: 'auto',
-                    objectFit: 'contain' 
-                  }} />
-                ) : (
-                  <span style={{ fontSize: 18, fontWeight: 800, color: primaryColor || T.primary }}>
-                    {clinicName?.charAt(0) || 'C'}
-                  </span>
-                )}
+                <img src={logo || '/onlinept-logo-v3.png'} alt="" style={{ 
+                  maxWidth: '100%', maxHeight: '100%',
+                  width: 'auto', height: 'auto',
+                  objectFit: 'contain' 
+                }} />
               </div>
               <div style={{ paddingBottom: 2 }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.3)', lineHeight: 1.2 }}>
@@ -700,7 +694,7 @@ export default function PhysioAdminPanel() {
             email: d.email || u.email || '',
             phone: d.phone || '',
             address: d.address || '',
-            logo: d.settings?.logo || d.logo || '',
+            logo: d.settings?.logo || d.logo || '/onlinept-logo-v3.png',
             logoWidth: d.settings?.logoWidth || d.logoWidth || 44,
             logoHeight: d.settings?.logoHeight || d.logoHeight || 44,
             coverPhoto: d.settings?.coverPhoto || d.coverPhoto || '',

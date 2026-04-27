@@ -152,6 +152,13 @@ export default function BookingPage() {
   const [modifyFoundId, setModifyFoundId] = useState(null);
   const [modifyOtpSending, setModifyOtpSending] = useState(false);
   const [modifyPatientName, setModifyPatientName] = useState('');
+  
+  // Booking OTP state
+  const [showBookingOtpModal, setShowBookingOtpModal] = useState(false);
+  const [bookingOtp, setBookingOtp] = useState('');
+  const [bookingOtpSending, setBookingOtpSending] = useState(false);
+  const [bookingOtpError, setBookingOtpError] = useState('');
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
 
   // Read follow-up params from URL
   const urlSearchParams = new URLSearchParams(location.search);
@@ -253,7 +260,7 @@ export default function BookingPage() {
             slotDurationMinutes: clinicDocData.slotDurationMinutes || settings.slotDurationMinutes || clinicConfig.slotDurationMinutes || 15,
             
             // Admin panel saves these under settings — read from both locations
-            logo: settings.logo || clinicDocData.logo || '',
+            logo: settings.logo || clinicDocData.logo || clinicConfig.logo,
             logoWidth: settings.logoWidth || clinicDocData.logoWidth || 44,
             logoHeight: settings.logoHeight || clinicDocData.logoHeight || 44,
             coverPhoto: settings.coverPhoto || clinicDocData.coverPhoto || '',
@@ -356,12 +363,52 @@ export default function BookingPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.slot) { alert('Please select a time slot.'); return; }
+    
+    // If already verified (e.g. from a previous attempt in this session), proceed
+    if (isOtpVerified) {
+       finalizeBooking();
+       return;
+    }
+
     setLoading(true);
-    // Mimic processing
-    await new Promise(r => setTimeout(r, 1000));
+    setBookingOtpError('');
+
+    try {
+      const digits = form.patientPhone.trim().replace(/\D/g, '');
+      const e164 = `+91${digits.slice(-10)}`;
+      
+      const otpRes = await fetch(`${API_BASE}/api/notifications/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          phone: e164, 
+          purpose: 'booking_verification', 
+          userName: form.patientName || 'Patient' 
+        }),
+      });
+      
+      const otpData = await otpRes.json();
+      if (!otpRes.ok || !otpData.success) {
+        alert(otpData.error || 'Failed to send OTP. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      setShowBookingOtpModal(true);
+    } catch (err) {
+      console.error('[BookingOTP]', err);
+      alert('Something went wrong while sending verification OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finalizeBooking = () => {
+    setLoading(true);
     const dateDisplay = form.date instanceof Date
       ? form.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
       : form.date;
+    
     navigate(`/intake/BK-${Date.now().toString().slice(-6)}`, {
       state: {
         ...form,
@@ -376,6 +423,35 @@ export default function BookingPage() {
         isFollowUp: isFollowUp,
       }
     });
+  };
+
+  const handleVerifyBookingOtp = async () => {
+    if (bookingOtp.length < 6) return;
+    setBookingOtpSending(true);
+    setBookingOtpError('');
+    try {
+      const digits = form.patientPhone.trim().replace(/\D/g, '');
+      const e164 = `+91${digits.slice(-10)}`;
+      const res = await fetch(`${API_BASE}/api/notifications/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: e164, otp: bookingOtp }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setBookingOtpError(data.error || 'Invalid OTP. Please try again.');
+        setBookingOtpSending(false);
+        return;
+      }
+      // Success!
+      setIsOtpVerified(true);
+      setShowBookingOtpModal(false);
+      finalizeBooking();
+    } catch (err) {
+      setBookingOtpError('OTP verification failed. Please try again.');
+    } finally {
+      setBookingOtpSending(false);
+    }
   };
 
   // Step 1: find booking by phone → send OTP
@@ -812,8 +888,8 @@ export default function BookingPage() {
               <h2 style={{ fontSize: 24, fontWeight: 800, color: '#F1F5F9', marginBottom: 8 }}>{t('manageAppointment')}</h2>
               <p style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.6 }}>
                 {modifyStep === 'phone'
-                  ? 'Enter your registered WhatsApp number to find your booking.'
-                  : `We sent a 6-digit OTP to your WhatsApp. Enter it below to verify your identity.`}
+                   ? 'Enter your registered WhatsApp number to find your booking.'
+                   : `We sent a 6-digit OTP to your WhatsApp. Enter it below to verify your identity.`}
               </p>
             </div>
 
@@ -881,6 +957,100 @@ export default function BookingPage() {
               </>
             )}
             <p style={{ textAlign: 'center', color: '#475569', fontSize: 12, marginTop: 16 }}>Rescheduling is only available ≥12 hours before your appointment.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Booking Verification Modal ─────────────────────────────── */}
+      {showBookingOtpModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 99999, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'rgba(15, 23, 42, 0.98)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 32, padding: '48px 40px', maxWidth: 460, width: '100%', boxShadow: '0 50px 100px rgba(0,0,0,0.6)', position: 'relative' }}>
+             <button 
+               onClick={() => setShowBookingOtpModal(false)}
+               style={{ position: 'absolute', top: 24, right: 24, background: 'rgba(255,255,255,0.05)', border: 'none', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', cursor: 'pointer' }}
+             >
+               <X size={20} />
+             </button>
+
+             <div style={{ textAlign: 'center', marginBottom: 40 }}>
+                <div style={{ width: 80, height: 80, borderRadius: 24, background: `${primaryColor}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', border: `1px solid ${primaryColor}30` }}>
+                  <ShieldCheck size={40} color={primaryColor} />
+                </div>
+                <h2 style={{ fontSize: 28, fontWeight: 900, color: '#F1F5F9', marginBottom: 12 }}>Verify Your WhatsApp</h2>
+                <p style={{ fontSize: 15, color: '#94A3B8', lineHeight: 1.6 }}>
+                  We've sent a security code to <span style={{ color: primaryColor, fontWeight: 800 }}>{form.patientPhone}</span>. Please enter it to confirm your identity.
+                </p>
+             </div>
+
+             <div style={{ marginBottom: 32 }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={bookingOtp}
+                    onChange={e => { setBookingOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setBookingOtpError(''); }}
+                    placeholder="000000"
+                    maxLength={6}
+                    autoFocus
+                    style={{
+                      width: '100%', height: 84, borderRadius: 20,
+                      border: `2px solid ${bookingOtpError ? '#EF4444' : (bookingOtp.length === 6 ? primaryColor : 'rgba(255,255,255,0.1)')}`,
+                      background: 'rgba(255,255,255,0.03)',
+                      fontSize: 40, fontWeight: 900, textAlign: 'center', letterSpacing: 16,
+                      color: '#F1F5F9', outline: 'none', transition: 'all 0.3s'
+                    }}
+                    onKeyDown={e => e.key === 'Enter' && handleVerifyBookingOtp()}
+                  />
+                  {bookingOtpSending && (
+                    <div style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)' }}>
+                       <Loader2 className="animate-spin" color={primaryColor} />
+                    </div>
+                  )}
+                </div>
+                {bookingOtpError && (
+                   <motion.p 
+                     initial={{ opacity: 0, y: -10 }} 
+                     animate={{ opacity: 1, y: 0 }} 
+                     style={{ color: '#EF4444', fontSize: 13, fontWeight: 700, marginTop: 12, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                   >
+                      <AlertCircle size={14} /> {bookingOtpError}
+                   </motion.p>
+                )}
+             </div>
+
+             <button
+               onClick={handleVerifyBookingOtp}
+               disabled={bookingOtp.length < 6 || bookingOtpSending}
+               style={{ 
+                 width: '100%', height: 64, borderRadius: 20, 
+                 background: bookingOtp.length < 6 ? 'rgba(255,255,255,0.05)' : primaryColor, 
+                 color: bookingOtp.length < 6 ? '#64748B' : getContrastColor(primaryColor), 
+                 border: 'none', fontSize: 18, fontWeight: 800, 
+                 cursor: bookingOtp.length < 6 ? 'not-allowed' : 'pointer',
+                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+                 boxShadow: bookingOtp.length === 6 ? `0 20px 40px ${primaryColor}40` : 'none',
+                 transition: 'all 0.3s'
+               }}
+             >
+               {bookingOtpSending ? <Loader2 size={24} className="animate-spin" /> : 'Confirm & Finalize Booking'}
+             </button>
+
+             <div style={{ textAlign: 'center', marginTop: 32 }}>
+                <p style={{ fontSize: 14, color: '#64748B' }}>
+                  Didn't receive the code?{' '}
+                  <button 
+                    onClick={handleSubmit}
+                    style={{ background: 'none', border: 'none', color: primaryColor, fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                  >
+                    Resend via WhatsApp
+                  </button>
+                </p>
+                <button 
+                  onClick={() => setShowBookingOtpModal(false)}
+                  style={{ background: 'none', border: 'none', color: '#475569', fontSize: 12, fontWeight: 600, cursor: 'pointer', marginTop: 16, textDecoration: 'underline' }}
+                >
+                  Change Phone Number
+                </button>
+             </div>
           </div>
         </div>
       )}

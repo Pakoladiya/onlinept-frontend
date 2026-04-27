@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { API_BASE } from '@/utils/api';
+import clinicConfig from '@/config/clinicConfig';
 
 const toTitleCase = (str) => {
   if (!str) return '';
@@ -429,8 +430,8 @@ export default function PhysioDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ position: 'relative' }}>
                  <img 
-                   src="/onlinept-logo-v3.png" 
-                   alt="OnlinePT"
+                   src={clinicConfig.logo || "/onlinept-logo-v3.png"} 
+                   alt={clinicConfig.name || "Clinic Logo"}
                    style={{ width: 64, height: 64, objectFit: 'contain', background: '#fff', borderRadius: 16, padding: 6 }}
                  />
                  <div style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, background: '#10B981', border: `2.5px solid #0F172A`, borderRadius: '50%' }} />

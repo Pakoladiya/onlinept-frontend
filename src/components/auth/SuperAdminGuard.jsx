@@ -15,13 +15,17 @@ export default function SuperAdminGuard({ children }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState(false);
+  const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
     const unsubscribe = onAuth(async (user) => {
       if (!user) {
-        setIsAdmin(false);
-        setLoading(false);
+        if (isMounted) {
+          setIsAdmin(false);
+          setLoading(false);
+        }
         return;
       }
 
@@ -29,27 +33,34 @@ export default function SuperAdminGuard({ children }) {
       try {
         // Silently check by email first (the primary super admin)
         if (isSuperAdminEmail(user.email)) {
-          setIsAdmin(true);
-          setLoading(false);
+          if (isMounted) {
+            setIsAdmin(true);
+            setLoading(false);
+          }
           return;
         }
         // Handshake with Firestore to verify role
         const userData = await getDocument('users', user.uid);
-        if (userData && userData.role === 'super_admin') {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
+        if (isMounted) {
+          if (userData && userData.role === 'super_admin') {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+          }
         }
       } catch (err) {
         console.error('Super Admin Handshake Failed:', err);
-        setError(true);
+        if (isMounted) setError(true);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     });
 
-    return () => unsubscribe();
-  }, [location.search]);
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   if (loading) {
     return (
