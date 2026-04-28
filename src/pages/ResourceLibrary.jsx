@@ -401,7 +401,13 @@ export default function ResourceLibrary({ isEmbedded }) {
   });
   const [files, setFiles] = useState([]);
   const [allFiles, setAllFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
+
+  // ── FAILSAFE: Redirect to Dashboard if accessed standalone ──
+  useEffect(() => {
+    if (!isEmbedded && !window.location.search.includes('standalone=true')) {
+       navigate('/dashboard?tab=Library', { replace: true });
+    }
+  }, [isEmbedded, navigate]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);

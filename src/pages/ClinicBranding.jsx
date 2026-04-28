@@ -50,6 +50,13 @@ export default function ClinicBrandingPage({ isEmbedded }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ── FAILSAFE: Redirect to Dashboard if accessed standalone ──
+  useEffect(() => {
+    if (!isEmbedded && !window.location.search.includes('standalone=true')) {
+      navigate('/dashboard?tab=Branding', { replace: true });
+    }
+  }, [isEmbedded, navigate]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');

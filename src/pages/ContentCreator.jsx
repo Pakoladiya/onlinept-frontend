@@ -579,6 +579,13 @@ export default function ContentCreator({ isEmbedded }) {
   const [clinicData, setClinicData] = useState({});
   const [loading, setLoading] = useState(true);
 
+  // ── FAILSAFE: Redirect to Dashboard if accessed standalone ──
+  useEffect(() => {
+    if (!isEmbedded && !window.location.search.includes('standalone=true')) {
+      navigate('/dashboard?tab=Creator', { replace: true });
+    }
+  }, [isEmbedded, navigate]);
+
   // ── PDF Creator State ──
   const [pdfEnabled, setPdfEnabled] = useState(true);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
