@@ -15,6 +15,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script>
+      // ─── NUCLEAR CACHE BUSTER ───
+      const APP_VER = '0.2.2';
+      if (localStorage.getItem('app_ver') !== APP_VER) {
+        console.log("New Version Detected! Clearing caches...");
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+              registration.unregister();
+            }
+          });
+        }
+        localStorage.setItem('app_ver', APP_VER);
+        // Force a hard reload to clear everything
+        setTimeout(() => { window.location.reload(true); }, 500);
+      }
+    </script>
     <title>OnlinePT.in — Virtual Physical Therapy</title>
   </head>
   <body>

@@ -10,7 +10,7 @@ import '@/index.css';
 import { ClinicConfigProvider } from '@/context/ClinicConfigContext';
 import { loadTenantConfig } from '@/config/tenantLoader';
 
-const APP_VERSION = '0.2.1'; 
+const APP_VERSION = '0.2.2'; 
 const root = createRoot(document.getElementById('root'));
 
 async function mountApp() {
