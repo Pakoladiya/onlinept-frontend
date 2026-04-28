@@ -10,9 +10,23 @@ import '@/index.css';
 import { ClinicConfigProvider } from '@/context/ClinicConfigContext';
 import { loadTenantConfig } from '@/config/tenantLoader';
 
+const APP_VERSION = '0.2.1'; 
 const root = createRoot(document.getElementById('root'));
 
 async function mountApp() {
+  // ── CACHE BUSTER ──
+  if (typeof window !== 'undefined') {
+    const lastVersion = localStorage.getItem('app_version');
+    if (lastVersion && lastVersion !== APP_VERSION) {
+      console.log(`NEW VERSION DETECTED: ${APP_VERSION}. Clearing cache and reloading...`);
+      localStorage.setItem('app_version', APP_VERSION);
+      // Hard reload to clear PWA cache
+      window.location.reload(true);
+      return;
+    }
+    localStorage.setItem('app_version', APP_VERSION);
+  }
+
   try {
     // 1. Fetch dynamic tenant config from Firebase based on hostname
     await loadTenantConfig();

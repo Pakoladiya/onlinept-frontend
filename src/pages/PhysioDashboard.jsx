@@ -17,6 +17,7 @@ import {
 import ResourceLibrary from './ResourceLibrary';
 import ContentCreator from './ContentCreator';
 import ClinicBranding from './ClinicBranding';
+import WhatsAppButton from '@/components/WhatsAppButton';
 
 import { API_BASE } from '@/utils/api';
 import clinicConfig from '@/config/clinicConfig';
@@ -847,8 +848,14 @@ export default function PhysioDashboard() {
           </div>
         )}
 
+
         {selectedPatient && <PatientRecordModal patient={selectedPatient} bookings={bookings} onClose={() => setSelectedPatient(null)} />}
       </main>
+
+      <WhatsAppButton 
+        phone={clinicInfo?.phone || '9228108454'} 
+        clinicName={clinicInfo?.clinicName || 'Physio'} 
+      />
     </div>
   );
 }
