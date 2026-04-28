@@ -444,7 +444,13 @@ export default function PhysioDashboard() {
       `}</style>
       
       {/* --- Header ---------------------------------------------------------------------------------─ */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 2000, background: 'rgba(11, 15, 26, 0.8)', backdropFilter: 'blur(30px)', borderBottom: `1px solid ${T.glassBorder}` }}>
+      <header style={{ 
+        position: 'fixed', top: 0, left: 0, right: 0, 
+        zIndex: 5000, 
+        background: 'rgba(11, 15, 26, 0.8)', 
+        backdropFilter: 'blur(30px)', 
+        borderBottom: `1px solid ${T.glassBorder}` 
+      }}>
         <div style={{ maxWidth: 1200, height: 84, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ position: 'relative' }}>
@@ -484,7 +490,8 @@ export default function PhysioDashboard() {
               {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
-                    onClick={() => handleTabChange(id)}
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); handleTabChange(id); }}
                     className={`h-10 px-5 rounded-full flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all shrink-0 ${
                       activeTab === id 
         ? 'bg-[#14A3A8] text-white shadow-lg shadow-[#14A3A8]/20' 
@@ -500,7 +507,11 @@ export default function PhysioDashboard() {
       </header>
 
       {/* --- Main Content ---------------------------------------------------------------------------------─ */}
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
+      <main style={{ 
+        maxWidth: 1200, 
+        margin: '0 auto', 
+        padding: '160px 24px 60px' // Added top padding to account for fixed header (approx 132px)
+      }}>
         
         {/* --- Overview --- */}
         {activeTab === 'Overview' && (

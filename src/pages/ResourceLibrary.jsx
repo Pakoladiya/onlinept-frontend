@@ -706,11 +706,10 @@ export default function ResourceLibrary({ isEmbedded }) {
       {/* ── Page wrapper with sticky header ───────── */}
       <div className="max-w-7xl mx-auto">
         {/* Sticky header */}
-        <div className={`${isEmbedded ? "" : "sticky top-0"} z-30 bg-gray-950/95 backdrop-blur-md border-b border-gray-800 px-4 py-3`}>
-            {/* Row 1: Title + desktop upload button */}
-            <div className="flex items-center justify-between gap-3 mb-3">
-              {/* Title removed in embedded mode */}
-              {!isEmbedded && (
+        {!isEmbedded ? (
+          <div className="sticky top-0 z-30 bg-gray-950/95 backdrop-blur-md border-b border-gray-800 px-4 py-3">
+              {/* Row 1: Title + desktop upload button */}
+              <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
                   <h1 className="text-lg sm:text-2xl font-black text-white leading-tight">Resource Library</h1>
                   <p className="text-xs sm:text-sm text-gray-400 font-medium">
@@ -718,24 +717,36 @@ export default function ResourceLibrary({ isEmbedded }) {
                     {totalBundles > 0 && ` · ${totalBundles} bundle${totalBundles !== 1 ? 's' : ''}`}
                   </p>
                 </div>
-              )}
-              {/* Desktop: inline upload button */}
-              <Button onClick={() => setShowUploadModal(true)} className="hidden sm:flex h-11 px-5 rounded-xl shadow-lg">
-                <Upload size={15} className="mr-2" /> Upload
-              </Button>
-            </div>
+                <Button onClick={() => setShowUploadModal(true)} className="hidden sm:flex h-11 px-5 rounded-xl shadow-lg">
+                  <Upload size={15} className="mr-2" /> Upload
+                </Button>
+              </div>
 
-            {/* Row 2: Search */}
-            <div className="relative">
-              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by name or tag..."
-                className="w-full h-11 pl-11 pr-4 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm font-medium outline-none focus:border-blue-500/70 transition-colors placeholder:text-gray-600"
-              />
-            </div>
+              {/* Row 2: Search */}
+              <div className="relative">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search by name or tag..."
+                  className="w-full h-11 pl-11 pr-4 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm font-medium outline-none focus:border-blue-500/70 transition-colors placeholder:text-gray-600"
+                />
+              </div>
           </div>
+        ) : (
+          <div className="px-4 py-6 border-b border-gray-800/40">
+             {/* Search only when embedded, no title */}
+             <div className="relative max-w-2xl">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <input
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search by name or tag..."
+                  className="w-full h-11 pl-11 pr-4 bg-white/5 border border-white/10 rounded-xl text-white text-sm font-medium outline-none focus:border-[#14A3A8]/70 transition-colors"
+                />
+              </div>
+          </div>
+        )}
           </div>
 
         {/* ── Tabs — horizontal scroll ──────────────── */}
