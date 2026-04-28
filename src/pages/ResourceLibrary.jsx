@@ -747,7 +747,6 @@ export default function ResourceLibrary({ isEmbedded }) {
               </div>
           </div>
         )}
-          </div>
 
         {/* ── Tabs — horizontal scroll ──────────────── */}
         <div className={`${isEmbedded ? "" : "sticky top-[88px] sm:top-[97px]"} z-20 bg-gray-950/95 backdrop-blur-md border-b border-gray-800/60`}>
@@ -1328,10 +1327,4 @@ function SendBundleForm({ selectedBundle, patients, selectedPatient, setSelected
   );
 }
 
-// Inline icons
-function BookOpen({ size }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>;
-}
-function Camera({ size }) {
-  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>;
-}
+

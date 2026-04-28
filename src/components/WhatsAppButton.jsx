@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Phone, Clock } from 'lucide-react';
+import { X, Send, Clock } from 'lucide-react';
 
 /**
- * Premium WhatsApp Widget with Dialog support.
- * Features a custom slow-pulse animation and a native-looking chat window.
+ * Robust WhatsApp Widget with absolute style protection.
+ * Prevents external CSS from "damaging" the layout.
  */
 export default function WhatsAppButton({ phone = '9228108454', clinicName = 'Superadmin', primaryColor = '#25D366', inline = false }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,8 +13,6 @@ export default function WhatsAppButton({ phone = '9228108454', clinicName = 'Sup
     setIsMounted(true);
   }, []);
 
-  // Default to 91 if not present (assuming Indian context as per number format)
-  // Ensure phone is a string to prevent .replace() errors if passed as null or number
   const safePhone = (phone || '9228108454').toString();
   const targetPhone = safePhone.replace(/[^0-9]/g, '');
   const fullPhone = targetPhone.length === 10 ? `91${targetPhone}` : targetPhone;
@@ -25,8 +23,8 @@ export default function WhatsAppButton({ phone = '9228108454', clinicName = 'Sup
   const waGreen = '#25D366';
   if (!isMounted) return null;
 
-  const WhatsAppIcon = () => (
-    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+  const WhatsAppIcon = ({ size = 28 }) => (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
     </svg>
   );
@@ -53,62 +51,75 @@ export default function WhatsAppButton({ phone = '9228108454', clinicName = 'Sup
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-[9999] font-sans antialiased text-slate-900">
-      {/* Pulse Styles */}
+    <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999, fontFamily: 'system-ui, sans-serif' }}>
+      {/* Styles */}
       <style>{`
-        @keyframes custom-pulse {
+        @keyframes wa-pulse {
           0% { transform: scale(1); opacity: 0.3; }
-          50% { transform: scale(1.6); opacity: 0; }
+          50% { transform: scale(1.5); opacity: 0; }
           100% { transform: scale(1); opacity: 0; }
         }
-        .animate-pulse-slow {
-          animation: custom-pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        .wa-shadow {
-          box-shadow: 0 8px 24px rgba(37, 211, 102, 0.4);
-        }
-        .chat-bubble-shadow {
-          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
-        }
+        .wa-animate-pulse { animation: wa-pulse 3s ease-out infinite; }
       `}</style>
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="absolute bottom-20 right-0 w-[340px] bg-white rounded-3xl overflow-hidden chat-bubble-shadow animate-in slide-in-from-bottom-4 fade-in duration-300">
+        <div style={{
+          position: 'absolute', bottom: 80, right: 0,
+          width: 340, backgroundColor: '#fff', borderRadius: 24,
+          boxShadow: '0 20px 40px rgba(0,0,0,0.15)', overflow: 'hidden',
+          animation: 'wa-slide-up 0.3s ease-out'
+        }}>
+          <style>{`
+            @keyframes wa-slide-up {
+              from { transform: translateY(20px); opacity: 0; }
+              to { transform: translateY(0); opacity: 1; }
+            }
+          `}</style>
+
           {/* Header */}
-          <div style={{ backgroundColor: waGreen }} className="p-6 text-white">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center font-bold text-lg border border-white/20">
+          <div style={{ backgroundColor: waGreen, padding: '24px', color: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    width: 48, height: 48, backgroundColor: 'rgba(255,255,255,0.2)',
+                    borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 'bold', fontSize: 20, border: '1px solid rgba(255,255,255,0.2)'
+                  }}>
                     {clinicName.charAt(0)}
                   </div>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-emerald-500 rounded-full" />
+                  <div style={{
+                    position: 'absolute', bottom: 0, right: 0, width: 12, height: 12,
+                    backgroundColor: '#4ade80', border: '2px solid #fff', borderRadius: '50%'
+                  }} />
                 </div>
                 <div>
-                  <h4 className="font-bold text-base leading-tight">{clinicName}</h4>
-                  <p className="text-white/80 text-xs flex items-center gap-1">
+                  <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{clinicName}</h4>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 12, opacity: 0.8, display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Clock size={10} /> Typically replies in minutes
                   </p>
                 </div>
               </div>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-white/10 rounded-full transition-colors"
-                aria-label="Close"
+                style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: '#fff', opacity: 0.7 }}
               >
                 <X size={20} />
               </button>
             </div>
-            <p className="text-sm text-white/90 leading-relaxed font-medium">
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, lineHeight: 1.4 }}>
               Hello! 👋 How can we help you today? Feel free to ask anything.
             </p>
           </div>
 
           {/* Body */}
-          <div className="p-5 bg-slate-50">
-            <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm mb-6">
-              <p className="text-sm text-slate-600 leading-relaxed italic">
+          <div style={{ padding: 20, backgroundColor: '#f8fafc' }}>
+            <div style={{
+              backgroundColor: '#fff', padding: 16, borderRadius: 16,
+              borderTopLeftRadius: 0, border: '1px solid #f1f5f9', marginBottom: 20
+            }}>
+              <p style={{ margin: 0, fontSize: 13, color: '#64748b', fontStyle: 'italic' }}>
                 Welcome! Contact our clinic directly via WhatsApp.
               </p>
             </div>
@@ -118,44 +129,46 @@ export default function WhatsAppButton({ phone = '9228108454', clinicName = 'Sup
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setIsOpen(false)}
-              className="flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-2xl text-white font-bold text-sm transition-all hover:scale-[1.02] active:scale-[0.98] wa-shadow"
-              style={{ backgroundColor: waGreen }}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                width: '100%', padding: '14px', borderRadius: 16,
+                backgroundColor: waGreen, color: '#fff', fontWeight: 700,
+                textDecoration: 'none', fontSize: 14, boxShadow: '0 4px 12px rgba(37,211,102,0.3)'
+              }}
             >
               <Send size={16} />
               Start Chat with {clinicName}
             </a>
           </div>
 
-          <div className="p-3 text-center bg-white border-t border-slate-100">
-             <p className="text-[10px] text-slate-400 font-medium uppercase tracking-widest">Powered by OnlinePT</p>
+          <div style={{ padding: 12, textAlign: 'center', backgroundColor: '#fff', borderTop: '1px solid #f1f5f9' }}>
+             <p style={{ margin: 0, fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+               Powered by OnlinePT
+             </p>
           </div>
         </div>
       )}
 
-      {/* Floating Button */}
+      {/* Main Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="group relative w-16 h-16 rounded-full flex items-center justify-center text-white transition-all active:scale-90 wa-shadow overflow-visible"
-        style={{ backgroundColor: waGreen }}
-        aria-label="Open WhatsApp Chat"
+        style={{
+          width: 64, height: 64, borderRadius: '50%', backgroundColor: waGreen,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', border: 'none', cursor: 'pointer', position: 'relative',
+          boxShadow: '0 8px 24px rgba(37,211,102,0.4)', transition: 'transform 0.2s'
+        }}
+        onMouseDown={e => e.currentTarget.style.transform = 'scale(0.9)'}
+        onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
       >
-        {/* Pulse Effect - Slower and Lighter */}
-        <div 
-          className="absolute inset-0 rounded-full animate-pulse-slow pointer-events-none" 
-          style={{ backgroundColor: waGreen }} 
-        />
+        <div className="wa-animate-pulse" style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          backgroundColor: waGreen, pointerEvents: 'none'
+        }} />
         
-        {/* Toggle Icon */}
-        <div className="relative transition-transform duration-300 group-hover:scale-110">
-          {isOpen ? <X size={32} /> : <WhatsAppIcon />}
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {isOpen ? <X size={28} /> : <WhatsAppIcon size={30} />}
         </div>
-
-        {/* Dynamic Tooltip (Hidden if open) */}
-        {!isOpen && (
-          <div className="absolute right-20 bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-bold opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0 whitespace-nowrap shadow-xl">
-             Chat with Clinic
-          </div>
-        )}
       </button>
     </div>
   );
