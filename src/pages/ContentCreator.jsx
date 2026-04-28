@@ -569,7 +569,7 @@ function VideoStudioPreview({ videoUrl, logoUrl, logoConfig, textConfig, onLogoD
   );
 }
           
-export default function ContentCreator() {
+export default function ContentCreator({ isEmbedded }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const bookingId = searchParams.get('bookingId');
@@ -909,54 +909,71 @@ export default function ContentCreator() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className={isEmbedded ? "py-20 flex items-center justify-center" : "min-h-screen bg-gray-950 flex items-center justify-center"}>
         <Loader2 className="w-10 h-10 animate-spin text-blue-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans overflow-hidden">
+    <div className={isEmbedded ? "flex flex-col font-sans" : "min-h-screen bg-[#020617] text-slate-200 flex flex-col font-sans overflow-hidden"}>
       {/* ── Studio Top Toolbar ────────────────────────────────────────── */}
-      <header className="h-16 border-b border-white/5 bg-slate-900/50 backdrop-blur-xl flex items-center justify-between px-6 z-50">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#0284c7] flex items-center justify-center shadow-lg shadow-[#0ea5e9]/20">
-            <FileText size={20} className="text-white" />
-          </div>
-          <div className="h-8 w-px bg-white/5" />
-          <div>
-            <input 
-              className="bg-transparent border-none text-white font-black text-sm outline-none w-48 focus:text-[#0ea5e9] transition-colors"
-              value={docTitle}
-              onChange={(e) => setDocTitle(e.target.value)}
-              placeholder="Untitled Document"
-            />
-            <div className="flex items-center gap-2 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Auto-saved</span>
+      {!isEmbedded && (
+        <header className="h-16 border-b border-white/5 bg-slate-900/50 backdrop-blur-xl flex items-center justify-between px-6 z-50">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#0284c7] flex items-center justify-center shadow-lg shadow-[#0ea5e9]/20">
+              <FileText size={20} className="text-white" />
+            </div>
+            <div className="h-8 w-px bg-white/5" />
+            <div>
+              <input 
+                className="bg-transparent border-none text-white font-black text-sm outline-none w-48 focus:text-[#0ea5e9] transition-colors"
+                value={docTitle}
+                onChange={(e) => setDocTitle(e.target.value)}
+                placeholder="Untitled Document"
+              />
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Auto-saved</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6">
+            <div className="flex bg-white/5 p-1 rounded-xl">
+              <button onClick={() => setActiveTab('pdf')} className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase transition-all ${activeTab === 'pdf' ? 'bg-[#0ea5e9] text-white' : 'text-white/40 hover:text-white'}`}>Document</button>
+              <button onClick={() => setActiveTab('video')} className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase transition-all ${activeTab === 'video' ? 'bg-[#0ea5e9] text-white' : 'text-white/40 hover:text-white'}`}>Video</button>
+            </div>
+            {activeTab === 'pdf' && (
+              <>
+                <div className="h-8 w-px bg-white/5" />
+                <div className="flex gap-2">
+                  <Button onClick={() => generatePdf(true, false)} className="h-10 px-6 rounded-xl bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-[#0ea5e9]/20">
+                    <Download size={14} /> Export PDF
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </header>
+      )}
+      
+      {/* If embedded, we still need the sub-navigation for PDF/Video and Export button */}
+      {isEmbedded && (
+        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-slate-900/20">
           <div className="flex bg-white/5 p-1 rounded-xl">
             <button onClick={() => setActiveTab('pdf')} className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase transition-all ${activeTab === 'pdf' ? 'bg-[#0ea5e9] text-white' : 'text-white/40 hover:text-white'}`}>Document</button>
             <button onClick={() => setActiveTab('video')} className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase transition-all ${activeTab === 'video' ? 'bg-[#0ea5e9] text-white' : 'text-white/40 hover:text-white'}`}>Video</button>
           </div>
           {activeTab === 'pdf' && (
-            <>
-              <div className="h-8 w-px bg-white/5" />
-              <div className="flex gap-2">
-                <Button onClick={() => generatePdf(true, false)} className="h-10 px-6 rounded-xl bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-[#0ea5e9]/20">
-                  <Download size={14} /> Export PDF
-                </Button>
-              </div>
-            </>
+            <Button onClick={() => generatePdf(true, false)} className="h-10 px-6 rounded-xl bg-gradient-to-r from-[#0ea5e9] to-[#0284c7] font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl shadow-[#0ea5e9]/20">
+              <Download size={14} /> Export PDF
+            </Button>
           )}
         </div>
-      </header>
+      )}
 
-      <main className="flex-1 flex overflow-hidden">
+      <main className={isEmbedded ? "flex flex-col md:flex-row" : "flex-1 flex overflow-hidden"}>
         {activeTab === 'pdf' ? (
           <aside className="w-80 border-r border-white/5 bg-slate-900/30 flex flex-col animate-in slide-in-from-left duration-500">
             <div className="p-4 flex gap-2 border-b border-white/5">

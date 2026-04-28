@@ -560,12 +560,15 @@ function SessionComplete({ sessionData, onDone }) {
   const hepCount = sessionData?.hep?.length || 0;
   const nextBooking = sessionData?.nextBooking;
 
+  const feedbackUrl = `https://${sessionData?.subdomain || 'www'}.onlinept.in/feedback/${sessionData?.bookingId}`;
+
   const parts = [
     `Hi ${patientName}! Thank you for your session with ${physioName} at ${clinicName} on ${sessionDate}.`,
   ];
   if (vas !== undefined) parts.push(`\nPain Score (VAS): ${vas}/10`);
   if (hepCount > 0) parts.push(`\nHome Exercises Assigned: ${hepCount}`);
   if (nextBooking) parts.push(`\nNext Appointment: ${nextBooking.date} at ${nextBooking.time}`);
+  parts.push(`\n\nPlease share your experience here: ${feedbackUrl}`);
   parts.push(`\n\nComplete your exercises as instructed. Get well soon!`);
   const waMsg = parts.join('');
 
@@ -625,6 +628,11 @@ function SessionComplete({ sessionData, onDone }) {
             <MessageCircle size={18} className="mr-2" /> Send Summary via WhatsApp
           </Button>
         </a>
+        <a href={`https://wa.me/?text=${encodeURIComponent(`Hi ${patientName}! Please share your feedback for today's session with ${physioName}: ${feedbackUrl}`)}`} target="_blank" rel="noopener noreferrer">
+          <Button variant="outline" className="w-full h-14 rounded-2xl font-black border-green-600/30 text-green-500 hover:bg-green-500/5">
+            <Star size={18} className="mr-2" /> Send Feedback Link Only
+          </Button>
+        </a>
         <Button onClick={generatePdf} disabled={generatingPdf} variant="outline" className="w-full h-14 rounded-2xl font-black border-gray-700">
           {generatingPdf ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Download size={18} className="mr-2" />}
           Generate PDF Summary
@@ -680,7 +688,13 @@ export default function PostSessionPage() {
           const cd = clinicSnap.docs[0].data();
           setClinicId(clinicSnap.docs[0].id);
           setClinicData(cd);
-          setSessionData(prev => ({ ...prev, clinicId: clinicSnap.docs[0].id, physioName: cd.physioName, clinicName: cd.clinicName }));
+          setSessionData(prev => ({ 
+            ...prev, 
+            clinicId: clinicSnap.docs[0].id, 
+            physioName: cd.physioName, 
+            clinicName: cd.clinicName,
+            subdomain: cd.subdomain
+          }));
         }
       }
       setLoading(false);

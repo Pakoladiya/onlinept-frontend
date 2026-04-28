@@ -37,6 +37,7 @@ const ContactUsPage = lazyRetry(() => import('@/pages/ContactUsPage'));
 const HelpCenterPage = lazyRetry(() => import('@/pages/HelpCenterPage'));
 const CancellationPolicyPage = lazyRetry(() => import('@/pages/CancellationPolicyPage'));
 const ClinicWhatsAppRedirect = lazyRetry(() => import('@/pages/ClinicWhatsAppRedirect'));
+const PatientFeedbackPage = lazyRetry(() => import('@/pages/PatientFeedbackPage'));
 
 // ── Loading Spinner ──
 // ── Loading Spinner (Luxe Midnight) ──
@@ -66,6 +67,10 @@ export default function AppRouter() {
 
   // 1. Production: 3+ parts ending with onlinept.in (e.g. abcefgh.onlinept.in)
   // 2. Local: if ?dev=1 or ?tenant= is present
+  const isClinicPortal = (effectiveHostname.endsWith('.onlinept.in') && effectiveHostname !== 'onlinept.in') || 
+                         urlParams.get('tenant') || 
+                         urlParams.get('dev') === '1';
+
   return (
     <Suspense fallback={<RouteLoader />}>
       <ScrollToTop />
@@ -87,9 +92,10 @@ export default function AppRouter() {
         <Route path="/dashboard" element={<PhysioDashboard />} />
         <Route path="/hep" element={<HEPBuilderPage />} />
         <Route path="/post-session/:bookingId" element={<PostSessionPage />} />
-        <Route path="/resources" element={<PhysioGuard><ResourceLibrary /></PhysioGuard>} />
-        <Route path="/content-creator" element={<PhysioGuard><ContentCreator /></PhysioGuard>} />
-        <Route path="/clinic-branding" element={<PhysioGuard><ClinicBranding /></PhysioGuard>} />
+        <Route path="/feedback/:bookingId" element={<PatientFeedbackPage />} />
+        <Route path="/resources" element={<Navigate to="/dashboard?tab=Library" replace />} />
+        <Route path="/content-creator" element={<Navigate to="/dashboard?tab=Creator" replace />} />
+        <Route path="/clinic-branding" element={<Navigate to="/dashboard?tab=Branding" replace />} />
         <Route path="/bulk-messaging" element={<PhysioGuard><BulkMessaging /></PhysioGuard>} />
 
         {/* ── Physio Own Settings (Firebase Auth) ── */}

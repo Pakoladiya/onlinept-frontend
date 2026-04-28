@@ -8,7 +8,7 @@ import {
   Search, Plus, Trash2, Send, X, ChevronDown,
   Loader2, CheckCircle2, AlertCircle, Download, Sparkles,
   Filter, Tag, Clock, HardDrive, Package, List, LayoutGrid,
-  ArrowLeft, GripVertical
+  ArrowLeft, GripVertical, BookOpen, Camera
 } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
@@ -385,7 +385,7 @@ function BundleBuilderBody({
   );
 }
 
-export default function ResourceLibrary() {
+export default function ResourceLibrary({ isEmbedded }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [clinicId, setClinicId] = useState(null);
@@ -682,7 +682,7 @@ export default function ResourceLibrary() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className={isEmbedded ? "py-20 flex items-center justify-center" : "min-h-screen bg-gray-950 flex items-center justify-center"}>
         <Loader2 className="w-10 h-10 animate-spin text-blue-400" />
       </div>
     );
@@ -692,7 +692,7 @@ export default function ResourceLibrary() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
+    <div className={isEmbedded ? "" : "min-h-screen bg-gray-950 text-white"}>
       {/* ── Toast ─────────────────────────────────── */}
       {toast && (
         <div className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-6 sm:w-80 z-[200] px-5 py-4 rounded-2xl shadow-2xl flex items-center gap-3 text-sm font-bold animate-in slide-in-from-top-2 duration-300 ${
@@ -706,36 +706,40 @@ export default function ResourceLibrary() {
       {/* ── Page wrapper with sticky header ───────── */}
       <div className="max-w-7xl mx-auto">
         {/* Sticky header */}
-        <div className="sticky top-0 z-30 bg-gray-950/95 backdrop-blur-md border-b border-gray-800 px-4 py-3">
-          {/* Row 1: Title + desktop upload button */}
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-2xl font-black text-white leading-tight">Resource Library</h1>
-              <p className="text-xs sm:text-sm text-gray-400 font-medium">
-                {allFiles.length} file{allFiles.length !== 1 ? 's' : ''}
-                {totalBundles > 0 && ` · ${totalBundles} bundle${totalBundles !== 1 ? 's' : ''}`}
-              </p>
+        <div className={`${isEmbedded ? "" : "sticky top-0"} z-30 bg-gray-950/95 backdrop-blur-md border-b border-gray-800 px-4 py-3`}>
+            {/* Row 1: Title + desktop upload button */}
+            <div className="flex items-center justify-between gap-3 mb-3">
+              {/* Title removed in embedded mode */}
+              {!isEmbedded && (
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-lg sm:text-2xl font-black text-white leading-tight">Resource Library</h1>
+                  <p className="text-xs sm:text-sm text-gray-400 font-medium">
+                    {allFiles.length} file{allFiles.length !== 1 ? 's' : ''}
+                    {totalBundles > 0 && ` · ${totalBundles} bundle${totalBundles !== 1 ? 's' : ''}`}
+                  </p>
+                </div>
+              )}
+              {/* Desktop: inline upload button */}
+              <Button onClick={() => setShowUploadModal(true)} className="hidden sm:flex h-11 px-5 rounded-xl shadow-lg">
+                <Upload size={15} className="mr-2" /> Upload
+              </Button>
             </div>
-            {/* Desktop: inline upload button */}
-            <Button onClick={() => setShowUploadModal(true)} className="hidden sm:flex h-11 px-5 rounded-xl shadow-lg">
-              <Upload size={15} className="mr-2" /> Upload
-            </Button>
-          </div>
 
-          {/* Row 2: Search */}
-          <div className="relative">
-            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by name or tag..."
-              className="w-full h-11 pl-11 pr-4 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm font-medium outline-none focus:border-blue-500/70 transition-colors placeholder:text-gray-600"
-            />
+            {/* Row 2: Search */}
+            <div className="relative">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by name or tag..."
+                className="w-full h-11 pl-11 pr-4 bg-gray-900 border border-gray-800 rounded-xl text-white text-sm font-medium outline-none focus:border-blue-500/70 transition-colors placeholder:text-gray-600"
+              />
+            </div>
           </div>
-        </div>
+          </div>
 
         {/* ── Tabs — horizontal scroll ──────────────── */}
-        <div className="sticky top-[88px] sm:top-[97px] z-20 bg-gray-950/95 backdrop-blur-md border-b border-gray-800/60">
+        <div className={`${isEmbedded ? "" : "sticky top-[88px] sm:top-[97px]"} z-20 bg-gray-950/95 backdrop-blur-md border-b border-gray-800/60`}>
           <div className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-none">
             {TABS.map(tab => {
               const Icon = tab.icon;

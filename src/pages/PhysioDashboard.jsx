@@ -1,20 +1,22 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { onAuth, signOut } from '@/firebase/auth';
 import { getPhysioBookings, getPhysioPatients, blockSlot, getClinicByOwner } from '@/firebase/db';
 import { isSuperAdminEmail } from '@/config/superAdminConfig';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import SessionOutcomesWidget from '@/components/SessionOutcomesWidget';
 import axios from 'axios';
-import {
-  Settings, Clock, LogOut, ChevronRight, Video, Search, X,
-  Loader2, Calendar, ShieldCheck, ChevronLeft,
-  Users, CalendarCheck, TrendingUp, UserCheck, Activity,
-  BarChart3, MessageSquare, Crown, Menu, PlusCircle, Share2, Copy, Send,
-  HeartPulse, FileText, RefreshCw, PhoneCall, ArrowRight,
-  FolderOpen, Layers, Palette, LayoutGrid, Ban
+import { 
+  LayoutGrid, Users, Calendar, TrendingUp, Activity, 
+  Settings, LogOut, Bell, Search, Plus, ExternalLink, 
+  Menu, X, ChevronRight, Filter, Download, MoreVertical,
+  CheckCircle2, AlertCircle, Clock, Video, FileText,
+  FolderOpen, Layers, Palette
 } from 'lucide-react';
+import ResourceLibrary from './ResourceLibrary';
+import ContentCreator from './ContentCreator';
+import ClinicBranding from './ClinicBranding';
 
 import { API_BASE } from '@/utils/api';
 import clinicConfig from '@/config/clinicConfig';
@@ -29,7 +31,10 @@ const NAV_ITEMS = [
   { id: 'Patients', label: 'Patients', icon: Users },
   { id: 'Schedule', label: 'Schedule', icon: Calendar },
   { id: 'Insights', label: 'Insights', icon: TrendingUp },
-  { id: 'Outcomes', label: 'Outcomes', icon: Activity }
+  { id: 'Outcomes', label: 'Outcomes', icon: Activity },
+  { id: 'Library', label: 'Library', icon: FolderOpen },
+  { id: 'Creator', label: 'Creator', icon: Layers },
+  { id: 'Branding', label: 'Branding', icon: Palette }
 ];
 
 // ---─ Luxe Midnight Design Tokens (premium iOS) ------------------------------------------------------------------------------------------
@@ -158,7 +163,7 @@ function PatientRecordModal({ patient, bookings, onClose }) {
           {/* Patient History Section */}
           <div style={{ background: 'rgba(20, 163, 168, 0.05)', borderRadius: 24, padding: 24, border: '1px solid rgba(20, 163, 168, 0.15)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <HeartPulse size={20} color={T.accent} />
+              <div style={{color: T.accent}}><Activity size={20} /></div>
               <h3 style={{ fontSize: 15, fontWeight: 800, color: T.accent, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Clinical Assessment</h3>
             </div>
             {latestBooking?.intake?.clinicalInfo ? (
@@ -212,9 +217,23 @@ function PatientRecordModal({ patient, bookings, onClose }) {
 // ---─ Main Dashboard ---------------------------------------------------------------------------------------─
 export default function PhysioDashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'Overview');
+
+  // Sync tab with URL
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (id) => {
+    setActiveTab(id);
+    setSearchParams({ tab: id });
+  };
   const [patients, setPatients] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
@@ -383,7 +402,7 @@ export default function PhysioDashboard() {
 
   if (authLoading) return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: T.bg, gap: 20 }}>
-      <Loader2 className="animate-spin" color={T.accent} size={40} />
+      <div className="animate-spin" style={{color: T.accent}}><Clock size={40} /></div>
       <p style={{ color: T.ink2, fontSize: 14, fontWeight: 700, letterSpacing: '2px', textTransform: 'uppercase' }}>Synchronizing...</p>
     </div>
   );
@@ -425,7 +444,7 @@ export default function PhysioDashboard() {
       `}</style>
       
       {/* --- Header ---------------------------------------------------------------------------------─ */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 1000, background: 'rgba(11, 15, 26, 0.8)', backdropFilter: 'blur(30px)', borderBottom: `1px solid ${T.glassBorder}` }}>
+      <header style={{ position: 'sticky', top: 0, zIndex: 2000, background: 'rgba(11, 15, 26, 0.8)', backdropFilter: 'blur(30px)', borderBottom: `1px solid ${T.glassBorder}` }}>
         <div style={{ maxWidth: 1200, height: 84, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{ position: 'relative' }}>
@@ -463,15 +482,19 @@ export default function PhysioDashboard() {
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
            <div className="tab-scroll">
               {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setActiveTab(id)} style={{ padding: '10px 24px', borderRadius: 100, fontSize: 14, fontWeight: 700, border: 'none', background: activeTab === id ? T.accent : 'transparent', color: activeTab === id ? T.white : T.ink2, cursor: 'pointer', transition: 'all 0.3s', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Icon size={16} />
-                  {label}
-                </button>
-              ))}
-              <div style={{ width: 1, height: 20, background: T.glassBorder, alignSelf: 'center', margin: '0 8px' }} />
-              <button onClick={() => navigate('/resources')} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, border: 'none', background: 'transparent', color: T.ink2, cursor: 'pointer', whiteSpace: 'nowrap' }}>Library</button>
-              <button onClick={() => navigate('/content-creator')} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, border: 'none', background: 'transparent', color: T.ink2, cursor: 'pointer', whiteSpace: 'nowrap' }}>Creator</button>
-              <button onClick={() => navigate('/clinic-branding')} style={{ padding: '10px 20px', borderRadius: 100, fontSize: 14, fontWeight: 600, border: 'none', background: 'transparent', color: T.ink2, cursor: 'pointer', whiteSpace: 'nowrap' }}>Branding</button>
+                  <button
+                    key={id}
+                    onClick={() => handleTabChange(id)}
+                    className={`h-10 px-5 rounded-full flex items-center gap-2 text-xs font-black uppercase tracking-widest transition-all shrink-0 ${
+                      activeTab === id 
+        ? 'bg-[#14A3A8] text-white shadow-lg shadow-[#14A3A8]/20' 
+                        : 'text-white/40 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon size={14} />
+                    {label}
+                  </button>
+                ))}
            </div>
         </div>
       </header>
@@ -538,47 +561,11 @@ export default function PhysioDashboard() {
                     )}
                   </div>
 
-                  {/* Growth Kit Premium */}
-                  <div style={{ background: T.bgCard, borderRadius: 32, border: `1px solid ${T.glassBorder}`, padding: '32px', display: 'flex', flexDirection: 'column', gap: 24, backdropFilter: T.blur }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(20, 163, 168, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.accent }}>
-                          <Share2 size={24} />
-                        </div>
-                        <div>
-                          <h3 style={{ fontSize: 19, fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>Clinic Growth Kit</h3>
-                        </div>
-                      </div>
-                      <div style={{ padding: '6px 14px', background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', borderRadius: 100, fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>Active</div>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        const subdom = clinicInfo?.subdomain || clinicInfo?.id || '';
-                        if (!subdom) return;
-                        const fullUrl = `https://${subdom}.onlinept.in`;
-                        const message = `*Book Your Next Physiotherapy Session Online!*\n\nHello! I'm now accepting online appointments.\nSkip the wait & book your slot instantly from anywhere:\n\n🔗 ${fullUrl}\n\n✅ Easy online booking\n✅ Secure & confidential\n✅ Instant WhatsApp confirmation\n\nBook now & start your recovery journey! 💪`;
-                        window.open(`https://wa.me?text=${encodeURIComponent(message)}`, '_blank');
-                      }}
-                      className="btn-hover"
-                      style={{
-                        width: '100%', background: 'linear-gradient(135deg, #128C7E, #075E54)',
-                        color: T.white, border: 'none', borderRadius: 20, padding: '20px',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-                        cursor: 'pointer', transition: 'all 0.3s', boxShadow: '0 10px 24px rgba(18,211,126,0.15)',
-                        fontSize: 16, fontWeight: 800,
-                      }}
-                    >
-                      <Share2 size={22} /> Share Clinic Link on WhatsApp
-                    </button>
-                    
-                  </div>
-
                   {/* Quick Availability Block */}
                   <div style={{ background: T.bgCard, borderRadius: 32, border: `1px solid ${T.glassBorder}`, padding: '28px', display: 'flex', flexDirection: 'column', gap: 20, backdropFilter: T.blur }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
-                        <Ban size={20} />
+                        <div style={{color: '#EF4444'}}><Ban size={20} /></div>
                       </div>
                       <h3 style={{ fontSize: 17, fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>Quick Block</h3>
                     </div>
@@ -589,8 +576,8 @@ export default function PhysioDashboard() {
                         <input 
                           type="date" 
                           id="quick-block-date"
-                          defaultValue={new Date().toISOString().split('T')[0]}
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.glassBorder}`, borderRadius: 12, padding: '10px', color: T.ink, fontSize: 13, outline: 'none' }} 
+                          defaultValue={today}
+                          style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.glassBorder}`, borderRadius: 12, padding: '12px', color: T.ink, fontSize: 14, outline: 'none' }}
                         />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -598,60 +585,67 @@ export default function PhysioDashboard() {
                         <input 
                           type="time" 
                           id="quick-block-time"
-                          style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${T.glassBorder}`, borderRadius: 12, padding: '10px', color: T.ink, fontSize: 13, outline: 'none' }} 
+                          style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.glassBorder}`, borderRadius: 12, padding: '12px', color: T.ink, fontSize: 14, outline: 'none' }}
                         />
                       </div>
                     </div>
-
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button 
-                        onClick={() => handleQuickBlock('day')}
-                        disabled={blockingLoading}
-                        style={{ flex: 1, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.05)', color: T.ink, border: `1px solid ${T.glassBorder}`, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                      >
-                        Block Day
-                      </button>
-                      <button 
-                        onClick={() => handleQuickBlock('slot')}
-                        disabled={blockingLoading}
-                        style={{ flex: 1, height: 44, borderRadius: 14, background: T.accent, color: T.white, border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
-                      >
-                        {blockingLoading ? <Loader2 size={16} className="animate-spin" /> : 'Block Slot'}
-                      </button>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                       <button 
+                         onClick={() => handleQuickBlock('day')}
+                         disabled={blockingLoading}
+                         style={{ background: 'rgba(255,255,255,0.05)', color: T.ink, border: `1px solid ${T.glassBorder}`, borderRadius: 14, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                       >
+                         Block Full Day
+                       </button>
+                       <button 
+                         onClick={() => handleQuickBlock('slot')}
+                         disabled={blockingLoading}
+                         style={{ background: T.accent, color: T.white, border: 'none', borderRadius: 14, padding: '12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                       >
+                         Block Slot
+                       </button>
                     </div>
                   </div>
                </div>
 
-               {/* Side Queue */}
-               <div style={{ background: T.bgCard, borderRadius: 32, border: `1px solid ${T.glassBorder}`, padding: 28, backdropFilter: T.blur }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-                    <h3 style={{ fontSize: 17, fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>Today's Queue</h3>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: T.accent, background: 'rgba(20, 163, 168, 0.1)', padding: '4px 12px', borderRadius: 100 }}>{upcoming.length} Sessions</div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {upcoming.length === 0 ? (
-                      <div style={{ textAlign: 'center', padding: '48px 0', color: T.ink3 }}>
-                        <CalendarCheck size={40} style={{ opacity: 0.1, marginBottom: 16 }} />
-                        <p style={{ fontWeight: 600 }}>All appointments finished!</p>
+               {/* Right Column: Mini Tools */}
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  <div style={{ background: T.bgCard, borderRadius: 32, border: `1px solid ${T.glassBorder}`, padding: '32px', backdropFilter: T.blur }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(20, 163, 168, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.accent }}>
+                        <RefreshCw size={20} />
                       </div>
-                    ) : upcoming.map(apt => (
-                      <div key={apt.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 14, background: 'rgba(255,255,255,0.02)', borderRadius: 20, border: `1px solid ${T.glassBorder}`, transition: 'all 0.2s' }}>
-                         <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: T.accent, fontSize: 16 }}>{(apt.patientName || 'P')[0]}</div>
-                         <div style={{ flex: 1 }}>
-                            <p style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{toTitleCase(apt.patientName)}</p>
-                            <p style={{ fontSize: 12, color: T.ink2, marginTop: 2 }}>{apt.slotLabel || apt.slot}</p>
-                         </div>
-                         <div style={{ width: 32, height: 32, borderRadius: 50, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <ChevronRight size={16} color={T.ink4} />
-                         </div>
+                      <h3 style={{ fontSize: 17, fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>Quick Follow-Up</h3>
+                    </div>
+                    
+                    <div style={{ position: 'relative', marginBottom: 12 }}>
+                       <Search size={18} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: T.ink4 }} />
+                       <input 
+                         value={followUpSearch}
+                         onChange={e => handleFollowUpSearch(e.target.value)}
+                         placeholder="Search patient..." 
+                         style={{ width: '100%', height: 52, background: 'rgba(255,255,255,0.03)', border: `1px solid ${T.glassBorder}`, borderRadius: 16, padding: '0 20px 0 48px', color: T.ink, fontSize: 14, outline: 'none' }}
+                       />
+                    </div>
+
+                    {followUpResults.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'rgba(0,0,0,0.2)', borderRadius: 16, padding: 8 }}>
+                        {followUpResults.map(p => (
+                          <button key={p.id} onClick={() => {
+                            const msg = `Hi ${toTitleCase(p.name)}, this is ${clinicInfo?.name}. We'd like to check in on your recovery. Would you like to schedule a follow-up session?\n\nBook here: https://${clinicInfo?.subdomain}.onlinept.in`;
+                            window.open(`https://wa.me/${p.phone || p.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank');
+                            setFollowUpSearch('');
+                            setFollowUpResults([]);
+                          }} style={{ width: '100%', textAlign: 'left', padding: '12px 16px', background: 'transparent', border: 'none', color: T.ink, fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 10, display: 'flex', justifyContent: 'space-between' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <span>{toTitleCase(p.name)}</span>
+                            <Send size={14} color={T.accent} />
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                </div>
-
             </div>
           </div>
         )}
@@ -659,54 +653,19 @@ export default function PhysioDashboard() {
         {/* --- Patients --- */}
         {activeTab === 'Patients' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'slideUp 0.6s ease-out' }}>
-            <div style={{ background: `linear-gradient(135deg, ${T.bgCard}, rgba(11, 15, 26, 0.8))`, borderRadius: 28, border: `1px solid ${T.glassBorder}`, padding: '32px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <RefreshCw size={20} color={T.accent} />
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: T.ink, fontFamily: 'Manrope, sans-serif' }}>Quick Follow-Up Booking</h3>
-              </div>
-              
-              <div style={{ position: 'relative' }}>
-                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, border: `1px solid ${T.glassBorder}`, height: 56, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 14 }}>
-                  <Search size={22} color={T.ink3} />
-                  <input
-                    value={followUpSearch}
-                    onChange={e => handleFollowUpSearch(e.target.value)}
-                    placeholder="Search patient by name or mobile..."
-                    style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 16, fontWeight: 500, color: T.ink }}
-                  />
-                  {followUpSearch && <X size={20} color={T.ink3} style={{ cursor: 'pointer' }} onClick={() => { setFollowUpSearch(''); setFollowUpResults([]); }} />}
-                </div>
-
-                {followUpResults.length > 0 && (
-                  <div style={{ position: 'absolute', top: 64, left: 0, right: 0, zIndex: 100, background: '#1E293B', borderRadius: 20, border: `1px solid ${T.glassBorder}`, boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
-                    {followUpResults.map(p => (
-                      <button key={p.id} onClick={() => { navigate(`/book?followup=1&name=${encodeURIComponent(p.name || '')}&phone=${encodeURIComponent(p.phone || p.whatsapp || '')}`); }} style={{ width: '100%', padding: '16px 24px', border: 'none', background: 'transparent', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', borderBottom: `1px solid ${T.glassBorder}`, textAlign: 'left', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                        <div style={{ width: 42, height: 42, borderRadius: 12, background: `linear-gradient(135deg, ${T.accent}, #0D9488)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>{(p.name || 'P')[0].toUpperCase()}</div>
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{toTitleCase(p.name)}</p>
-                          <p style={{ fontSize: 13, color: T.ink2 }}>{p.phone || p.whatsapp}</p>
-                        </div>
-                        <div style={{ color: T.accent, fontSize: 13, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 6 }}>Book Now <ArrowRight size={16} /></div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
               <h3 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>Patient Directory</h3>
-              <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '8px 16px', border: `1px solid ${T.glassBorder}` }}>
-                <span style={{ color: T.ink3, fontSize: 13, fontWeight: 600 }}>{filteredPatients.length} Active Patients</span>
-              </div>
             </div>
-
-            <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 18, border: `1px solid ${T.glassBorder}`, height: 52, display: 'flex', alignItems: 'center', padding: '0 20px', gap: 12 }}>
-                <Search size={18} color={T.ink3} />
-                <input value={patientSearch} onChange={e => setPatientSearch(e.target.value)} placeholder="Filter directory..." style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 15, color: T.ink }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: T.bgCard, borderRadius: 20, padding: '12px 20px', border: `1px solid ${T.glassBorder}` }}>
+              <Search size={20} color={T.ink3} />
+              <input 
+                placeholder="Search patient name, phone..." 
+                value={patientSearch}
+                onChange={e => setPatientSearch(e.target.value)}
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: T.ink, fontSize: 15, fontWeight: 600 }}
+              />
             </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
                {filteredPatients.map(p => (
                  <PatientCard key={p.id} patient={p} onClick={() => setSelectedPatient(p)} />
                ))}
@@ -714,17 +673,10 @@ export default function PhysioDashboard() {
           </div>
         )}
 
-        {/* --- Outcomes --- */}
-        {activeTab === 'Outcomes' && user && (
-          <div style={{ animation: 'slideUp 0.6s ease-out' }}>
-            <SessionOutcomesWidget user={user} />
-          </div>
-        )}
-
         {/* --- Schedule --- */}
         {activeTab === 'Schedule' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'slideUp 0.6s ease-out' }}>
-             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
                 <h3 style={{ fontSize: 22, fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>Master Schedule</h3>
                 <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: '8px 16px', border: `1px solid ${T.glassBorder}` }}>
                    <span style={{ color: T.ink3, fontSize: 13, fontWeight: 600 }}>{bookings.length} Total Appointments</span>
@@ -785,6 +737,13 @@ export default function PhysioDashboard() {
                   })
                 )}
              </div>
+          </div>
+        )}
+
+        {/* --- Outcomes --- */}
+        {activeTab === 'Outcomes' && user && (
+          <div style={{ animation: 'slideUp 0.6s ease-out' }}>
+            <SessionOutcomesWidget user={user} />
           </div>
         )}
 
@@ -853,6 +812,27 @@ export default function PhysioDashboard() {
                   </div>
                </div>
              )}
+          </div>
+        )}
+
+        {/* --- Library --- */}
+        {activeTab === 'Library' && (
+          <div style={{ animation: 'slideUp 0.6s ease-out' }}>
+             <ResourceLibrary isEmbedded={true} />
+          </div>
+        )}
+
+        {/* --- Creator --- */}
+        {activeTab === 'Creator' && (
+          <div style={{ animation: 'slideUp 0.6s ease-out' }}>
+             <ContentCreator isEmbedded={true} />
+          </div>
+        )}
+
+        {/* --- Branding --- */}
+        {activeTab === 'Branding' && (
+          <div style={{ animation: 'slideUp 0.6s ease-out' }}>
+             <ClinicBranding isEmbedded={true} />
           </div>
         )}
 

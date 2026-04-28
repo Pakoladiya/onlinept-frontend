@@ -46,7 +46,7 @@ const DEFAULTS = {
   applyToAllDocuments: false,
 };
 
-export default function ClinicBrandingPage() {
+export default function ClinicBrandingPage({ isEmbedded }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -223,7 +223,7 @@ export default function ClinicBrandingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className={isEmbedded ? "py-20 flex items-center justify-center" : "min-h-screen bg-gray-950 flex items-center justify-center"}>
         <Loader2 size={32} className="animate-spin text-primary" />
       </div>
     );
@@ -232,21 +232,24 @@ export default function ClinicBrandingPage() {
   const selectedFont = FONTS.find((f) => f.value === form.defaultFont) || FONTS[0];
 
   return (
-    <div style={{ minHeight: '100vh', background: `radial-gradient(circle at 50% 0%, ${T.primary}10 0%, transparent 50%), ${T.bg}`, color: T.ink, fontFamily: "'Inter', sans-serif" }}>
+    <div style={isEmbedded ? { color: T.ink, fontFamily: "'Inter', sans-serif" } : { minHeight: '100vh', background: `radial-gradient(circle at 50% 0%, ${T.primary}10 0%, transparent 50%), ${T.bg}`, color: T.ink, fontFamily: "'Inter', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         input::placeholder, textarea::placeholder { color: ${T.inkTertiary}; }
       `}</style>
 
-      <div style={{ maxWidth: 1400, margin: '0 auto', padding: '40px 24px' }}>
+      <div style={isEmbedded ? { maxWidth: 1400, margin: '0 auto', padding: '0 0 40px 0' } : { maxWidth: 1400, margin: '0 auto', padding: '40px 24px' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40, flexWrap: 'wrap', gap: 20 }}>
-          <div>
-            <h1 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: 800, letterSpacing: '-1.5px', marginBottom: 8 }}>
-              Clinic Branding
-            </h1>
-            <p style={{ color: T.inkSecondary, fontWeight: 500 }}>Standardize your clinical identity across all patient touchpoints.</p>
-          </div>
+          {!isEmbedded && (
+            <div>
+              <h1 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: 800, letterSpacing: '-1.5px', marginBottom: 8 }}>
+                Clinic Branding
+              </h1>
+              <p style={{ color: T.inkSecondary, fontWeight: 500 }}>Standardize your clinical identity across all patient touchpoints.</p>
+            </div>
+          )}
+          {isEmbedded && <div />}
           <div style={{ display: 'flex', gap: 12 }}>
             <Button variant="ghost" onClick={handleReset} style={{ color: T.inkSecondary, borderRadius: 12 }}>
               Reset
