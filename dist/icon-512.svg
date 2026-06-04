@@ -1,0 +1,6 @@
+<!-- Placeholder 512x512 icon — replace with your clinic's icon -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="80" fill="#39A900"/>
+  <text x="256" y="300" dominant-baseline="middle" text-anchor="middle"
+    font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="256" fill="white">P</text>
+</svg>

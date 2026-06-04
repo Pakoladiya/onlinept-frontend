@@ -1,0 +1,1 @@
+import{y as o,z as t,A as n,B as i}from"./index-hTged-zI.js";async function u(a,r){if(!o)throw new Error("Firebase Storage is not configured.");const e=t(o,r),s=await n(e,a);return i(s.ref)}export{u};

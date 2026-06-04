@@ -1,0 +1,7 @@
+<!-- Placeholder 192x192 icon — replace with your clinic's icon -->
+<!-- Generate from: https://realfavicongenerator.net/ -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none">
+  <rect width="192" height="192" rx="32" fill="#39A900"/>
+  <text x="96" y="112" dominant-baseline="middle" text-anchor="middle"
+    font-family="Inter, system-ui, sans-serif" font-weight="700" font-size="96" fill="white">P</text>
+</svg>

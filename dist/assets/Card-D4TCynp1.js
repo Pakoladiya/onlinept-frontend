@@ -1,0 +1,1 @@
+import{j as t}from"./index-hTged-zI.js";import{c as d}from"./Button-COn-2cP_.js";function i({children:r,className:o,hover:a=!1,padding:s=!0,...e}){return t.jsx("div",{className:d("bg-surface rounded-card shadow-card-sm border border-border",s?"p-6":"",a&&"hover:shadow-card hover:-translate-y-1 transition-all duration-300 cursor-pointer",o),...e,children:r})}export{i as C};
