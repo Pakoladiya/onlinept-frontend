@@ -22,7 +22,20 @@
 | `VITE_FIREBASE_STORAGE_BUCKET` | `onlinept-88280.firebasestorage.app` |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `813812425950` |
 | `VITE_FIREBASE_APP_ID` | `1:813812425950:web:95c96d1d6a62c8447c0e4f` |
-| `VITE_RAZORPAY_KEY_ID` | *(your Razorpay key, or leave blank)* |
+
+> **Note:** No payment keys are needed in Netlify. Airpay credentials live entirely in the backend (Render) environment variables.
+
+## Step 1b: Set Render (Backend) Environment Variables
+
+Go to [render.com](https://render.com) → your backend service → **Environment** and add:
+
+| Variable | Value |
+|---|---|
+| `AIRPAY_MERCHANT_ID` | `359787` |
+| `AIRPAY_USERNAME` | `axF63HgEsD` |
+| `AIRPAY_PASSWORD` | `MNMm2Bbb` |
+| `AIRPAY_SECRET_KEY` | `FdgGcC7ThwkG3PTH` |
+| `AIRPAY_GATEWAY_URL` | `https://payments.airpay.co.in/pay/index.php` |
 
 4. Click **Save**
 5. Go to **Deploys** → **Trigger deploy** → **Deploy latest**

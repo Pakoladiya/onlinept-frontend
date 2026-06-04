@@ -32,6 +32,9 @@ export default function PaymentPage() {
   const navigate = useNavigate();
   const bookingData = location.state || {};
 
+  // Hidden form ref — used to auto-submit to Airpay gateway
+  const formRef = useRef(null);
+
   if (Object.keys(bookingData).length === 0 && !bookingId) {
     navigate('/');
     return null;
@@ -43,23 +46,27 @@ export default function PaymentPage() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [clinicData, setClinicData] = useState(null);
-  const [razorpayKey, setRazorpayKey] = useState('');
+
+  // Airpay form params — populated by create-order response, then form auto-submits
+  const [airpayParams, setAirpayParams] = useState(null);
+  const [airpayGatewayUrl, setAirpayGatewayUrl] = useState('');
 
   useEffect(() => {
     async function loadConfig() {
-      // 1. Fetch Clinic Details
       if (bookingData.clinicId) {
         const cSnap = await getDoc(doc(db, 'clinics', bookingData.clinicId));
         if (cSnap.exists()) setClinicData({ id: cSnap.id, ...cSnap.data() });
       }
-      // 2. Fetch Razorpay Public Key from SuperAdmin
-      const bSnap = await getDoc(doc(db, 'platform_config', 'billing'));
-      if (bSnap.exists()) {
-        setRazorpayKey(bSnap.data().razorpayKeyId);
-      }
     }
     loadConfig();
   }, [bookingData.clinicId]);
+
+  // When airpayParams are set, auto-submit the hidden form to the gateway
+  useEffect(() => {
+    if (airpayParams && airpayGatewayUrl && formRef.current) {
+      formRef.current.submit();
+    }
+  }, [airpayParams, airpayGatewayUrl]);
 
   const pColor = clinicData?.primaryColor || '#007AFF';
   
@@ -71,112 +78,151 @@ export default function PaymentPage() {
   const totalPrice = bookingData.servicePrice || clinicData?.consultationFee || 0;
 
   const handlePayment = async () => {
-    if (!razorpayKey) {
-      alert('Payment processing is currently unavailable. Please try again later.');
-      return;
-    }
-
     setPaymentLoading(true);
     setPaymentError(null);
 
-    const options = {
-      key: razorpayKey,
-      amount: totalPrice * 100,
-      currency: 'INR',
-      name: clinicData?.clinicName || 'OnlinePT',
-      description: `Consultation: ${bookingData.serviceName}`,
-      image: clinicData?.logoUrl || '/onlinept-logo-v3.png',
-      handler: async function (response) {
-        try {
-          // ── The physioId is the clinic owner's Firebase UID — required by the dashboard query
-          const physioId = clinicData?.uid || clinicData?.ownerId || '';
-          const rawPhone = (intakeData?.personalInfo?.whatsapp || bookingData?.patientPhone || '').replace(/\D/g, '');
-          const patientPhone = rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone.length === 12 ? `+${rawPhone}` : rawPhone;
-          const patientName  = intakeData?.personalInfo?.fullName  || bookingData?.patientName  || '';
+    try {
+      const physioId     = clinicData?.uid || clinicData?.ownerId || '';
+      const rawPhone     = (intakeData?.personalInfo?.whatsapp || bookingData?.patientPhone || '').replace(/\D/g, '');
+      const patientPhone = rawPhone.length === 10 ? `+91${rawPhone}` : rawPhone.length === 12 ? `+${rawPhone}` : rawPhone;
+      const patientName  = intakeData?.personalInfo?.fullName || bookingData?.patientName || '';
+      const fullName     = patientName.trim();
+      const nameParts    = fullName.split(' ');
+      const firstName    = nameParts[0] || 'Patient';
+      const lastName     = nameParts.slice(1).join(' ') || '';
 
-          // 1. Save booking with physioId so dashboard can find it
-          const bookingRef = doc(db, 'bookings', bookingId);
-          await setDoc(bookingRef, {
-            ...bookingData,
-            physioId,                                       // ← KEY FIX: lets dashboard query work
-            patientPhone,                                   // ← for follow-up search
-            patientName,
+      // Build the return URL — Airpay will POST back here after payment
+      const returnUrl = `${window.location.origin}/payment-return/${bookingId}`;
+
+      // 1. Create a pending booking record so the return page can update it
+      const bookingRef = doc(db, 'bookings', bookingId);
+      await setDoc(bookingRef, {
+        ...bookingData,
+        physioId,
+        patientPhone,
+        patientName,
+        clinicId: bookingData.clinicId,
+        status: 'pending_payment',
+        paymentStatus: 'pending',
+        paymentGateway: 'airpay',
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Call backend to get signed Airpay params
+      const resp = await fetch(`${API_BASE}/api/payments/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId,
+          amount: totalPrice,
+          buyerFirstName: firstName,
+          buyerLastName:  lastName,
+          buyerEmail:     intakeData?.personalInfo?.email || 'patient@onlinept.in',
+          buyerPhone:     rawPhone.length === 10 ? rawPhone : rawPhone.slice(-10),
+          returnUrl,
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.error || 'Failed to initiate payment');
+      }
+
+      const data = await resp.json();
+
+      // Mock mode — simulate success without redirecting
+      if (data.mode === 'test') {
+        await handlePaymentSuccess({
+          transactionId: `MOCK_TXN_${Date.now()}`,
+          orderId: data.params.orderid,
+          physioId,
+          patientPhone,
+          patientName,
+        });
+        return;
+      }
+
+      // Real mode — set params and let the useEffect auto-submit the form
+      setAirpayGatewayUrl(data.gatewayUrl);
+      setAirpayParams(data.params);
+      // Note: paymentLoading stays true until the page navigates away
+
+    } catch (err) {
+      console.error('[Airpay] Payment initiation failed:', err);
+      setPaymentError(err.message || 'Payment initiation failed. Please try again.');
+      setPaymentLoading(false);
+    }
+  };
+
+  /**
+   * Called in mock mode to complete the booking without a real redirect.
+   */
+  const handlePaymentSuccess = async ({ transactionId, orderId, physioId, patientPhone, patientName }) => {
+    try {
+      const bookingRef = doc(db, 'bookings', bookingId);
+      await setDoc(bookingRef, {
+        ...bookingData,
+        physioId,
+        patientPhone,
+        patientName,
+        clinicId: bookingData.clinicId,
+        paymentId: transactionId,
+        airpayOrderId: orderId,
+        status: 'confirmed',
+        paymentStatus: 'paid',
+        paymentGateway: 'airpay',
+        createdAt: serverTimestamp(),
+      });
+
+      // Upsert patient record
+      if (physioId && patientPhone) {
+        try {
+          await addDoc(collection(db, 'patients'), {
+            name: patientName,
+            phone: patientPhone,
+            whatsapp: patientPhone,
+            physioId,
             clinicId: bookingData.clinicId,
-            paymentId: response.razorpay_payment_id,
-            status: 'confirmed',
-            paymentStatus: 'paid',
+            age:    intakeData?.personalInfo?.age    || '',
+            gender: intakeData?.personalInfo?.gender || '',
             createdAt: serverTimestamp(),
           });
+        } catch (pErr) { console.warn('Patient upsert skipped:', pErr); }
+      }
 
-          // 2. Upsert patient record so Patients tab count goes up
-          if (physioId && patientPhone) {
-            try {
-              const patsRef = collection(db, 'patients');
-              await addDoc(patsRef, {
-                name: patientName,
-                phone: patientPhone,
-                whatsapp: patientPhone,
-                physioId,
-                clinicId: bookingData.clinicId,
-                age: intakeData?.personalInfo?.age || '',
-                gender: intakeData?.personalInfo?.gender || '',
-                createdAt: serverTimestamp(),
-              });
-            } catch (pErr) { console.warn('Patient upsert skipped:', pErr); }
-          }
+      // WhatsApp notification
+      try {
+        let rawPhone = (intakeData?.personalInfo?.whatsapp || '').replace(/\D/g, '');
+        if (rawPhone.length === 10) rawPhone = '91' + rawPhone;
+        const formattedPhone = `+${rawPhone}`;
+        const clinicSubdomain = clinicData?.subdomain || clinicData?.id || bookingData.clinicId || 'onlinept';
 
-          // ── Send WhatsApp booking confirmation to patient ─────────────
-          try {
-            // Always use centralized API_BASE — handles subdomains automatically
+        await fetch(`${API_BASE}/api/appointments/notify-success`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientData: {
+              name:              intakeData?.personalInfo?.fullName,
+              phone:             formattedPhone,
+              subdomain:         clinicSubdomain,
+              dateDisplay:       bookingData.dateDisplay || bookingData.date,
+              slotLabel:         bookingData.slotLabel || bookingData.slot?.time || '',
+              serviceName:       bookingData.serviceName || 'Consultation',
+              preferredPlatform: intakeData?.clinicalInfo?.preferredPlatform || 'whatsapp',
+              meetingLink:       `https://${clinicSubdomain}.onlinept.in/join/${bookingId}`,
+            },
+          }),
+        });
+      } catch (err) { console.warn('[WA] Booking notification non-critical failure:', err); }
 
-            // Normalize phone to E.164 (+91XXXXXXXXXX for Indian numbers)
-            let rawPhone = (intakeData.personalInfo.whatsapp || '').replace(/\D/g, '');
-            if (rawPhone.length === 10) rawPhone = '91' + rawPhone;
-            const formattedPhone = `+${rawPhone}`;
-
-            // Clinic subdomain: prefer subdomain field, fall back to doc ID
-            const clinicSubdomain = clinicData?.subdomain || clinicData?.id || bookingData.clinicId || 'onlinept';
-
-            await fetch(`${API_BASE}/api/appointments/notify-success`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                patientData: {
-                  name:        intakeData.personalInfo.fullName,
-                  phone:       formattedPhone,
-                  subdomain:   clinicSubdomain,
-                  dateDisplay: bookingData.dateDisplay || bookingData.date,
-                  slotLabel:   bookingData.slotLabel || bookingData.slot?.time || '',
-                  serviceName: bookingData.serviceName || 'Consultation',
-                  preferredPlatform: intakeData?.clinicalInfo?.preferredPlatform || 'whatsapp',
-                  meetingLink: `https://${clinicSubdomain}.onlinept.in/join/${bookingId}`,
-                },
-              }),
-            });
-            console.log('[WA] Booking notification dispatched to', formattedPhone);
-          } catch (err) { console.warn('[WA] Booking notification non-critical failure:', err); }
-          navigate(`/confirmation/${bookingId}`, { 
-            state: { ...bookingData, paymentId: response.razorpay_payment_id } 
-          });
-        } catch (dbErr) {
-          console.error('Booking save failed:', dbErr);
-          setPaymentError('Appointment confirmed, but failed to save record. Contact support.');
-        }
-      },
-      prefill: {
-        name: intakeData.personalInfo.fullName,
-        email: intakeData.personalInfo.email,
-        contact: intakeData.personalInfo.whatsapp
-      },
-      theme: { color: pColor }
-    };
-
-    const rzp = new window.Razorpay(options);
-    rzp.on('payment.failed', function (resp) {
-      setPaymentError(`Payment failed: ${resp.error.description}`);
+      navigate(`/confirmation/${bookingId}`, {
+        state: { ...bookingData, paymentId: transactionId },
+      });
+    } catch (dbErr) {
+      console.error('Booking save failed:', dbErr);
+      setPaymentError('Appointment confirmed, but failed to save record. Contact support.');
       setPaymentLoading(false);
-    });
-    rzp.open();
+    }
   };
 
   return (
@@ -185,6 +231,20 @@ export default function PaymentPage() {
         
         {/* Background Gradient */}
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: `radial-gradient(circle at bottom right, ${pColor}15 0%, transparent 60%)`, pointerEvents: 'none' }}></div>
+
+        {/* Hidden Airpay form — auto-submitted when airpayParams are set */}
+        {airpayParams && airpayGatewayUrl && (
+          <form
+            ref={formRef}
+            method="POST"
+            action={airpayGatewayUrl}
+            style={{ display: 'none' }}
+          >
+            {Object.entries(airpayParams).map(([key, value]) => (
+              <input key={key} type="hidden" name={key} value={value} />
+            ))}
+          </form>
+        )}
 
         <div style={{ position: 'relative', zIndex: 1, maxWidth: 650, margin: '0 auto', padding: '80px 24px 120px' }}>
           
@@ -243,7 +303,7 @@ export default function PaymentPage() {
                   {paymentLoading ? <Loader2 className="animate-spin" /> : <>Pay & Confirm Appointment <ArrowRight size={20} /></>}
                 </button>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#64748B' }}>
-                  <Shield size={14} /> <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Secure 256-bit Payment</span>
+                  <Shield size={14} /> <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Secure Payment via Airpay</span>
                 </div>
             </div>
           </Reveal>

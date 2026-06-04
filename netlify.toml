@@ -11,7 +11,7 @@
   # VITE_FIREBASE_STORAGE_BUCKET
   # VITE_FIREBASE_MESSAGING_SENDER_ID
   # VITE_FIREBASE_APP_ID
-  # VITE_RAZORPAY_KEY_ID
+  # NOTE: No payment keys needed here — Airpay credentials are backend-only (backend/.env on Render)
 
 [[redirects]]
   from = "/api/*"

@@ -38,6 +38,7 @@ const HelpCenterPage = lazyRetry(() => import('@/pages/HelpCenterPage'));
 const CancellationPolicyPage = lazyRetry(() => import('@/pages/CancellationPolicyPage'));
 const ClinicWhatsAppRedirect = lazyRetry(() => import('@/pages/ClinicWhatsAppRedirect'));
 const PatientFeedbackPage = lazyRetry(() => import('@/pages/PatientFeedbackPage'));
+const PaymentReturnPage   = lazyRetry(() => import('@/pages/PaymentReturnPage'));
 
 // ── Loading Spinner ──
 // ── Loading Spinner (Luxe Midnight) ──
@@ -85,6 +86,7 @@ export default function AppRouter() {
         <Route path="/payment/:bookingId" element={<PaymentPage />} />
         <Route path="/pay" element={<PaymentPage />} />
         <Route path="/confirmation/:id" element={<ConfirmationPage />} />
+        <Route path="/payment-return/:bookingId" element={<PaymentReturnPage />} />
         <Route path="/join/:bookingId" element={<JoinSessionPage />} />
         <Route path="/dashboard-login" element={<PhysioLoginPage />} />
         <Route path="/physio-signup" element={<PhysioSignUpPage />} />
