@@ -13,23 +13,32 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
     <script>
-      // ─── NUCLEAR CACHE BUSTER ───
-      const APP_VER = '0.2.2';
-      if (localStorage.getItem('app_ver') !== APP_VER) {
-        console.log("New Version Detected! Clearing caches...");
-        if ('serviceWorker' in navigator) {
-          navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) {
-              registration.unregister();
-            }
-          });
+      // ─── CACHE BUSTER v2 — async-safe, wipes all caches ───
+      (async function() {
+        var APP_VER = '1.0.0';
+        if (localStorage.getItem('app_ver') !== APP_VER) {
+          console.log('[CacheBuster] New version detected:', APP_VER);
+          // 1. Unregister ALL service workers (await completion)
+          if ('serviceWorker' in navigator) {
+            var regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(function(r) { return r.unregister(); }));
+            console.log('[CacheBuster] Service workers unregistered:', regs.length);
+          }
+          // 2. Wipe ALL Cache Storage entries (old precache data)
+          if ('caches' in window) {
+            var keys = await caches.keys();
+            await Promise.all(keys.map(function(k) { return caches.delete(k); }));
+            console.log('[CacheBuster] Caches wiped:', keys);
+          }
+          // 3. Mark version AFTER cleanup
+          localStorage.setItem('app_ver', APP_VER);
+          // 4. Hard navigate (bypass BFCache, not deprecated reload)
+          window.location.replace(window.location.href);
+          return;
         }
-        localStorage.setItem('app_ver', APP_VER);
-        // Force a hard reload to clear everything
-        setTimeout(() => { window.location.reload(true); }, 500);
-      }
+      })();
     </script>
     <title>OnlinePT.in — Virtual Physical Therapy</title>
   </head>

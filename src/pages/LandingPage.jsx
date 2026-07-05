@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  CheckCircle2, ArrowRight, ShieldCheck, Zap,
+  CheckCircle2, ShieldCheck,
   Globe, Users, Smartphone, MessageSquare,
   BarChart3, Layout, Clock, Menu, X,
   ChevronDown, Star, Play, Activity, Stethoscope,
   Heart, CreditCard, Mail, Phone, MapPin, Search,
   Video, FileText
 } from 'lucide-react';
+import HeroIntro from '@/components/HeroIntro';
 
 const T = {
   primary: '#14A3A8',
@@ -67,11 +68,16 @@ export default function LandingPage() {
       });
     }, { threshold: 0.1 });
 
-    revealRefs.current.forEach(ref => observer.observe(ref));
+    const timeout = setTimeout(() => {
+      revealRefs.current.forEach(ref => {
+        if (ref) observer.observe(ref);
+      });
+    }, 150);
 
     return () => {
+      clearTimeout(timeout);
       window.removeEventListener('scroll', handleScroll);
-      revealRefs.current.forEach(ref => observer.unobserve(ref));
+      observer.disconnect();
     };
   }, []);
 
@@ -89,7 +95,6 @@ export default function LandingPage() {
 
   const navLinks = [
     { label: 'Features', href: '#features' },
-    { label: 'Solution', href: '#solution' },
     { label: 'Testimonials', href: '#testimonials' },
     { label: 'Pricing', href: '#pricing' },
   ];
@@ -99,7 +104,6 @@ export default function LandingPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@800&family=DM+Sans:wght@400;500;700&display=swap');
         * { box-sizing: border-box; }
-        .hero-gradient { background: radial-gradient(circle at 80% 20%, ${T.primary}10 0%, transparent 40%), radial-gradient(circle at 10% 80%, ${T.accent}08 0%, transparent 40%); }
         .mobile-menu-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: ${T.bg}; z-index: 200; transform: translateX(${isMenuOpen ? '0' : '100%'}); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); padding: 80px 16px; border-left: 1px solid ${T.border}; }
         .nav-link { font-size: 15px; font-weight: 600; color: ${T.ink3}; text-decoration: none; transition: all 0.2s; cursor: pointer; }
         .nav-link:hover { color: ${T.primary}; }
@@ -169,39 +173,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="hero-gradient" style={{ padding: 'clamp(180px, 20vw, 240px) 24px clamp(80px, 10vw, 120px)', textAlign: 'center' }}>
-        <div className="reveal active" style={{ maxWidth: 840, margin: '0 auto' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: T.primaryLight, padding: '10px 20px', borderRadius: 100, color: T.primary, fontSize: 13, fontWeight: 800, textTransform: 'uppercase', marginBottom: 32, border: `1px solid ${T.primary}30` }}>
-            <Zap size={14} /> Clinical Excellence Meets Modern Tech
-          </div>
-          <h1 style={{ fontFamily: 'Manrope, sans-serif', fontSize: 'clamp(36px, 7vw, 76px)', fontWeight: 800, letterSpacing: '-2px', lineHeight: 1, marginBottom: 24 }}>
-            Your Digital Clinic. <br /> <span style={{ color: T.primary }}>Ready in 60 Seconds.</span>
-          </h1>
-          <p style={{ fontSize: 'clamp(18px, 2.5vw, 21px)', color: T.ink3, lineHeight: 1.6, maxWidth: 600, margin: '0 auto 48px' }}>
-            The all-in-one workstation for modern physiotherapists to manage bookings, assessments, and patient outcomes globally.
-          </p>
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-             <button className="ios-btn" onClick={() => document.getElementById('signup').scrollIntoView({ behavior: 'smooth' })} style={{ padding: '16px 36px', borderRadius: 100, background: T.primary, color: T.white, fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8, boxShadow: `0 12px 32px ${T.primary}40` }}>
-               Get Started Free <ArrowRight size={18} />
-             </button>
-             <button className="ios-btn" onClick={() => document.getElementById('testimonials').scrollIntoView({ behavior: 'smooth' })} style={{ padding: '16px 36px', borderRadius: 100, background: 'rgba(255,255,255,0.05)', color: T.white, border: `1px solid ${T.border}`, fontSize: 16, fontWeight: 700 }}>
-               View Results
-             </button>
-          </div>
-
-          <div style={{ marginTop: 80, position: 'relative' }}>
-             <div style={{
-               maxWidth: 1000, margin: '0 auto', borderRadius: 32, border: `1px solid ${T.border}`,
-               background: 'rgba(0,0,0,0.5)', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0,0,0,0.8)',
-               transform: 'perspective(1000px) rotateX(10deg)', transition: 'transform 0.6s'
-             }} className="hero-mockup">
-               <img src="/assets/features/dashboard-preview.png" alt="Platform Dashboard" style={{ width: '100%', height: 'auto', display: 'block' }} />
-             </div>
-             {/* Decorative glow */}
-             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '80%', height: '80%', background: T.primary, filter: 'blur(120px)', opacity: 0.1, zIndex: -1 }}></div>
-          </div>
-        </div>
-      </section>
+      <HeroIntro />
 
       {/* ── Features ───────────────────────────────────────────────────── */}
       <section id="features" style={{ padding: '100px 24px' }}>
@@ -252,9 +224,9 @@ export default function LandingPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
             {[
-              { name: 'Dr. Puja Panda', title: 'Sports Rehab Specialist', img: '/assets/dr-puja-panda.png', quote: "The branded booking portal reduced my booking overhead by 80%. My patients absolutely love the process." },
-              { name: 'Dr. Aruna Koladiya', title: 'Senior Physiotherapist', img: '/assets/dr-aruna-koladiya.png', quote: "The clinical documentation features are a life-saver. I can now spend more time with my patients." },
-              { name: 'Dr. Bhupat Sakariya', title: 'Ortho Specialist', img: '/assets/dr-bhupat-sakariya.png', quote: "Growth analytics helped me identify my best months and optimize my clinical schedules." }
+              { name: 'Dr. Puja Panda', title: 'Sports Rehab Specialist', img: '/assets/testimonials/dr-puja-panda.png', quote: "The branded booking portal reduced my booking overhead by 80%. My patients absolutely love the process." },
+              { name: 'Dr. Aruna Koladiya', title: 'Senior Physiotherapist', img: '/assets/testimonials/dr-aruna-koladiya.png', quote: "The clinical documentation features are a life-saver. I can now spend more time with my patients." },
+              { name: 'Dr. Bhupat Sakariya', title: 'Ortho Specialist', img: '/assets/testimonials/dr-bhupat-sakariya.png', quote: "Growth analytics helped me identify my best months and optimize my clinical schedules." }
             ].map((t, i) => (
               <div key={i} className="reveal" ref={addToRefs} style={{ padding: 32, borderRadius: 24, background: T.surface, border: `1px solid ${T.border}` }}>
                 <Star size={24} fill={T.primary} color={T.primary} style={{ marginBottom: 20 }} />
@@ -308,18 +280,47 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer style={{ padding: '80px 24px 40px', borderTop: `1px solid ${T.border}` }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 40 }}>
-           <div style={{ maxWidth: 300 }}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <img src="/onlinept-logo-v3.png" alt="Logo" style={{ width: 54, height: 54 }} />
-                <span style={{ fontWeight: 800, fontSize: 18 }}>OnlinePT</span>
-             </div>
-             <p style={{ color: T.ink4, fontSize: 14, lineHeight: 1.6 }}>Modern practice management for forward-thinking physiotherapists.</p>
+      <footer style={{ padding: '80px 24px 40px', background: T.bg, borderTop: `1px solid ${T.border}` }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 60, marginBottom: 60 }}>
+              <div style={{ gridColumn: 'span 2' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+                    <img src="/onlinept-logo-v3.png" alt="OnlinePT" style={{ width: 56, height: 56, objectFit: 'contain' }} />
+                    <span style={{ fontFamily: "Manrope, sans-serif", fontWeight: 800, fontSize: 20 }}>OnlinePT</span>
+                 </div>
+                 <p style={{ color: T.ink3, lineHeight: 1.6, maxWidth: 300 }}>
+                    Modern clinical management for the next generation of physical therapists. Build your brand, manage your patients, and grow your practice.
+                 </p>
+              </div>
+              <div>
+                 <h4 style={{ fontWeight: 700, marginBottom: 20 }}>Network</h4>
+                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, color: T.ink3, fontSize: 14 }}>
+                    <li><a href="#features" className="nav-link">Features</a></li>
+                    <li><a href="#pricing" className="nav-link">Pricing</a></li>
+                    <li><Link to="/physio-signup" className="nav-link" style={{ color: T.primary }}>Join as Therapist</Link></li>
+                 </ul>
+              </div>
+              <div>
+                 <h4 style={{ fontWeight: 700, marginBottom: 20 }}>Support</h4>
+                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12, color: T.ink3, fontSize: 14 }}>
+                    <li><Link to="/help" className="nav-link">Help Center</Link></li>
+                    <li><Link to="/privacy" className="nav-link">Privacy Policy</Link></li>
+                    <li><Link to="/cancellation" className="nav-link">Cancellation Policy</Link></li>
+                    <li><Link to="/contact" className="nav-link">Contact Us</Link></li>
+                 </ul>
+              </div>
            </div>
-           <div style={{ display: 'flex', gap: 60 }}>
-              <div><h4 style={{ marginBottom: 20 }}>Support</h4><div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14, color: T.ink4 }}><span>Help Center</span><span>Privacy</span><span>Terms</span></div></div>
-              <div><h4 style={{ marginBottom: 20 }}>Legal</h4><div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 14, color: T.ink4 }}><span>HIPAA</span><span>GDPR</span><span>Security</span></div></div>
+           
+           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20, paddingTop: 40, borderTop: `1px solid ${T.border}` }}>
+              <p style={{ fontSize: 12, color: T.ink4 }}>© 2026 OnlinePT. All rights reserved.</p>
+              <div style={{ display: 'flex', gap: 20 }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.ink4, fontSize: 12 }}>
+                    <ShieldCheck size={14} /> HIPAA Compliant
+                 </div>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.ink4, fontSize: 12 }}>
+                    <Activity size={14} /> 99.9% Uptime
+                 </div>
+              </div>
            </div>
         </div>
       </footer>
